@@ -1,0 +1,41 @@
+@AGENTS.md
+
+# VMS · NCF (QMS 1)
+
+Digital Non Conformity Form for Integra Group: QC raises an NCF from an MRReg, managers approve in order, Purchasing
+sends it to the supplier, the supplier answers the CAPA through a no-account link, and Purchasing verifies and closes.
+See README.md for the full flow, stack and known gaps.
+
+## Commands
+
+```bash
+npm run db:migrate && npm run db:seed   # dev DB from .env.local (copy .env.example first)
+npm run dev                             # http://localhost:3000, demo logins <role>@demo.local / demo1234
+npm test                                # node:test suites; DROPS and rebuilds TEST_DATABASE_URL every run
+npm run typecheck                       # runs `next typegen` first: LayoutProps/PageProps are generated globals
+npx eslint src scripts tests
+npm run build
+python3 tests/e2e_browser.py            # full flow in Chrome against a running, freshly seeded app (CHROME_PATH to override)
+```
+
+`TEST_DATABASE_URL` defaults to `postgres://vms:vms@localhost:55432/vms_test`. Never point it at a database you care
+about. `scripts/reset.ts` drops the `public` schema.
+
+## Where things go
+
+- Business rules live in `src/lib` (`ncf.ts`, `supplier.ts`, `verify.ts`). Each function checks the caller's role and
+  the NCF status itself, so screens and Server Actions stay thin. Put new rules there, not in `src/app`.
+- Schema changes are new numbered files in `db/migrations/` (plain SQL, applied in order by `scripts/migrate.ts`).
+  Do not edit applied migrations; `001_schema.sql` mirrors the ERD and stays unchanged.
+- `src/app/(app)` is internal and needs a login; `src/app/s/[token]` (supplier) and `src/app/v` (QR verification) are
+  public, so treat everything they receive as untrusted.
+- Form fields and the printed form are Indonesian, matching the paper form (FR/IG/ALL/IN/QUAC/007); app chrome and
+  status names are English. Shared labels live in `src/lib/labels.ts` (no database imports there; client code uses it).
+- Times are shown in WIB (UTC+7); supplier response time is counted in working days from `calendar_day`.
+
+## Rules
+
+- Submitting and approving is an electronic signature (password re-entry, versioned, hashed). Do not weaken it.
+- Every state change writes `audit_log`. Keep that when adding actions.
+- Cache Components is off on purpose (`next.config.ts`); pages read the session and live data.
+- Never commit `.env.local`, `storage/`, `*.xlsx` (SAP exports hold real supplier data) or `tests/screens/`.

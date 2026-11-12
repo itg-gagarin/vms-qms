@@ -13,11 +13,22 @@ export type Actor = {
   roles: { role: Role; bu_id: number | null }[];
 };
 
+/**
+ * Super Admin counts as every role, in every module, within its own Business Unit scope (null = all).
+ * Signatures are not roles: an approval step names one person, and only that person can sign it.
+ */
+const grants = (r: Actor["roles"][number], list: Role[]) => r.role === "SUPER_ADMIN" || list.includes(r.role);
+
 export function hasRole(actor: Actor, roles: Role | Role[], buId?: number | null) {
   const list = Array.isArray(roles) ? roles : [roles];
   return actor.roles.some(
-    (r) => list.includes(r.role) && (r.bu_id === null || buId === undefined || buId === null || r.bu_id === buId),
+    (r) => grants(r, list) && (r.bu_id === null || buId === undefined || buId === null || r.bu_id === buId),
   );
+}
+
+/** Business Units where the actor holds this role (null = all of them). Super Admin counts. */
+export function roleScopes(actor: Actor, role: Role) {
+  return actor.roles.filter((r) => grants(r, [role])).map((r) => r.bu_id);
 }
 
 export function requireRole(actor: Actor, roles: Role | Role[], buId?: number | null) {

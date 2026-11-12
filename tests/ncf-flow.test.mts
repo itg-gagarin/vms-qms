@@ -258,4 +258,21 @@ describe("Access rules", () => {
     const qcDrafts = await ncf.listNcf(users.qc, "all", "DRAFT");
     assert.ok(qcDrafts.every((d) => qcAll.some((r) => r.id === d.id)));
   });
+
+  test("Super Admin can do every role's work, but cannot sign an approval step named for someone else", async () => {
+    assert.ok((await ncf.searchMrreg(users.admin, "")).length > 0, "sees goods receipts like QC");
+    const id = await ncf.createDraft(users.admin, await mrreg("MR-2026-11-0007"), at("2026-11-13 09:00"));
+    await ncf.updateHeader(users.admin, id, header());
+    const [l] = await lines(id);
+    await ncf.addItem(users.admin, id, l.id, 10, 2, 20);
+    await ncf.addEvidence(users.admin, id, [photo("admin.png", "admin")], "");
+    await ncf.submit(users.admin, id, PW, at("2026-11-13 09:30"));
+
+    // Signatures belong to the person on the approval chain, not to a role.
+    await assert.rejects(ncf.decide(users.admin, id, "APPROVED", PW, ""), /another approver/);
+    for (const who of ["qcm", "whs", "gm"]) await ncf.decide(users[who], id, "APPROVED", PW, "");
+
+    await ncf.send(users.admin, id, "LINK", at("2026-11-13 10:00"));
+    assert.equal((await ncf.getNcf(users.admin, id)).status, "SENT");
+  });
 });

@@ -36,6 +36,10 @@ about. `scripts/reset.ts` drops the `public` schema.
 ## Rules
 
 - Submitting and approving is an electronic signature (password re-entry, versioned, hashed). Do not weaken it.
+- Role checks go through `hasRole`/`requireRole`/`roleScopes` in `src/lib/core.ts`, never `actor.roles` directly:
+  Super Admin counts as every role there, in every module. Signatures are not roles: an approval step names one
+  person, and only that person signs it, Super Admin included.
+- The sidebar (`src/app/(app)/layout.tsx`) and each page's guard must use the same role list.
 - Every state change writes `audit_log`. Keep that when adding actions.
 - Cache Components is off on purpose (`next.config.ts`); pages read the session and live data.
 - Never commit `.env.local`, `storage/`, `*.xlsx` (SAP exports hold real supplier data) or `tests/screens/`.

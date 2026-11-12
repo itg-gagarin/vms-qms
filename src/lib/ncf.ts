@@ -11,6 +11,7 @@ import {
   hasRole,
   nextNcfNo,
   requireRole,
+  roleScopes,
   usersWithRole,
 } from "./core";
 import type { Db } from "./db";
@@ -289,7 +290,7 @@ export async function listNcf(actor: Actor, filter: string, status?: NcfStatus) 
 }
 
 export async function searchMrreg(actor: Actor, term: string) {
-  const bus = actor.roles.filter((r) => r.role === "QC_INSPECTOR").map((r) => r.bu_id);
+  const bus = roleScopes(actor, "QC_INSPECTOR");
   const all = bus.includes(null);
   return q<{ id: number; mrreg_no: string; supplier_name: string; sj_no: string; receipt_date: string; lines: number; sap_status: string | null }>(
     pool,

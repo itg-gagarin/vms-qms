@@ -63,7 +63,7 @@ export function ItemTable({ d, totals, children }: { d: NcfDetail; totals?: { r:
   );
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200">
-      <table className="table w-full min-w-[760px] text-[14px]">
+      <table className="table w-full min-w-[680px] text-[14px]">
         <thead>
           <tr>
             <th scope="col">No</th>

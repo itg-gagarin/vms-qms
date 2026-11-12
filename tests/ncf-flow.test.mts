@@ -244,4 +244,18 @@ describe("Access rules", () => {
     await ver.saveSettings(users.admin, { reminder_window_wd: "3", reminder_max: "2", token_valid_days: "30" });
     assert.equal((await ver.readSettings()).reminder_window_wd, 3);
   });
+
+  test("a status filter lists only that status, inside the user's own scope", async () => {
+    const all = await ncf.listNcf(users.audit, "all");
+    for (const s of new Set(all.map((r) => r.status))) {
+      const rows = await ncf.listNcf(users.audit, "all", s);
+      assert.ok(rows.length > 0);
+      assert.ok(rows.every((r) => r.status === s));
+      assert.equal(rows.length, all.filter((r) => r.status === s).length);
+    }
+    // The filter narrows, never widens: QC still sees only its own Business Unit.
+    const qcAll = await ncf.listNcf(users.qc, "all");
+    const qcDrafts = await ncf.listNcf(users.qc, "all", "DRAFT");
+    assert.ok(qcDrafts.every((d) => qcAll.some((r) => r.id === d.id)));
+  });
 });

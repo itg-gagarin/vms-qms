@@ -3,6 +3,7 @@ import { Shell, StatusBadge } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { hasRole } from "@/lib/core";
 import { listNcf } from "@/lib/ncf";
+import { isNcfStatus, STATUS_LABEL } from "@/lib/labels";
 import { fmtDate } from "@/lib/util";
 
 const TABS = [
@@ -15,17 +16,21 @@ const TABS = [
   { key: "all", label: "All", role: null },
 ] as const;
 
-export default async function NcfList({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+export default async function NcfList({ searchParams }: { searchParams: Promise<{ tab?: string; status?: string }> }) {
   const user = await requireUser();
   const tabs = TABS.filter((t) => !t.role || hasRole(user, [...t.role]));
-  const { tab: asked } = await searchParams;
-  const tab = tabs.find((t) => t.key === asked)?.key ?? tabs[0].key;
-  const rows = await listNcf(user, tab);
+  const { tab: asked, status: askedStatus } = await searchParams;
+  // A status (from the sidebar) lists every NCF in that status the user may see; otherwise a worklist tab.
+  const status = isNcfStatus(askedStatus) ? askedStatus : undefined;
+  const tab = status ? "all" : (tabs.find((t) => t.key === asked)?.key ?? tabs[0].key);
+  const rows = await listNcf(user, tab, status);
   return (
     <Shell>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Non Conformity Forms</h1>
+          <h1 className="text-3xl font-bold">
+            Non Conformity Forms{status && <span className="font-normal text-slate-500"> · {STATUS_LABEL[status]}</span>}
+          </h1>
           <p className="text-slate-600">Penyimpangan barang datang, dari pemeriksaan QC sampai CAPA supplier.</p>
         </div>
         {hasRole(user, "QC_INSPECTOR") && (
@@ -37,9 +42,9 @@ export default async function NcfList({ searchParams }: { searchParams: Promise<
           <Link
             key={t.key}
             href={`/ncf?tab=${t.key}`}
-            aria-current={t.key === tab ? "page" : undefined}
+            aria-current={!status && t.key === tab ? "page" : undefined}
             className={`rounded-full border px-4 py-2 text-sm font-semibold no-underline ${
-              t.key === tab ? "border-brand bg-brand text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+              !status && t.key === tab ? "border-brand bg-brand text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
             }`}
           >
             {t.label}

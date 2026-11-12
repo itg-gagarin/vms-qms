@@ -11,6 +11,10 @@ export const STATUS_LABEL: Record<NcfStatus, string> = {
   VOID: "Void",
 };
 
+export function isNcfStatus(s: unknown): s is NcfStatus {
+  return typeof s === "string" && Object.hasOwn(STATUS_LABEL, s);
+}
+
 export const GOODS_STATUS: Record<string, string> = {
   HOLD: "Ditahan / Hold – tunggu konfirmasi (24 jam)",
   FAILED: "Gagal / Failed – Retur",

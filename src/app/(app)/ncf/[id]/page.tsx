@@ -55,7 +55,7 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
       {d.status === "VOID" && <Banner kind="error">Void: {d.void_reason}</Banner>}
 
       <div className="flex flex-wrap items-start gap-5">
-        <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-5">
+        <div className="flex min-w-0 flex-[999_1_740px] flex-col gap-5">
           <NcfPart1 d={d} fileHref={fileHref} />
           {["SENT", "RESPONDED", "CLOSED"].includes(d.status) && <NcfPart2 d={d} fileHref={fileHref} />}
         </div>

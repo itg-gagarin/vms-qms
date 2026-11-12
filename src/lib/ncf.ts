@@ -226,7 +226,8 @@ async function loadDetails(db: Db, n: NcfRow) {
   return { ...n, items, evidence, version, approvals, history, request, capa, reminders, firstSubmittedAt: submittedAt?.at ?? null };
 }
 
-export async function listNcf(actor: Actor, filter: string) {
+/** Worklist rows. `filter` is a worklist tab; `status`, when given, narrows to one NCF status. */
+export async function listNcf(actor: Actor, filter: string, status?: NcfStatus) {
   const conds: string[] = [];
   const params: unknown[] = [];
   const add = (sql: string, v?: unknown) => {
@@ -257,6 +258,7 @@ export async function listNcf(actor: Actor, filter: string) {
       add("n.status in ('CLOSED','VOID')");
       break;
   }
+  if (status) add("n.status = $?", status);
   // Business Unit scope for QC and approvers; Purchasing, PCH, Auditor and Admin see all.
   if (!hasRole(actor, ["PURCHASING", "PCH_DIV_HEAD", "AUDITOR", "SUPER_ADMIN"])) {
     const bus = actor.roles.filter((r) => r.bu_id !== null).map((r) => r.bu_id);

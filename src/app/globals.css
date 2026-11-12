@@ -42,8 +42,11 @@ textarea.input {
 .table td {
   @apply border-t border-slate-200 px-3 py-2 align-top;
 }
-a {
-  color: var(--color-brand);
+/* In the base layer so text-* utilities on a link (e.g. the worklist tabs) can override it. */
+@layer base {
+  a {
+    color: var(--color-brand);
+  }
 }
 
 /* A4 print */

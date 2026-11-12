@@ -32,7 +32,7 @@ def login(page, who):
 
 def main():
     with sync_playwright() as p:
-        browser = p.chromium.launch(executable_path="/usr/bin/google-chrome", args=["--no-sandbox"])
+        browser = p.chromium.launch(executable_path=os.environ.get("CHROME_PATH", "/usr/bin/google-chrome"), args=["--no-sandbox"])
         page = browser.new_page(viewport={"width": 1280, "height": 900})
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))

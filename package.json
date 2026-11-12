@@ -9,6 +9,7 @@
     "lint": "eslint",
     "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
     "db:seed": "tsx --env-file=.env.local scripts/seed.ts",
+    "db:demo": "tsx --env-file=.env.local scripts/demo-data.ts",
     "db:reset": "tsx --env-file=.env.local scripts/reset.ts && npm run db:migrate && npm run db:seed",
     "test": "tsx --test --test-concurrency=1 tests/*.test.mts",
     "typecheck": "next typegen && tsc --noEmit",

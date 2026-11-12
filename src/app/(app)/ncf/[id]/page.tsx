@@ -156,7 +156,8 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
                     <div className="flex justify-between gap-2">
                       <span className="font-semibold">{a.title}</span>
                       <span className={`text-sm ${a.decision === "APPROVED" ? "text-emerald-800" : a.decision ? "text-red-800" : "text-slate-600"}`}>
-                        {a.decision === "APPROVED" ? "Signed" : a.decision === "RETURNED" ? "Returned" : a.decision === "REJECTED" ? "Rejected" : "Waiting"}
+                        {a.decision === "APPROVED" ? "Signed" : a.decision === "RETURNED" ? "Returned" : a.decision === "REJECTED" ? "Rejected"
+                          : d.status !== "WAITING_APPROVAL" ? "Not reached" : a.id === pending?.id ? "Waiting" : "Queued"}
                       </span>
                     </div>
                     <div className="text-sm text-slate-700">
@@ -175,7 +176,7 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
                 {trail.map((t, i) => (
                   <li key={i} className="border-t border-slate-200 py-1.5">
                     <span className="font-semibold">{t.action}</span> · {fmtDateTime(t.at)} · {t.actor_name ?? t.actor_type.toLowerCase()}
-                    {t.new_value && <div className="text-slate-600">{t.new_value}</div>}
+                    {t.new_value && <div className="break-all text-slate-600">{t.new_value}</div>}
                   </li>
                 ))}
               </ol>

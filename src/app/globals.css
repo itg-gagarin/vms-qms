@@ -11,37 +11,41 @@ body {
   font-family: var(--font-sans);
 }
 
-/* Form controls share one look */
-.input {
-  @apply h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-[15px] text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-100;
+/* Shared component classes. In the components layer, so a utility on the same element (e.g. "btn h-10") wins. */
+@layer components {
+  /* Form controls share one look */
+  .input {
+    @apply h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-[15px] text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-100;
+  }
+  textarea.input {
+    @apply h-auto py-2.5;
+  }
+  .label {
+    @apply mb-1.5 block text-[13px] font-semibold text-slate-700;
+  }
+  .btn {
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-md border border-brand px-4 text-[15px] font-semibold text-brand hover:bg-brand-soft disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-brand text-white hover:bg-brand-dark;
+  }
+  .btn-danger {
+    @apply border-red-700 text-red-700 hover:bg-red-50;
+  }
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white p-6;
+  }
+  .h2 {
+    @apply text-lg font-semibold text-slate-900;
+  }
+  .table th {
+    @apply bg-slate-100 px-3 py-2 text-left text-[13px] font-semibold text-slate-700;
+  }
+  .table td {
+    @apply border-t border-slate-200 px-3 py-2 align-top;
+  }
 }
-textarea.input {
-  @apply h-auto py-2.5;
-}
-.label {
-  @apply mb-1.5 block text-[13px] font-semibold text-slate-700;
-}
-.btn {
-  @apply inline-flex h-11 items-center justify-center gap-2 rounded-md border border-brand px-4 text-[15px] font-semibold text-brand hover:bg-brand-soft disabled:opacity-50;
-}
-.btn-primary {
-  @apply bg-brand text-white hover:bg-brand-dark;
-}
-.btn-danger {
-  @apply border-red-700 text-red-700 hover:bg-red-50;
-}
-.card {
-  @apply rounded-xl border border-slate-200 bg-white p-6;
-}
-.h2 {
-  @apply text-lg font-semibold text-slate-900;
-}
-.table th {
-  @apply bg-slate-100 px-3 py-2 text-left text-[13px] font-semibold text-slate-700;
-}
-.table td {
-  @apply border-t border-slate-200 px-3 py-2 align-top;
-}
+
 /* In the base layer so text-* utilities on a link (e.g. the worklist tabs) can override it. */
 @layer base {
   a {

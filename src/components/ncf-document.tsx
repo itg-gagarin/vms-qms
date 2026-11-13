@@ -63,7 +63,7 @@ export function ItemTable({ d, totals, children }: { d: NcfDetail; totals?: { r:
   );
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200">
-      <table className="table w-full min-w-[680px] text-[14px]">
+      <table className="table w-full min-w-[560px] text-[14px] [&_td]:px-2 [&_th]:px-2">
         <thead>
           <tr>
             <th scope="col">No</th>
@@ -160,7 +160,10 @@ export function NcfPart2({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: num
   ];
   return (
     <>
-      <Section title="G. Corrective dan preventive dari supplier" aside={d.capa ? `Dijawab oleh ${d.capa.responder_name}, ${d.capa.responder_position}` : "Belum ada respons"}>
+      <Section title="G. Corrective dan preventive dari supplier" aside={!d.capa ? "Belum ada respons"
+        : d.capa.received_via === "PURCHASING"
+          ? `Diterima lewat email · dicatat oleh ${d.capa.recorded_by_name}${d.capa.reviewed_by_name ? ` · dicek ${d.capa.reviewed_by_name}` : " · belum dicek"}`
+          : `Dijawab oleh ${d.capa.responder_name}, ${d.capa.responder_position}`}>
         {d.capa ? (
           <div className="flex flex-col gap-4">
             <Field label="Akar masalah">{d.capa.root_cause}</Field>

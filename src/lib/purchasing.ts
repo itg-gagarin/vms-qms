@@ -54,7 +54,10 @@ export function parseWib(local: string) {
 }
 
 function checkReceived(received: Date, sentAt: Date, now: Date) {
-  if (received.getTime() < sentAt.getTime()) throw new AppError("The reply cannot arrive before the link was generated.");
+  // The form takes minutes, so compare from the start of the minute the link was generated in.
+  if (received.getTime() < Math.floor(sentAt.getTime() / 60_000) * 60_000) {
+    throw new AppError("The reply cannot arrive before the link was generated.");
+  }
   if (received.getTime() > now.getTime() + 60_000) throw new AppError("Received at cannot be in the future.");
 }
 

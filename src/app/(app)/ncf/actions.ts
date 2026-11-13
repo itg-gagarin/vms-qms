@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/action-form";
 import { requireUser } from "@/lib/auth";
 import * as ncf from "@/lib/ncf";
+import * as pur from "@/lib/purchasing";
 import { AppError } from "@/lib/util";
 
 const id = (d: FormData) => Number(d.get("id"));
@@ -107,10 +108,11 @@ export async function decideAction(_: ActionState, d: FormData): Promise<ActionS
 
 export async function sendAction(_: ActionState, d: FormData) {
   const user = await requireUser();
-  const method = s(d, "method") === "LINK" ? "LINK" : "EMAIL";
+  // Sending by email from the system is postponed: Purchasing generates the link and sends the form themselves.
+  const method = "LINK" as const;
   return run(async () => {
     const r = await ncf.send(user, id(d), method);
-    return method === "LINK" ? { link: r.link } : { ok: "Email queued to the supplier's NCF contacts." };
+    return { link: r.link, ok: "Link generated. The response clock started now." };
   });
 }
 
@@ -133,4 +135,45 @@ export async function closeAction(_: ActionState, d: FormData): Promise<ActionSt
 /** Send and reissue share one form, so the generated link stays on screen after the status changes. */
 export async function supplierPanelAction(prev: ActionState, d: FormData) {
   return s(d, "op") === "reissue" ? reissueAction(prev, d) : sendAction(prev, d);
+}
+
+/** The supplier's reply came back by email: stop the clock, keep the files, read the CAPA from them. */
+export async function markReturnedAction(_: ActionState, d: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  let out: Awaited<ReturnType<typeof pur.markReturned>>;
+  try {
+    out = await pur.markReturned(user, id(d), {
+      receivedAt: pur.parseWib(s(d, "received_at")),
+      files: d.getAll("files").filter((f): f is File => f instanceof File),
+      note: s(d, "note"),
+    });
+  } catch (e) {
+    if (e instanceof AppError) return { error: e.message };
+    throw e;
+  }
+  redirect(`/ncf/${id(d)}?msg=${out.extracted ? "returned-read" : "returned-manual"}#action`);
+}
+
+/** Purchasing corrects the CAPA read from the reply; "confirm" marks it checked so the NCF can be closed. */
+export async function reviewCapaAction(_: ActionState, d: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  const confirm = s(d, "confirm") === "1";
+  const fields = Object.fromEntries(
+    ["root_cause", "corrective_action", "target_date", "preventive_action", "effective_from", "responder_name", "responder_position", "responder_email"]
+      .map((k) => [k, s(d, k)]),
+  );
+  if (!confirm) {
+    return run(async () => {
+      await pur.reviewCapa(user, id(d), fields, false);
+      return { ok: "Saved." };
+    });
+  }
+  try {
+    await pur.reviewCapa(user, id(d), fields, true);
+  } catch (e) {
+    if (e instanceof AppError) return { error: e.message };
+    throw e;
+  }
+  // The check panel gives way to the close panel, so the message goes on the page.
+  redirect(`/ncf/${id(d)}?msg=capa-confirmed#action`);
 }

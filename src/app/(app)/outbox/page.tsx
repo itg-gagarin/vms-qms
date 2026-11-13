@@ -43,7 +43,7 @@ export default async function SupplierOutbox({ searchParams }: { searchParams: P
       </nav>
 
       <div className="card overflow-x-auto p-0">
-        <table className="table w-full min-w-[980px] text-[14px]">
+        <table className="table w-full min-w-[880px] text-[14px]">
           <thead>
             <tr>
               <th scope="col">NCF</th>

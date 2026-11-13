@@ -30,7 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             children: NCF_STATUS_NAV.filter(([value]) => seen.includes(value)).map(([value, label]) => ({ label, param: "status", value })),
           },
           { href: "/ncf/new", label: "SAP Goods Receipt", icon: "receipt", show: hasRole(user, "QC_INSPECTOR") },
-          { href: "/outbox", label: "Email Outbox", icon: "mail", show: hasRole(user, ["SUPER_ADMIN", "PURCHASING", "PCH_DIV_HEAD"]) },
+          { href: "/outbox", label: "Supplier Outbox", icon: "mail", show: hasRole(user, ["PURCHASING", "PCH_DIV_HEAD"]) },
           { href: "/settings", label: "Master Settings", icon: "settings", show: hasRole(user, "SUPER_ADMIN") },
         ],
       },

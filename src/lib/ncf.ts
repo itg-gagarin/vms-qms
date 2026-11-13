@@ -205,16 +205,27 @@ async function loadDetails(db: Db, n: NcfRow) {
   const capa = request
     ? await one<{
         id: number;
-        root_cause: string;
-        corrective_action: string;
-        target_date: string;
-        preventive_action: string;
-        effective_from: string;
-        responder_name: string;
-        responder_position: string;
-        responder_email: string;
+        root_cause: string | null;
+        corrective_action: string | null;
+        target_date: string | null;
+        preventive_action: string | null;
+        effective_from: string | null;
+        responder_name: string | null;
+        responder_position: string | null;
+        responder_email: string | null;
         submitted_at: Date;
-      }>(db, "select * from capa_response where request_id = $1 and not is_addendum", [request.id])
+        received_via: "SUPPLIER_LINK" | "PURCHASING";
+        recorded_by_name: string | null;
+        extraction: { model: string | null; error: string | null; skipped: string[]; fields: Record<string, string> | null } | null;
+        reviewed_at: Date | null;
+        reviewed_by_name: string | null;
+      }>(
+        db,
+        `select cr.*, ru.name as recorded_by_name, vu.name as reviewed_by_name
+         from capa_response cr left join app_user ru on ru.id = cr.recorded_by left join app_user vu on vu.id = cr.reviewed_by
+         where cr.request_id = $1 and not cr.is_addendum`,
+        [request.id],
+      )
     : undefined;
   const reminders = request
     ? await q<{ seq_no: number; sent_at: Date; to_supplier: boolean }>(
@@ -702,6 +713,15 @@ export async function close(actor: Actor, id: number, note: string, now = new Da
     requireRole(actor, ["PURCHASING", "PCH_DIV_HEAD"]);
     expectStatus(n, "RESPONDED");
     if (note.trim().length < 5) throw new AppError("Write the verification result before closing.");
+    const capa = await one<{ received_via: string; reviewed_at: Date | null }>(
+      c,
+      `select cr.received_via, cr.reviewed_at from capa_response cr join supplier_request r on r.id = cr.request_id
+       where r.ncf_id = $1 and not cr.is_addendum`,
+      [id],
+    );
+    if (capa?.received_via === "PURCHASING" && !capa.reviewed_at) {
+      throw new AppError("Check and confirm the CAPA read from the supplier's reply before closing.", 409);
+    }
     await c.query("update ncf set status='CLOSED', closed_at=$2, closed_by=$3, closure_note=$4 where id=$1", [id, now, actor.id, note.trim()]);
     await c.query("update supplier_request set status='CLOSED', closed_at=$2 where ncf_id=$1", [id, now]);
     await audit(c, { entity: "ncf", entityId: id, action: "CLOSE", newValue: note.trim(), actorType: "USER", actorId: actor.id });

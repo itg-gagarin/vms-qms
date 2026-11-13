@@ -16,9 +16,11 @@
     "import:mrreg": "tsx --env-file=.env.local scripts/import-mrreg.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
     "bcryptjs": "^3.0.3",
     "exceljs": "^4.4.0",
     "jose": "^6.2.17",
+    "jszip": "^3.10.2",
     "next": "16.4.6",
     "pg": "^8.23.1",
     "qrcode": "^1.5.4",

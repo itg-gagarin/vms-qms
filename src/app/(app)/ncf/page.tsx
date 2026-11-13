@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ClickableRow } from "@/components/clickable-row";
 import { Shell, StatusBadge } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { hasRole, visibleStatuses, type Role } from "@/lib/core";
@@ -73,9 +74,9 @@ export default async function NcfList({ searchParams }: { searchParams: Promise<
               </tr>
             )}
             {rows.map((r) => (
-              <tr key={r.id} className="hover:bg-slate-50">
+              <ClickableRow key={r.id} href={`/ncf/${r.id}`}>
                 <td className="font-semibold">
-                  <Link href={`/ncf/${r.id}`}>{r.ncf_no}</Link>
+                  <Link href={`/ncf/${r.id}`} className="font-mono">{r.ncf_no}</Link>
                 </td>
                 <td>{r.supplier_name}</td>
                 <td>{r.bu_name}</td>
@@ -83,7 +84,7 @@ export default async function NcfList({ searchParams }: { searchParams: Promise<
                 <td className="text-right">{r.items}</td>
                 <td className="text-right">{r.defects}</td>
                 <td><StatusBadge status={r.status} /></td>
-              </tr>
+              </ClickableRow>
             ))}
           </tbody>
         </table>

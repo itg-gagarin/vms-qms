@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { BarList, ColumnChart, StatTile } from "@/components/charts";
-import { Banner, Section, Shell } from "@/components/ui";
+import { Download } from "lucide-react";
+import { Banner, PageHead, Pager, paging, Section, Shell } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { hasRole } from "@/lib/core";
 import { isNcfStatus, STATUS_LABEL, type NcfStatus } from "@/lib/labels";
@@ -35,18 +36,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
   return (
     <Shell>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold">NCF Reports</h1>
-          <p className="text-slate-600">How fast suppliers answer, and how fast we approve and send. Response times count working days.</p>
-        </div>
-        {canExport && (
-          <a href={`/api/ncf/export?${qs}`} className="btn btn-primary h-10 no-underline">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>
-            Export Excel
-          </a>
-        )}
-      </div>
+      <PageHead title="NCF Reports" sub="How fast suppliers reply, and how fast we approve and send. Response times count working days.">
+        {canExport && <a href={`/api/ncf/export?${qs}`} className="btn"><Download size={16} aria-hidden="true" /> Export Excel</a>}
+      </PageHead>
 
       {/* Filters in one row above the figures */}
       <form className="card flex flex-wrap items-end gap-3 p-4" role="search">
@@ -71,12 +63,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       </form>
 
       {error && <Banner kind="error">{error}</Banner>}
-      {data && <Figures data={data} />}
+      {data && <Figures data={data} {...paging(sp)} base={Object.fromEntries(qs)} />}
     </Shell>
   );
 }
 
-function Figures({ data }: { data: Awaited<ReturnType<typeof dashboard>> }) {
+function Figures({ data, page, size, base }: { data: Awaited<ReturnType<typeof dashboard>>; page: number; size: number; base: Record<string, string> }) {
   const { kpi, target } = data;
   const onTimePct = kpi.responded ? Math.round((100 * kpi.on_time) / kpi.responded) : null;
   const month = (m: string) => `${MONTHS[Number(m.slice(5)) - 1]} ${m.slice(2, 4)}`;
@@ -84,14 +76,14 @@ function Figures({ data }: { data: Awaited<ReturnType<typeof dashboard>> }) {
   return (
     <>
       <section className="grid gap-4 md:grid-cols-[1.2fr_2fr]" aria-label="Supplier responsiveness">
-        <div className="card flex flex-col justify-between gap-3 p-5">
-          <div className="text-[13px] font-medium text-slate-600">Median supplier response</div>
-          <div className="text-[52px] font-semibold leading-none text-slate-900">
-            {kpi.median_wd ?? "–"}<span className="ml-1 text-[20px] font-medium text-slate-500">working days</span>
+        <div className="flex flex-col justify-between gap-3 rounded-md border border-hairline border-t-[3px] border-t-advance bg-white p-4">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">Median supplier response</div>
+          <div className="font-[family-name:var(--font-display)] text-[48px] font-semibold leading-none text-ink">
+            {kpi.median_wd ?? "–"}<span className="ml-1 text-[18px] font-medium text-muted">working days</span>
           </div>
-          <div className="text-[13px] text-slate-600">
+          <div className="text-[13px] text-muted">
             {kpi.responded} repl{kpi.responded === 1 ? "y" : "ies"} · average {kpi.avg_wd ?? "–"} wd
-            {onTimePct !== null && <> · <span className="font-semibold text-slate-900">{onTimePct}%</span> within the {target}-day target</>}
+            {onTimePct !== null && <> · <span className="font-semibold text-ink">{onTimePct}%</span> within the {target}-day target</>}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
@@ -100,7 +92,7 @@ function Figures({ data }: { data: Awaited<ReturnType<typeof dashboard>> }) {
           <StatTile label="Waiting on supplier" value={kpi.waiting} tone={kpi.waiting_late ? "warn" : "default"}
             sub={kpi.waiting ? `${kpi.waiting_late} over ${target} wd · oldest ${kpi.oldest_wd} wd` : "none"} />
           <StatTile label="Approval time" value={kpi.approval_wd ?? "–"} sub="avg working days, submit → GM signed" />
-          <StatTile label="Time to send" value={kpi.send_wd ?? "–"} sub="avg working days, approved → link" />
+          <StatTile label="Time to send" value={kpi.send_wd ?? "–"} sub="avg working days, approved → sent" />
           <StatTile label="Defect rate" value={kpi.defect_rate === null ? "–" : `${kpi.defect_rate}%`} sub="defects ÷ samples inspected" />
         </div>
       </section>
@@ -120,7 +112,7 @@ function Figures({ data }: { data: Awaited<ReturnType<typeof dashboard>> }) {
       </div>
 
       <Section title="Supplier responsiveness" aside={`longest delay first, unanswered included · target ${target} working days`}>
-        <div className="-mx-6 -mb-6 overflow-x-auto">
+        <div className="-mx-4 -mb-4 max-h-[70vh] overflow-auto">
           <table className="table w-full min-w-[720px] text-[14px]">
             <thead>
               <tr>
@@ -134,8 +126,8 @@ function Figures({ data }: { data: Awaited<ReturnType<typeof dashboard>> }) {
               </tr>
             </thead>
             <tbody className="tabular-nums">
-              {data.suppliers.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-slate-600">No NCFs in this period.</td></tr>}
-              {data.suppliers.map((s) => (
+              {data.suppliers.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-muted">No NCFs in this period.</td></tr>}
+              {data.suppliers.slice((page - 1) * size, page * size).map((s) => (
                 <tr key={s.id}>
                   <td className="font-medium">{s.name}</td>
                   <td className="text-right">{s.ncfs}</td>
@@ -151,6 +143,7 @@ function Figures({ data }: { data: Awaited<ReturnType<typeof dashboard>> }) {
             </tbody>
           </table>
         </div>
+        <div className="-mx-4 -mb-4 mt-4"><Pager total={data.suppliers.length} page={page} size={size} base={base} /></div>
       </Section>
 
       <div className="grid gap-5 lg:grid-cols-2">

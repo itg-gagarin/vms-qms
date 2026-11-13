@@ -54,7 +54,7 @@ export function ActionForm({
   );
 }
 
-export function Submit({ children, className = "btn btn-primary", name, value }: { children: ReactNode; className?: string; name?: string; value?: string }) {
+export function Submit({ children, className = "btn btn-commit", name, value }: { children: ReactNode; className?: string; name?: string; value?: string }) {
   const pending = useContext(Pending);
   return (
     <button type="submit" className={className} disabled={pending} name={name} value={value}>

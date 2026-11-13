@@ -1,55 +1,114 @@
 @import "tailwindcss";
 
+/*
+ * INTEC design system tokens (github.com/itg-gagarin/intec-design-system, GLOBAL-DESIGN.md).
+ * Colour is spent, not spread: one green marks the action that advances work, indigo marks saving inside a card,
+ * everything else is slate unless it is a state. Depth is a 1px hairline, not a shadow.
+ */
 @theme {
-  --color-brand: #0b5c7a;
-  --color-brand-dark: #083f54;
-  --color-brand-soft: #e6f0f4;
-  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-plex-sans), "IBM Plex Sans", system-ui, sans-serif;
+  --font-display: var(--font-inter), "Inter", system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-page: #f7f8fa;          /* surface.page: the ground, never white */
+  --color-ink: #0f1729;           /* text.default */
+  --color-muted: #64748b;         /* text.muted */
+  --color-hairline: #e2e8f0;      /* border.default */
+  --color-row-hover: #f8fafc;     /* surface.hover */
+  --color-chart-grid: #eef2f7;
+
+  --color-advance: #8dc63f;       /* brand.advance: the one green action per screen */
+  --color-advance-hover: #7ab034;
+  --color-advance-ink: #062c12;   /* text on green: never white */
+  --color-tint: #f2f9e8;          /* pale green wash (active nav, tints) */
+  --color-tint-ink: #3f6212;      /* text.on-tint */
+  --color-commit: #4f46e5;        /* brand.commit: saving inside a card */
+  --color-commit-hover: #4338ca;
+
+  --color-status-amber: #d97706;  /* waiting */
+  --color-status-emerald: #059669;/* done */
+  --color-status-red: #dc2626;    /* overdue / refused */
+
+  /* Older names, mapped onto the INTEC roles */
+  --color-brand: #3f6212;
+  --color-brand-soft: #f2f9e8;
+  --color-brand-dark: #062c12;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;   /* the house radius */
+  --radius-md: 8px;
 }
 
 body {
   font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+}
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
 }
 
-/* Shared component classes. In the components layer, so a utility on the same element (e.g. "btn h-10") wins. */
+@layer base {
+  /* In the base layer so text-* utilities on a link can override it. */
+  a {
+    color: var(--color-tint-ink);
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-advance);
+    outline-offset: 1px;
+  }
+}
+
+/* Shared component classes. In the components layer, so a utility on the same element (e.g. "btn h-8") wins. */
 @layer components {
-  /* Form controls share one look */
   .input {
-    @apply h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-[15px] text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-100;
+    @apply h-10 w-full rounded-sm border border-hairline bg-transparent px-3 text-[14px] text-ink outline-none placeholder:text-slate-400 focus:border-advance focus:ring-1 focus:ring-advance disabled:cursor-not-allowed disabled:opacity-50;
   }
   textarea.input {
-    @apply h-auto py-2.5;
+    @apply h-auto py-2;
+  }
+  select.input {
+    @apply bg-white;
   }
   .label {
-    @apply mb-1.5 block text-[13px] font-semibold text-slate-700;
+    @apply mb-1 block text-[11px] font-semibold uppercase tracking-[0.06em] text-muted;
   }
+  /* Outline: the workhorse for every secondary action */
   .btn {
-    @apply inline-flex h-11 items-center justify-center gap-2 rounded-md border border-brand px-4 text-[15px] font-semibold text-brand hover:bg-brand-soft disabled:opacity-50;
+    @apply inline-flex h-9 items-center justify-center gap-2 rounded-sm border border-hairline bg-white px-4 text-[14px] font-medium text-ink no-underline hover:bg-row-hover hover:no-underline disabled:pointer-events-none disabled:opacity-50;
   }
-  .btn-primary {
-    @apply bg-brand text-white hover:bg-brand-dark;
+  /* Advance: the one lifecycle action on a screen (submit, approve, send, close) */
+  .btn-advance, .btn-primary {
+    @apply border-advance bg-advance text-advance-ink hover:bg-advance-hover;
+  }
+  /* Commit: saving inside a card */
+  .btn-commit {
+    @apply border-commit bg-commit text-white hover:bg-commit-hover;
   }
   .btn-danger {
-    @apply border-red-700 text-red-700 hover:bg-red-50;
+    @apply border-status-red bg-status-red text-white hover:bg-red-700;
   }
   .card {
-    @apply rounded-xl border border-slate-200 bg-white p-6;
+    @apply rounded-md border border-hairline bg-white p-4;
   }
   .h2 {
-    @apply text-lg font-semibold text-slate-900;
+    @apply font-[family-name:var(--font-display)] text-[18px] font-semibold text-ink;
   }
   .table th {
-    @apply bg-slate-100 px-3 py-2 text-left text-[13px] font-semibold text-slate-700;
+    @apply sticky top-0 z-10 border-b border-hairline bg-white px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted;
   }
   .table td {
-    @apply border-t border-slate-200 px-3 py-2 align-top;
+    @apply border-b border-hairline px-2 py-2 align-top;
   }
-}
-
-/* In the base layer so text-* utilities on a link (e.g. the worklist tabs) can override it. */
-@layer base {
-  a {
-    color: var(--color-brand);
+  .table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+  /* Anything compared down a column: codes, quantities, dates */
+  .num {
+    @apply font-mono text-[13px] tabular-nums;
   }
 }
 

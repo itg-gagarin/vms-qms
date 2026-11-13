@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { hasRole } from "@/lib/core";
 import { LIMITS } from "@/lib/files";
 import { GOODS_STATUS } from "@/lib/labels";
-import { getNcf, missingForSubmit, mrregLines, problemCategories } from "@/lib/ncf";
+import { getNcf, missingForSubmit, mrregLines, mrregPos, problemCategories } from "@/lib/ncf";
 import { AppError, fmtDate } from "@/lib/util";
 import {
   addEvidenceAction,
@@ -15,6 +15,7 @@ import {
   removeEvidenceAction,
   removeItemAction,
   saveHeaderAction,
+  setPoAction,
   submitAction,
 } from "../../actions";
 
@@ -29,7 +30,7 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
     throw e;
   }
   if (d.status !== "DRAFT" || !hasRole(user, "QC_INSPECTOR", d.bu_id)) redirect(`/ncf/${d.id}`);
-  const [lines, categories] = await Promise.all([mrregLines(d.id), problemCategories()]);
+  const [lines, categories, pos] = await Promise.all([mrregLines(d.id), problemCategories(), mrregPos(d.id)]);
   const free = lines.filter((l) => !l.used);
   const missing = missingForSubmit(d);
   const ownFiles = d.evidence.filter((e) => e.capa_response_id === null);
@@ -39,10 +40,10 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm"><Link href={`/ncf/${d.id}`}>← View NCF</Link></p>
-          <h1 className="mt-1 text-3xl font-bold">Non Conformity Form</h1>
-          <p className="text-slate-600">Diisi QC Incoming saat pemeriksaan. Draft is saved per section.</p>
+          <h1 className="mt-1 text-[30px] font-bold">Non Conformity Form</h1>
+          <p className="text-muted">Diisi QC Incoming saat pemeriksaan. Draft is saved per section.</p>
         </div>
-        <span className="text-lg font-semibold">No. {d.ncf_no}</span>
+        <span className="font-mono text-lg font-semibold">No. {d.ncf_no}</span>
       </div>
 
       <Section title="A. Identifikasi masalah" aside="No. Komplain and SAP fields are filled automatically">
@@ -56,6 +57,21 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
           <Field label="Tanggal SJ">{fmtDate(d.sj_date)}</Field>
           <Field label="Tanggal Masuk">{fmtDate(d.receipt_date)}</Field>
         </div>
+        <ActionForm action={setPoAction} className="mt-4 flex flex-wrap items-end gap-3 border-t border-hairline pt-4">
+          <input type="hidden" name="id" value={d.id} />
+          <div className="min-w-[260px]">
+            <label htmlFor="po_id" className="label">No. PO {pos.length > 1 && `(${pos.length} POs on this MRReg)`}</label>
+            <select id="po_id" name="po_id" required defaultValue={d.po_id ?? ""} className="input">
+              <option value="" disabled>Choose the PO…</option>
+              {pos.map((p) => <option key={p.id} value={p.id}>{p.po_no} · {p.lines} line{p.lines === 1 ? "" : "s"}</option>)}
+            </select>
+          </div>
+          <Submit className="btn btn-commit">{d.po_id ? "Change PO" : "Set PO"}</Submit>
+          <p className="w-full text-xs text-slate-500">
+            One MRReg can hold several POs of the same supplier. The items in section B come from this PO.
+            {d.items.length > 0 && " To change it, remove the items first."}
+          </p>
+        </ActionForm>
       </Section>
 
       <Section title="B. Penyimpangan yang terjadi" aside="Nama, kode barang dan Jumlah Datang dari SAP">
@@ -69,14 +85,14 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
           )}
         </ItemTable>
         {free.length > 0 ? (
-          <ActionForm action={addItemAction} resetOnOk className="mt-4 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50 p-4">
+          <ActionForm action={addItemAction} resetOnOk className="mt-4 flex flex-wrap items-end gap-3 rounded-sm border border-hairline p-3">
             <input type="hidden" name="id" value={d.id} />
             <div className="min-w-[260px] flex-[3_1_260px]">
               <label htmlFor="line_id" className="label">Barang (dari MRReg)</label>
               <select id="line_id" name="line_id" className="input" required>
                 {free.map((l) => (
                   <option key={l.id} value={l.id}>
-                    {l.item_code} · {l.item_name} · datang {l.qty_received} {l.uom} · PO {l.po_no}
+                    {l.item_code} · {l.item_name} · datang {l.qty_received} {l.uom}
                   </option>
                 ))}
               </select>
@@ -93,10 +109,12 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
               <label htmlFor="qty_return" className="label">Qty Retur</label>
               <input id="qty_return" name="qty_return" inputMode="decimal" defaultValue="0" className="input text-right" />
             </div>
-            <Submit className="btn">+ Tambah barang</Submit>
+            <Submit className="btn btn-commit">+ Tambah barang</Submit>
           </ActionForm>
         ) : (
-          <p className="mt-3 text-sm text-slate-600">All items of this MRReg are on the NCF.</p>
+          <p className="mt-3 text-sm text-muted">
+            {d.po_id ? `All items of PO ${d.po_no} are on the NCF.` : "Choose the PO in section A to list its items."}
+          </p>
         )}
       </Section>
 
@@ -149,7 +167,7 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
           <textarea id="follow_up" name="follow_up" rows={3} defaultValue={d.follow_up ?? ""} className="input" />
         </Section>
         <div className="flex justify-end">
-          <Submit className="btn">Save sections C, D and F</Submit>
+          <Submit className="btn btn-commit">Save sections C, D and F</Submit>
         </div>
       </ActionForm>
 
@@ -173,7 +191,7 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
             <label htmlFor="note" className="label">Catatan bukti</label>
             <input id="note" name="note" className="input" />
           </div>
-          <div><Submit className="btn">Upload</Submit></div>
+          <div><Submit className="btn btn-commit">Upload</Submit></div>
         </ActionForm>
       </Section>
 
@@ -191,7 +209,7 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
             <label htmlFor="password" className="label">Your password, to sign</label>
             <input id="password" name="password" type="password" required autoComplete="current-password" className="input" />
           </div>
-          <Submit>Sign and submit</Submit>
+          <Submit className="btn btn-advance">Sign and submit</Submit>
         </ActionForm>
       </Section>
     </Shell>

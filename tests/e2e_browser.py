@@ -95,34 +95,24 @@ def main():
             expect(page.get_by_text(re.compile(r"^Approved and signed\. "))).to_be_visible()
         shot(page, "03-approved-gm")
 
-        # 3. Purchasing generates the link
+        # 3. Purchasing exports the form, emails it themselves, marks it sent (no link leaves the system)
         login(page, "pur")
         page.goto(f"{BASE}/ncf?tab=send")
         page.click(f"a:has-text('{no.replace('No. ', '')}')")
-        page.click("button:has-text('Generate link')")
-        link = page.get_by_label("Supplier link").input_value()
-        print("supplier link", link)
-        shot(page, "04-link-generated")
+        expect(page.get_by_role("link", name="Export form (PDF)")).to_be_visible()
+        page.click("button:has-text('Mark as sent')")
+        expect(page.get_by_text("Marked as sent")).to_be_visible()
+        shot(page, "04-marked-sent")
 
-        # 4. Supplier answers without an account
-        sup = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
-        sup.goto(link)
-        expect(sup.get_by_text("Corrective dan preventive dari supplier")).to_be_visible()
-        shot(sup, "05-supplier-phone")
-        sup.fill("#root_cause", "Tinta printer habis pada shift malam, QC akhir tidak memeriksa sisi belakang.")
-        sup.fill("#corrective_action", "Cetak ulang 165 box dan kirim pengganti.")
-        sup.fill("#target_date", "2026-12-15")
-        sup.fill("#preventive_action", "Checklist QC akhir menambah pemeriksaan sisi belakang.")
-        sup.fill("#effective_from", "2026-12-01")
-        sup.fill("#responder_name", "Hendra")
-        sup.fill("#responder_position", "QA Manager")
-        sup.fill("#responder_email", "hendra@premier.demo")
-        sup.check("input[name=confirm]")
-        sup.click("button:has-text('Kirim respons')")
-        expect(sup.get_by_text("Respons Anda sudah kami terima")).to_be_visible()
-        shot(sup, "05b-supplier-answered")
-        sup.reload()
-        expect(sup.get_by_text("Hendra").first).to_be_visible()
+        # 4. The supplier's reply arrives by email: Purchasing attaches it and marks it returned
+        reply = os.path.join(OUT, "_reply.txt")
+        with open(reply, "w") as f:
+            f.write("Akar masalah: tinta habis. Perbaikan: cetak ulang 165 box.")
+        page.set_input_files("#files", reply)
+        page.fill("#note", "Balasan Hendra (QA Manager)")
+        page.click("button:has-text('Mark returned')")
+        expect(page.get_by_text("Supplier's reply recorded")).to_be_visible()
+        shot(page, "05-returned")
 
         # 5. Purchasing verifies and closes
         page.goto(ncf_url)
@@ -132,15 +122,18 @@ def main():
         page.reload()
         shot(page, "06-closed-detail")
 
-        # 5b. The emailed-reply path: PO first, link, reply marked returned, CAPA checked, closed
+        # 5b. An MRReg with two POs: the PO is chosen in the draft
         login(page, "qc")
         page.goto(f"{BASE}/ncf/new?q=MR-2026-11-0009")
-        po_value = page.locator("select[name=po_id] option", has_text="4500012367").get_attribute("value")
-        page.select_option("select[name=po_id]", value=po_value)
         page.click("button:has-text('Create NCF')")
         page.wait_for_url(re.compile(r"/ncf/\d+/edit"))
         url2 = page.url.replace("/edit", "")
         no2 = page.locator("text=/No\\. \\d+\\/[IVX]+\\/2026/").first.inner_text().replace("No. ", "")
+        expect(page.get_by_text("Choose the PO in section A")).to_be_visible()
+        po_value = page.locator("#po_id option", has_text="4500012367").get_attribute("value")
+        page.select_option("#po_id", value=po_value)
+        page.click("button:has-text('Set PO')")
+        expect(page.get_by_text("PO set.")).to_be_visible()
         assert page.locator("#line_id option").count() == 1, "only the chosen PO's line is offered"
         page.select_option("#line_id", index=0)
         page.fill("#qty_sample", "10")
@@ -156,6 +149,7 @@ def main():
         page.set_input_files("#files", PNG)
         page.click("button:has-text('Upload')")
         expect(page.get_by_text("Evidence added.")).to_be_visible()
+        shot(page, "05b-draft-po")
         page.fill("#password", PW)
         page.click("button:has-text('Sign and submit')")
         page.wait_for_url(url2)
@@ -167,33 +161,13 @@ def main():
             expect(page.get_by_text(re.compile(r"^Approved and signed\. "))).to_be_visible()
         login(page, "pur")
         page.goto(url2)
-        page.click("button:has-text('Generate link')")
-        expect(page.get_by_label("Supplier link")).to_be_visible()
+        page.click("button:has-text('Mark as sent')")
+        expect(page.get_by_text("Marked as sent")).to_be_visible()
         page.goto(f"{BASE}/outbox?tab=waiting")
         expect(page.get_by_text(no2)).to_be_visible()
         shot(page, "06b-supplier-outbox")
         page.get_by_text(no2).locator("xpath=ancestor::tr").locator("td").nth(3).click()  # a click anywhere on the row opens it
         page.wait_for_url(url2)
-        reply = os.path.join(OUT, "_reply.txt")
-        with open(reply, "w") as f:
-            f.write("Akar masalah: palet tidak dibungkus. Perbaikan: kirim pengganti 3 pcs.")
-        page.set_input_files("#files", reply)
-        page.click("button:has-text('Mark returned')")
-        expect(page.get_by_text("Reply recorded and the clock stopped")).to_be_visible()
-        shot(page, "06c-check-capa")
-        page.fill("#root_cause", "Palet tidak dibungkus stretch film.")
-        page.fill("#corrective_action", "Kirim pengganti 3 pcs.")
-        page.fill("#target_date", "2026-12-20")
-        page.fill("#preventive_action", "Semua palet dibungkus stretch film.")
-        page.fill("#effective_from", "2026-12-01")
-        page.fill("#responder_name", "Rina")
-        page.fill("#responder_position", "QC Supervisor")
-        page.click("button:has-text('Confirm CAPA')")
-        expect(page.get_by_text("CAPA confirmed")).to_be_visible()
-        page.reload()
-        page.fill("#close-note", "CAPA dicek dengan email balasan supplier.")
-        page.click("button:has-text('Close NCF')")
-        expect(page.get_by_text("NCF closed.")).to_be_visible()
 
         # 6. Print and QR verification
         page.goto(ncf_url.replace("/ncf/", "/print/"))
@@ -204,6 +178,13 @@ def main():
         assert svg_count == 2 + 4, "1 document QR per page and 4 signature QRs expected"
 
         doc_href = page.locator("a[aria-label='QR verifikasi dokumen']").first.get_attribute("href")
+
+        # The supplier's copy: no QR code, so no address of the system leaves Integra
+        page.goto(ncf_url.replace("/ncf/", "/print/") + "?export=1")
+        expect(page.get_by_text("Salinan untuk supplier").first).to_be_visible()
+        assert page.locator("[role=img] svg").count() == 0, "supplier copy must carry no QR code"
+        shot(page, "07b-supplier-copy")
+        page.goto(ncf_url.replace("/ncf/", "/print/"))
         sig_hrefs = [a.get_attribute("href") for a in page.locator("a[aria-label^='QR tanda tangan']").all()]
 
         # 7. Anyone with the paper sees the summary; evidence needs login
@@ -236,8 +217,10 @@ def main():
         login(page, "admin")
         page.goto(f"{BASE}/settings")
         shot(page, "11-settings")
+        login(page, "pur")
         page.goto(f"{BASE}/outbox")
         expect(page.get_by_role("heading", name="Supplier Outbox")).to_be_visible()
+        assert page.get_by_text("System email queue").count() == 0
 
         print("page errors:", errors)
         assert not errors, errors

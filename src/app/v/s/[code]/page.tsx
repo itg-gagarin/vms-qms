@@ -22,7 +22,7 @@ export default async function VerifySig({ params }: { params: Promise<{ code: st
     <Shell>
       <div>
         <p className="font-bold tracking-wide">INTEGRA GROUP · Verifikasi tanda tangan elektronik</p>
-        <h1 className="mt-1 text-3xl font-bold">{a.signer_name}</h1>
+        <h1 className="mt-1 text-[30px] font-bold">{a.signer_name}</h1>
         <p className="text-slate-700">{a.signer_position}</p>
       </div>
       {a.superseded && <Banner kind="error">This signature belongs to version {a.version_no}, which was replaced. It does not cover the current content.</Banner>}
@@ -35,11 +35,11 @@ export default async function VerifySig({ params }: { params: Promise<{ code: st
             ["Method", a.auth_method === "PASSWORD" ? "Personal login, password re-entered at signing" : a.auth_method],
             ["Content hash signed", `${a.content_hash.slice(0, 24)}…`],
           ].map(([k, v]) => (
-            <div key={k}><dt className="text-[13px] font-semibold text-slate-600">{k}</dt><dd>{v}</dd></div>
+            <div key={k}><dt className="text-[13px] font-semibold text-muted">{k}</dt><dd>{v}</dd></div>
           ))}
         </dl>
       </Section>
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-muted">
         Document QR: <a href={`/v/${a.verify_code}`}>check the full NCF version</a>
       </p>
     </Shell>

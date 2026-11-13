@@ -135,8 +135,7 @@ export async function exportXlsx(actor: Actor, f: ReportFilter) {
                where v.ncf_id = n.id and v.version_no = n.current_version and a.decision = 'APPROVED') as signatures,
             r.sent_at as link_generated_at, r.responded_at as returned_at, r.response_working_days,
             case when n.status = 'SENT' then working_days_between(r.sent_at, now()) end as waiting_working_days,
-            cr.received_via, cr.root_cause, cr.corrective_action, cr.target_date, cr.preventive_action, cr.effective_from,
-            cr.responder_name, cr.responder_position, n.closed_at, cu.name as closed_by, n.closure_note, n.void_reason
+            (select count(*)::int from evidence e where e.capa_response_id = cr.id and e.file_id is not null) as reply_files, n.closed_at, cu.name as closed_by, n.closure_note, n.void_reason
      from ncf n
      join business_unit b on b.id = n.bu_id join supplier s on s.id = n.supplier_id
      left join mrreg m on m.id = n.mrreg_id left join purchase_order po on po.id = n.po_id
@@ -189,11 +188,9 @@ export async function exportXlsx(actor: Actor, f: ReportFilter) {
     ["items", "Items", 7], ["qty_received", "Jumlah Datang", 12], ["qty_sample", "Jumlah Sample", 12], ["qty_defect", "Jumlah Cacat", 12],
     ["qty_return", "Qty Retur", 10], ["created_by", "Dibuat oleh", 16], ["created_at", "Dibuat", 16], ["submitted_at", "Diajukan", 16],
     ["current_version", "Versi", 7], ["approved_at", "Disetujui", 16], ["signatures", "Tanda tangan", 60],
-    ["link_generated_at", "Link dibuat (jam mulai)", 20], ["returned_at", "Returned (jam berhenti)", 20],
-    ["response_working_days", "Respons (hari kerja)", 12], ["waiting_working_days", "Menunggu (hari kerja)", 12], ["received_via", "Diterima lewat", 14],
-    ["root_cause", "Akar masalah", 40], ["corrective_action", "Corrective action", 40], ["target_date", "Target selesai", 13],
-    ["preventive_action", "Preventive action", 40], ["effective_from", "Berlaku mulai", 13], ["responder_name", "Penanggung jawab supplier", 20],
-    ["responder_position", "Jabatan", 16], ["closed_at", "Ditutup", 16], ["closed_by", "Ditutup oleh", 16], ["closure_note", "Hasil verifikasi", 40],
+    ["link_generated_at", "Dikirim ke supplier (jam mulai)", 22], ["returned_at", "Balasan diterima (jam berhenti)", 22],
+    ["response_working_days", "Respons (hari kerja)", 12], ["waiting_working_days", "Menunggu (hari kerja)", 12],
+    ["reply_files", "File balasan supplier", 12], ["closed_at", "Ditutup", 16], ["closed_by", "Ditutup oleh", 16], ["closure_note", "Hasil verifikasi", 40],
     ["void_reason", "Alasan void", 30],
   ], rows);
   sheet("Items", [

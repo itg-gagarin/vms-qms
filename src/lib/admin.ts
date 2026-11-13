@@ -306,9 +306,8 @@ export async function saveNumbering(actor: Actor, n: Numbering, nextSeq: number 
 // ---------- Workflow settings ----------
 
 export const WORKFLOW_KEYS = [
-  { key: "reminder_window_wd", label: "Reminder window (working days)", help: "A reminder goes out each time this passes without a reply.", min: 1, max: 30, fallback: 2 },
+  { key: "reminder_window_wd", label: "Reminder window (working days)", help: "Purchasing is reminded each time this passes without a reply.", min: 1, max: 30, fallback: 2 },
   { key: "reminder_max", label: "Maximum reminders per NCF", help: "Reminders stop after this many.", min: 0, max: 10, fallback: 3 },
-  { key: "token_valid_days", label: "Supplier link valid for (days)", help: "Calendar days from when the link is generated.", min: 1, max: 180, fallback: 30 },
   { key: "response_target_wd", label: "Supplier response target (working days)", help: "Replies within this count as on time in Reports.", min: 1, max: 60, fallback: 3 },
 ] as const;
 

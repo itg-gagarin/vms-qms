@@ -27,7 +27,7 @@ export async function createDraftAction(_: ActionState, d: FormData): Promise<Ac
   const user = await requireUser();
   let newId = 0;
   try {
-    newId = await ncf.createDraft(user, Number(d.get("mrreg_id")), new Date(), d.get("po_id") ? Number(d.get("po_id")) : undefined);
+    newId = await ncf.createDraft(user, Number(d.get("mrreg_id")));
   } catch (e) {
     if (e instanceof AppError) return { error: e.message };
     throw e;
@@ -106,19 +106,41 @@ export async function decideAction(_: ActionState, d: FormData): Promise<ActionS
   redirect(`/ncf/${id(d)}?msg=${msg}`);
 }
 
-export async function sendAction(_: ActionState, d: FormData) {
+/** Purchasing emailed the exported form to the supplier: record when, which starts the response clock. */
+export async function markSentAction(_: ActionState, d: FormData): Promise<ActionState> {
   const user = await requireUser();
-  // Sending by email from the system is postponed: Purchasing generates the link and sends the form themselves.
-  const method = "LINK" as const;
-  return run(async () => {
-    const r = await ncf.send(user, id(d), method);
-    return { link: r.link, ok: "Link generated. The response clock started now." };
-  });
+  try {
+    await ncf.markSent(user, id(d), pur.parseWib(s(d, "sent_at")));
+  } catch (e) {
+    if (e instanceof AppError) return { error: e.message };
+    throw e;
+  }
+  redirect(`/ncf/${id(d)}?msg=sent`);
 }
 
-export async function reissueAction(_: ActionState, d: FormData) {
+/** The supplier's reply came back by email: stop the clock and keep the reply files. */
+export async function markReturnedAction(_: ActionState, d: FormData): Promise<ActionState> {
   const user = await requireUser();
-  return run(async () => ({ link: await ncf.reissueLink(user, id(d)) }));
+  try {
+    await pur.markReturned(user, id(d), {
+      receivedAt: pur.parseWib(s(d, "received_at")),
+      files: d.getAll("files").filter((f): f is File => f instanceof File),
+      note: s(d, "note"),
+    });
+  } catch (e) {
+    if (e instanceof AppError) return { error: e.message };
+    throw e;
+  }
+  redirect(`/ncf/${id(d)}?msg=returned-reply`);
+}
+
+/** QC picks the PO of the draft (one MRReg can hold several POs of the same supplier). */
+export async function setPoAction(_: ActionState, d: FormData) {
+  const user = await requireUser();
+  return run(async () => {
+    await ncf.setPo(user, id(d), Number(d.get("po_id")));
+    return { ok: "PO set. Items now come from this PO." };
+  });
 }
 
 export async function closeAction(_: ActionState, d: FormData): Promise<ActionState> {
@@ -130,50 +152,4 @@ export async function closeAction(_: ActionState, d: FormData): Promise<ActionSt
     throw e;
   }
   redirect(`/ncf/${id(d)}?msg=closed`);
-}
-
-/** Send and reissue share one form, so the generated link stays on screen after the status changes. */
-export async function supplierPanelAction(prev: ActionState, d: FormData) {
-  return s(d, "op") === "reissue" ? reissueAction(prev, d) : sendAction(prev, d);
-}
-
-/** The supplier's reply came back by email: stop the clock, keep the files, read the CAPA from them. */
-export async function markReturnedAction(_: ActionState, d: FormData): Promise<ActionState> {
-  const user = await requireUser();
-  let out: Awaited<ReturnType<typeof pur.markReturned>>;
-  try {
-    out = await pur.markReturned(user, id(d), {
-      receivedAt: pur.parseWib(s(d, "received_at")),
-      files: d.getAll("files").filter((f): f is File => f instanceof File),
-      note: s(d, "note"),
-    });
-  } catch (e) {
-    if (e instanceof AppError) return { error: e.message };
-    throw e;
-  }
-  redirect(`/ncf/${id(d)}?msg=${out.extracted ? "returned-read" : "returned-manual"}#action`);
-}
-
-/** Purchasing corrects the CAPA read from the reply; "confirm" marks it checked so the NCF can be closed. */
-export async function reviewCapaAction(_: ActionState, d: FormData): Promise<ActionState> {
-  const user = await requireUser();
-  const confirm = s(d, "confirm") === "1";
-  const fields = Object.fromEntries(
-    ["root_cause", "corrective_action", "target_date", "preventive_action", "effective_from", "responder_name", "responder_position", "responder_email"]
-      .map((k) => [k, s(d, k)]),
-  );
-  if (!confirm) {
-    return run(async () => {
-      await pur.reviewCapa(user, id(d), fields, false);
-      return { ok: "Saved." };
-    });
-  }
-  try {
-    await pur.reviewCapa(user, id(d), fields, true);
-  } catch (e) {
-    if (e instanceof AppError) return { error: e.message };
-    throw e;
-  }
-  // The check panel gives way to the close panel, so the message goes on the page.
-  redirect(`/ncf/${id(d)}?msg=capa-confirmed#action`);
 }

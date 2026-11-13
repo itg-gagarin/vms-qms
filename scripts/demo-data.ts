@@ -10,7 +10,8 @@ import type { PoolClient } from "pg";
 import { loadActor as loadById } from "../src/lib/core.ts";
 import { one, pool, tx } from "../src/lib/db.ts";
 import * as ncf from "../src/lib/ncf.ts";
-import * as sup from "../src/lib/supplier.ts";
+import * as pur from "../src/lib/purchasing.ts";
+import { runReminders } from "../src/lib/reminders.ts";
 
 const PW = process.env.SEED_PASSWORD ?? "demo1234";
 const MARKER = "MR-2026-10-0102";
@@ -147,10 +148,8 @@ async function main() {
     const approveAll = async (id: number, times: string[]) => {
       for (const [i, who] of ["qcm", "whs", "gm"].entries()) if (times[i]) await ncf.decide(u[who], id, "APPROVED", PW, "", at(times[i]));
     };
-    const capa = (o: Partial<sup.CapaInput>): sup.CapaInput => ({
-      root_cause: "", corrective_action: "", target_date: "", preventive_action: "", effective_from: "",
-      responder_name: "", responder_position: "", responder_email: "", confirm: true, ...o,
-    });
+    /** The supplier's emailed reply, as Purchasing saves it (a text file standing in for the email). */
+    const reply = (name: string, text: string) => new File([Buffer.from(text)], name, { type: "text/plain" });
 
     // 1. CLOSED: the paper NCF 423/X/2026 case, from goods receipt to closure.
     const closed = await draft("MR-2026-10-0001", "2026-10-15 09:10",
@@ -160,14 +159,13 @@ async function main() {
       "Foto sisi belakang box");
     await ncf.submit(u.qc, closed, PW, at("2026-10-15 10:00"));
     await approveAll(closed, ["2026-10-15 13:20", "2026-10-16 08:40", "2026-10-16 11:05"]);
-    const c1 = (await ncf.send(u.pur, closed, "LINK", at("2026-10-16 14:00"))).link.split("/s/")[1];
-    await sup.openForSupplier(c1, at("2026-10-19 08:30"));
-    await sup.respond(c1, capa({
-      root_cause: "Tinta printer habis pada shift malam dan QC akhir tidak memeriksa sisi belakang box.",
-      corrective_action: "Cetak ulang 165 box dan kirim pengganti bersama pengiriman berikutnya.", target_date: "2026-10-30",
-      preventive_action: "Checklist QC akhir ditambah pemeriksaan sisi belakang; stok tinta dicek tiap awal shift.", effective_from: "2026-10-22",
-      responder_name: "Hendra", responder_position: "QA Manager", responder_email: "hendra@premier.demo",
-    }), [photo("checklist-qc-baru.png", [90, 130, 160])], { ip: "203.0.113.10" }, at("2026-10-20 10:15"));
+    await ncf.markSent(u.pur, closed, at("2026-10-16 14:00"));
+    await pur.markReturned(u.pur, closed, {
+      receivedAt: at("2026-10-20 10:15"), note: "Balasan Hendra (QA Manager) ke purchasing@",
+      files: [reply("balasan-premier-capa.txt",
+        "Akar masalah: tinta printer habis pada shift malam dan QC akhir tidak memeriksa sisi belakang box.\n" +
+        "Corrective: cetak ulang 165 box, kirim pengganti 30/10.\nPreventive: checklist QC akhir ditambah pemeriksaan sisi belakang.")],
+    }, at("2026-10-20 10:20"));
     await ncf.close(u.pur, closed, "CAPA diterima. Box pengganti diperiksa saat datang 30/10 dan sesuai.", at("2026-10-30 15:00"));
 
     // 2. RESPONDED: the supplier answered; Purchasing still has to verify and close.
@@ -177,16 +175,13 @@ async function main() {
       [[80, 46, 120]], [["karton-penyok.png", [170, 140, 100]]], "Karton di area receiving");
     await ncf.submit(u.qc, responded, PW, at("2026-10-21 09:15"));
     await approveAll(responded, ["2026-10-21 11:00", "2026-10-21 14:30", "2026-10-22 09:10"]);
-    const c2 = (await ncf.send(u.pur, responded, "LINK", at("2026-10-22 13:00"))).link.split("/s/")[1];
-    await sup.openForSupplier(c2, at("2026-10-23 09:00"));
-    await sup.respond(c2, capa({
-      root_cause: "Truk pengiriman tidak tertutup terpal saat hujan; palet tidak dibungkus stretch film.",
-      corrective_action: "Kirim 120 karton pengganti pada 05/11.", target_date: "2026-11-05",
-      preventive_action: "Semua palet dibungkus stretch film dan truk wajib bertutup. Checklist muat ditandatangani supir.",
-      effective_from: "2026-10-28", responder_name: "Rina Kusuma", responder_position: "QC Supervisor", responder_email: "rina@megakemas.demo",
-    }), [], { ip: "203.0.113.22" }, at("2026-10-26 16:40"));
+    await ncf.markSent(u.pur, responded, at("2026-10-22 13:00"));
+    await pur.markReturned(u.pur, responded, {
+      receivedAt: at("2026-10-26 16:40"), note: "",
+      files: [reply("balasan-mega-kemas.txt", "Akar masalah: palet tidak dibungkus stretch film saat hujan.\nCorrective: kirim 120 karton pengganti 05/11.")],
+    }, at("2026-10-26 17:00"));
 
-    // 3. SENT: link generated and emailed by Purchasing; the supplier opened it but has not answered yet.
+    // 3. SENT: the exported form was emailed by Purchasing; no reply yet (reminders go to Purchasing).
     const sentEmail = await draft("MR-2026-10-0118", "2026-10-28 10:00",
       { date: "2026-10-28", time: "09:30", status: "FAILED", category: "Dimension",
         desc: "Engsel: lubang cup 33 mm, spesifikasi 35 mm. Handle: jarak lubang 126 mm, spesifikasi 128 mm.",
@@ -194,8 +189,7 @@ async function main() {
       [[50, 50, 2000], [32, 18, 1000]], [["engsel-ukur.png", [120, 120, 130]], ["handle-ukur.png", [60, 60, 70]]], "Pengukuran dengan jangka sorong");
     await ncf.submit(u.qc, sentEmail, PW, at("2026-10-28 11:00"));
     await approveAll(sentEmail, ["2026-10-29 09:00", "2026-10-29 13:45", "2026-10-30 10:20"]);
-    const c3 = (await ncf.send(u.pur, sentEmail, "LINK", at("2026-11-02 09:30"))).link.split("/s/")[1];
-    await sup.openForSupplier(c3, at("2026-11-03 10:05"));
+    await ncf.markSent(u.pur, sentEmail, at("2026-11-02 09:30"));
 
     // 4. APPROVED: all three signatures in; waiting for Purchasing to send.
     const approved = await draft("MR-2026-11-0003", "2026-11-04 08:20",
@@ -206,7 +200,7 @@ async function main() {
     await ncf.submit(u.qc, approved, PW, at("2026-11-04 09:00"));
     await approveAll(approved, ["2026-11-04 15:30", "2026-11-05 10:00", "2026-11-06 09:15"]);
 
-    // 5. SENT as a link: the supplier has no email, so the link is shared by WhatsApp. Not opened yet.
+    // 5. SENT: the supplier has no email contact, so Purchasing sent the exported form by WhatsApp.
     const sentLink = await draft("MR-2026-11-0007", "2026-11-06 09:00",
       { date: "2026-11-06", time: "08:30", status: "FAILED", category: "Dimension",
         desc: "Kaki meja melengkung lebih dari 3 mm pada 14 dari 40 sample; beberapa retak di sambungan.",
@@ -214,7 +208,7 @@ async function main() {
       [[40, 14, 14]], [["kaki-meja-lengkung.png", [130, 90, 60]]]);
     await ncf.submit(u.qc, sentLink, PW, at("2026-11-06 10:00"));
     await approveAll(sentLink, ["2026-11-06 14:00", "2026-11-07 09:30", "2026-11-09 08:50"]);
-    await ncf.send(u.pch, sentLink, "LINK", at("2026-11-09 11:00"));
+    await ncf.markSent(u.pch, sentLink, at("2026-11-09 11:00"));
 
     // 6. WAITING APPROVAL, step 2: the QC Manager signed; the Material WHS Manager is next.
     const step2 = await draft("MR-2026-11-0011", "2026-11-09 09:40",
@@ -249,7 +243,7 @@ async function main() {
       [[20, 5, 5]], []);
 
     // Reminders for open requests, as the daily job would send them today.
-    const sent = await sup.runReminders();
+    const sent = await runReminders();
     console.log(`demo: 9 NCFs created, one per status; ${sent.length} reminder(s) queued`);
   });
   await pool.end();

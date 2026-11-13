@@ -1,8 +1,9 @@
 // Small server-rendered charts: one series each, in the brand hue, with hover titles and a data table fallback.
 import type { ReactNode } from "react";
 
-const BRAND = "#0b5c7a";
-const GRID = "#e2e8f0";
+// INTEC: a single series is signal green; grey is for gridlines only.
+const BRAND = "#8DC63F";
+const GRID = "#eef2f7";
 
 function niceMax(v: number) {
   if (v <= 0) return 1;
@@ -26,7 +27,7 @@ export function ColumnChart({ data, unit, label }: { data: { label: string; valu
         {[0, max / 2, max].map((t) => (
           <g key={t}>
             <line x1={padL} x2={W} y1={y(t)} y2={y(t)} stroke={GRID} strokeWidth="1" />
-            <text x={padL - 6} y={y(t) + 4} textAnchor="end" fontSize="11" fill="#64748b" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <text x={padL - 6} y={y(t) + 4} textAnchor="end" fontSize="11" fill="#64748b" fontFamily="var(--font-mono)">
               {Number.isInteger(t) ? t : t.toFixed(1)}
             </text>
           </g>
@@ -34,7 +35,7 @@ export function ColumnChart({ data, unit, label }: { data: { label: string; valu
         {data.map((d, i) => {
           const cx = padL + slot * i + slot / 2;
           const label = (
-            <text x={cx} y={H - 6} textAnchor="middle" fontSize="11" fill="#475569">{d.label}</text>
+            <text x={cx} y={H - 6} textAnchor="middle" fontSize="11" fill="#64748b">{d.label}</text>
           );
           if (d.value === null || d.value <= 0) return <g key={i}>{label}<title>{d.title}</title></g>;
           const top = y(d.value), base = y(0), r = Math.min(4, base - top), x = cx - bw / 2;
@@ -47,7 +48,7 @@ export function ColumnChart({ data, unit, label }: { data: { label: string; valu
               <rect x={cx - slot / 2} y={padT} width={slot} height={H - padT - padB} fill="transparent"><title>{d.title}</title></rect>
               <path d={path} fill={BRAND}><title>{d.title}</title></path>
               {showValue && (
-                <text x={cx} y={top - 5} textAnchor="middle" fontSize="11" fontWeight="600" fill="#0f172a">{d.value}{unit}</text>
+                <text x={cx} y={top - 5} textAnchor="middle" fontSize="11" fontWeight="600" fill="#0f1729" fontFamily="var(--font-mono)">{d.value}{unit}</text>
               )}
               {label}
             </g>
@@ -66,10 +67,10 @@ export function BarList({ rows }: { rows: { label: ReactNode; value: number; key
       {rows.map((r) => (
         <li key={r.key} className="grid grid-cols-[140px_1fr_36px] items-center gap-3 text-[13px]" title={`${r.key}: ${r.value}`}>
           <span className="truncate text-slate-700">{r.label}</span>
-          <span className="h-2.5 rounded-full bg-slate-100">
-            <span className="block h-2.5 rounded-full" style={{ width: `${(100 * r.value) / max}%`, background: BRAND, minWidth: r.value ? 4 : 0 }} />
+          <span className="h-2.5 rounded-xs bg-chart-grid">
+            <span className="block h-2.5 rounded-xs" style={{ width: `${(100 * r.value) / max}%`, background: BRAND, minWidth: r.value ? 4 : 0 }} />
           </span>
-          <span className="text-right font-semibold tabular-nums text-slate-900">{r.value}</span>
+          <span className="num text-right font-semibold text-ink">{r.value}</span>
         </li>
       ))}
     </ul>
@@ -77,11 +78,12 @@ export function BarList({ rows }: { rows: { label: ReactNode; value: number; key
 }
 
 export function StatTile({ label, value, sub, tone = "default" }: { label: string; value: ReactNode; sub?: ReactNode; tone?: "default" | "warn" }) {
+  // INTEC: the accent sits on the 3px rule, never on the number; the number stays ink.
   return (
-    <div className="card flex flex-col gap-1 p-4">
-      <div className="text-[13px] font-medium text-slate-600">{label}</div>
-      <div className={`text-[26px] font-semibold leading-tight ${tone === "warn" ? "text-red-700" : "text-slate-900"}`}>{value}</div>
-      {sub && <div className="text-[12px] text-slate-500">{sub}</div>}
+    <div className={`flex flex-col gap-1 rounded-md border border-hairline border-t-[3px] bg-white p-4 ${tone === "warn" ? "border-t-status-red" : "border-t-advance"}`}>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">{label}</div>
+      <div className="font-[family-name:var(--font-display)] text-[26px] font-semibold leading-tight text-ink">{value}</div>
+      {sub && <div className="text-[12px] text-muted">{sub}</div>}
     </div>
   );
 }

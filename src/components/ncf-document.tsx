@@ -62,12 +62,12 @@ export function ItemTable({ d, totals, children }: { d: NcfDetail; totals?: { r:
     { r: 0, s: 0, c: 0, x: 0 },
   );
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200">
+    <div className="overflow-x-auto rounded-lg border border-hairline">
       <table className="table w-full min-w-[560px] text-[14px] [&_td]:px-2 [&_th]:px-2">
         <thead>
           <tr>
             <th scope="col">No</th>
-            <th scope="col">Nama Barang</th>
+            <th scope="col" className="min-w-[180px]">Nama Barang</th>
             <th scope="col">Kode Barang</th>
             <th scope="col" className="text-right">Jumlah Datang</th>
             <th scope="col" className="text-right">Jumlah Sample</th>
@@ -79,7 +79,7 @@ export function ItemTable({ d, totals, children }: { d: NcfDetail; totals?: { r:
         </thead>
         <tbody>
           {d.items.length === 0 && (
-            <tr><td colSpan={children ? 9 : 8} className="py-6 text-center text-slate-600">No items yet.</td></tr>
+            <tr><td colSpan={children ? 9 : 8} className="py-6 text-center text-muted">No items yet.</td></tr>
           )}
           {d.items.map((i, k) => (
             <tr key={i.id}>
@@ -122,22 +122,22 @@ export function EvidenceList({
   fileHref: (fileId: number) => string;
   children?: (evidenceId: number) => React.ReactNode;
 }) {
-  if (!items.length) return <p className="text-slate-600">No evidence yet.</p>;
+  if (!items.length) return <p className="text-muted">No evidence yet.</p>;
   return (
     <ul className="flex flex-col gap-2">
       {items.map((e) => (
-        <li key={e.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2">
+        <li key={e.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-hairline px-3 py-2">
           {e.file_id ? (
             <span>
               <a href={fileHref(e.file_id)} target="_blank" rel="noreferrer" className="font-semibold">
                 {e.file_name}
               </a>{" "}
-              <span className="text-sm text-slate-600">
+              <span className="text-sm text-muted">
                 · {e.kind === "PHOTO" ? "Foto" : e.kind === "VIDEO" ? "Video" : "Dokumen"} · {Math.max(1, Math.round((e.bytes ?? 0) / 1024))} KB
               </span>
             </span>
           ) : (
-            <span><span className="text-sm font-semibold text-slate-600">Catatan:</span> {e.caption}</span>
+            <span><span className="text-sm font-semibold text-muted">Catatan:</span> {e.caption}</span>
           )}
           {children?.(e.id)}
         </li>
@@ -153,18 +153,23 @@ export function NcfPart2({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: num
     ["NCF dibuat", d.created_at, d.created_by_name],
     ["Diajukan", d.firstSubmittedAt, d.created_by_name],
     ["Disetujui", d.approved_at, d.approvals.at(-1)?.decision === "APPROVED" ? d.approvals.at(-1)?.signer_name : null],
-    ["Dikirim Integra ke supplier", d.request?.sent_at, d.request?.sent_by_name ? `${d.request.sent_by_name} · ${d.request.send_method === "LINK" ? "link" : "email"}` : null],
-    ["Diterima supplier (link dibuka)", d.request?.first_opened_at, d.supplier_name],
-    ["Direspons supplier", d.request?.responded_at, d.capa?.responder_name],
+    ["Dikirim Integra ke supplier", d.request?.sent_at, d.request?.sent_by_name],
+    // Older records sent by link also kept when the supplier first opened it.
+    ...(d.request?.first_opened_at ? [["Dibuka supplier (link)", d.request.first_opened_at, d.supplier_name] as [string, Date, string]] : []),
+    ["Balasan supplier diterima", d.request?.responded_at, d.capa?.received_via === "PURCHASING" ? d.capa.recorded_by_name : d.capa?.responder_name],
     ["Closed", d.closed_at, d.closed_by_name],
   ];
+  const byEmail = d.capa?.received_via === "PURCHASING";
   return (
     <>
-      <Section title="G. Corrective dan preventive dari supplier" aside={!d.capa ? "Belum ada respons"
-        : d.capa.received_via === "PURCHASING"
-          ? `Diterima lewat email · dicatat oleh ${d.capa.recorded_by_name}${d.capa.reviewed_by_name ? ` · dicek ${d.capa.reviewed_by_name}` : " · belum dicek"}`
-          : `Dijawab oleh ${d.capa.responder_name}, ${d.capa.responder_position}`}>
-        {d.capa ? (
+      <Section title="G. Corrective dan preventive dari supplier" aside={!d.capa ? "Belum ada balasan"
+        : byEmail ? `Balasan lewat email · dicatat oleh ${d.capa.recorded_by_name}` : `Dijawab oleh ${d.capa.responder_name}, ${d.capa.responder_position}`}>
+        {byEmail ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-slate-700">The supplier&apos;s CAPA is in their reply, kept here as received.</p>
+            {capaFiles.length > 0 && <EvidenceList items={capaFiles} fileHref={fileHref} />}
+          </div>
+        ) : d.capa ? (
           <div className="flex flex-col gap-4">
             <Field label="Akar masalah">{d.capa.root_cause}</Field>
             <div className="flex flex-wrap gap-x-6 gap-y-4">
@@ -178,7 +183,7 @@ export function NcfPart2({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: num
             {capaFiles.length > 0 && <EvidenceList items={capaFiles} fileHref={fileHref} />}
           </div>
         ) : (
-          <p className="text-slate-600">The supplier fills this part through the link after the NCF is sent.</p>
+          <p className="text-muted">The supplier fills in Part 2 of the exported form and emails it back to Purchasing.</p>
         )}
       </Section>
       {d.closure_note && (
@@ -189,7 +194,7 @@ export function NcfPart2({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: num
       <Section title="Jejak waktu" aside="Dicatat sistem">
         <ol className="flex flex-col">
           {steps.map(([label, when, who]) => (
-            <li key={label} className="flex flex-wrap justify-between gap-2 border-t border-slate-200 py-2 first:border-t-0">
+            <li key={label} className="flex flex-wrap justify-between gap-2 border-t border-hairline py-2 first:border-t-0">
               <span className="font-semibold">{label}</span>
               <span className="text-slate-700">{when ? `${fmtDateTime(when)}${who ? ` · ${who}` : ""}` : "–"}</span>
             </li>
@@ -197,12 +202,12 @@ export function NcfPart2({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: num
         </ol>
         {d.request?.response_working_days != null && (
           <p className="mt-3 text-sm text-slate-700">
-            Waktu respons supplier: <strong>{d.request.response_working_days} hari kerja</strong> (dari dikirim sampai direspons).
+            Waktu respons supplier: <strong>{d.request.response_working_days} hari kerja</strong> (dari dikirim sampai balasan diterima).
           </p>
         )}
         {d.reminders.length > 0 && (
           <p className="mt-2 text-sm text-slate-700">
-            Reminders: {d.reminders.map((r) => `#${r.seq_no} ${fmtDateTime(r.sent_at)}${r.to_supplier ? "" : " (Purchasing only)"}`).join(" · ")}
+            Reminders to Purchasing: {d.reminders.map((r) => `#${r.seq_no} ${fmtDateTime(r.sent_at)}`).join(" · ")}
           </p>
         )}
       </Section>

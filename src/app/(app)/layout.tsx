@@ -47,7 +47,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <>
       <Sidebar groups={groups} user={{ name: user.name, position: user.position }} />
-      <div className="lg:pl-64">{children}</div>
+      <div className="lg:pl-60">{children}</div>
     </>
   );
 }

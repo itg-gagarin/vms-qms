@@ -66,12 +66,3 @@ export async function logPrint(actor: Actor, ncfId: number, status: string) {
 }
 
 // ---------- Settings and outbox (Super Admin) ----------
-
-export async function outbox(limit = 100) {
-  return q<{ id: number; event: string; recipient: string; payload: { subject: string; body: string }; status: string; created: Date }>(
-    pool,
-    `select o.id, o.event, coalesce(o.recipient_email, u.email) as recipient, o.payload, o.status, o.next_try_at as created
-     from notification_outbox o left join app_user u on u.id = o.recipient_user_id order by o.id desc limit $1`,
-    [limit],
-  );
-}

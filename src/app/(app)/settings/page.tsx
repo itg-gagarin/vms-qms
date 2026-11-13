@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { ActionForm, Submit } from "@/components/action-form";
-import { Section, Shell } from "@/components/ui";
+import { PageHead, Section, Shell, Tabs } from "@/components/ui";
 import * as adm from "@/lib/admin";
 import { requireUser } from "@/lib/auth";
 import { hasRole, type Actor } from "@/lib/core";
@@ -30,23 +30,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const tab = TABS.find((t) => t.key === sp.tab)?.key ?? "accounts";
   return (
     <Shell>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold">Master Settings</h1>
-          <p className="text-slate-600">Every change here is written to the audit log with who made it and the old and new value.</p>
-        </div>
-        <Link href="/outbox?view=queue" className="text-sm font-semibold">System email queue →</Link>
-      </div>
-      <nav aria-label="Settings" className="flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <Link key={t.key} href={`/settings?tab=${t.key}`} aria-current={t.key === tab ? "page" : undefined}
-            className={`rounded-full border px-4 py-2 text-sm font-semibold no-underline ${
-              t.key === tab ? "border-brand bg-brand text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-            }`}>
-            {t.label}
-          </Link>
-        ))}
-      </nav>
+      <PageHead title="Master Settings" sub="Every change here is written to the audit log with who made it and the old and new value." />
+      <Tabs label="Settings" items={TABS.map((t) => ({ href: `/settings?tab=${t.key}`, label: t.label, active: t.key === tab }))} />
       {tab === "accounts" && <Accounts user={user} />}
       {tab === "chain" && <Chain />}
       {tab === "numbering" && <Numbering />}
@@ -85,9 +70,9 @@ async function Accounts({ user }: { user: Actor }) {
       </Section>
 
       <Section title="Accounts" aside={`${users.filter((u) => u.active).length} active · ${users.length} total`}>
-        <ul className="-mx-6 -mb-6 flex flex-col">
+        <ul className="-mx-4 -mb-4 flex flex-col">
           {users.map((u) => (
-            <li key={u.id} className={`border-t border-slate-200 px-6 py-3 ${u.active ? "" : "bg-slate-50 text-slate-500"}`}>
+            <li key={u.id} className={`border-t border-hairline px-6 py-3 ${u.active ? "" : "bg-slate-50 text-slate-500"}`}>
               <details>
                 <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2">
                   <span>
@@ -110,7 +95,7 @@ async function Accounts({ user }: { user: Actor }) {
                     <Field id={`n${u.id}`} label="Name"><input id={`n${u.id}`} name="name" defaultValue={u.name} className="input" /></Field>
                     <Field id={`p${u.id}`} label="Position"><input id={`p${u.id}`} name="position" defaultValue={u.position ?? ""} className="input" /></Field>
                     <Field id={`e${u.id}`} label="Email"><input id={`e${u.id}`} name="email" type="email" defaultValue={u.email} className="input" /></Field>
-                    <div><Submit className="btn h-10">Save details</Submit></div>
+                    <div><Submit className="btn btn-commit">Save details</Submit></div>
                   </ActionForm>
                   <div className="flex flex-col gap-3">
                     <div className="label mb-0">Roles</div>
@@ -132,7 +117,7 @@ async function Accounts({ user }: { user: Actor }) {
                         {units.map((b) => <option key={b.id} value={b.id}>{b.code}</option>)}
                       </select>
                       <input name="valid_to" type="date" aria-label="Until (optional)" className="input h-10" />
-                      <Submit className="btn h-10">Add role</Submit>
+                      <Submit className="btn btn-commit">Add role</Submit>
                       <p className="col-span-2 text-xs text-slate-500">Unit applies to QC and approvers; other roles cover all units. &ldquo;Until&rdquo; ends the role, e.g. for an external auditor.</p>
                     </ActionForm>
                   </div>
@@ -140,7 +125,7 @@ async function Accounts({ user }: { user: Actor }) {
                     <ActionForm action={resetPasswordAction} resetOnOk className="flex flex-col gap-2">
                       <Hidden name="id" value={u.id} />
                       <Field id={`pw${u.id}`} label="New password"><input id={`pw${u.id}`} name="password" type="text" minLength={8} required className="input font-mono" autoComplete="off" /></Field>
-                      <div><Submit className="btn h-10">Set password</Submit></div>
+                      <div><Submit className="btn btn-commit">Set password</Submit></div>
                     </ActionForm>
                     {u.id !== user.id && (
                       <ActionForm action={setActiveAction}>
@@ -178,7 +163,7 @@ async function Chain() {
                 const st = steps.find((x) => x.step_no === i);
                 return (
                   <div key={i} className="grid items-end gap-3 md:grid-cols-[60px_1fr_1fr]">
-                    <div className="pb-2.5 text-sm font-semibold text-slate-600">Step {i}</div>
+                    <div className="pb-2.5 text-sm font-semibold text-muted">Step {i}</div>
                     <Field id={`t${b.id}${i}`} label="Title on the form"><input id={`t${b.id}${i}`} name={`title_${i}`} defaultValue={st?.approver_title ?? ""} className="input" placeholder={["QC Manager", "Material WHS Manager", "GM"][i - 1]} /></Field>
                     <Field id={`a${b.id}${i}`} label="Approver">
                       <select id={`a${b.id}${i}`} name={`approver_${i}`} defaultValue={st?.approver_id ?? ""} className="input">
@@ -265,12 +250,12 @@ async function Categories() {
             <input name="name" defaultValue={c.name} aria-label="Category name" className="input h-10 max-w-sm" />
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" defaultChecked={c.active} /> Active</label>
             <span className="text-xs text-slate-500">{c.used} NCF{c.used === 1 ? "" : "s"}</span>
-            <Submit className="btn h-10">Save</Submit>
+            <Submit className="btn btn-commit">Save</Submit>
           </ActionForm>
         ))}
-        <ActionForm action={saveCategoryAction} resetOnOk className="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-4">
+        <ActionForm action={saveCategoryAction} resetOnOk className="mt-3 flex flex-wrap items-center gap-3 border-t border-hairline pt-4">
           <input name="name" required placeholder="New category" aria-label="New category" className="input h-10 max-w-sm" />
-          <Submit className="btn h-10">Add category</Submit>
+          <Submit className="btn btn-commit">Add category</Submit>
         </ActionForm>
       </div>
     </Section>
@@ -300,21 +285,21 @@ async function Suppliers({ term }: { term: string }) {
                 <input name="phone" defaultValue={c.phone ?? ""} aria-label="Phone" placeholder="phone / WhatsApp" className="input h-10" />
                 <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" name="ncf" defaultChecked={c.ncf} /> NCF</label>
                 <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" name="active" defaultChecked={c.active} /> Active</label>
-                <Submit className="btn h-10">Save</Submit>
+                <Submit className="btn btn-commit">Save</Submit>
               </ActionForm>
             ))}
-            <ActionForm action={saveContactAction} resetOnOk className="grid items-center gap-2 border-t border-slate-200 pt-3 md:grid-cols-[1fr_1fr_160px_auto_auto]">
+            <ActionForm action={saveContactAction} resetOnOk className="grid items-center gap-2 border-t border-hairline pt-3 md:grid-cols-[1fr_1fr_160px_auto_auto]">
               <Hidden name="supplier_id" value={sup.id} />
               <input name="name" required placeholder="New contact name" aria-label="New contact name" className="input h-10" />
               <input name="email" type="email" placeholder="email" aria-label="New contact email" className="input h-10" />
               <input name="phone" placeholder="phone / WhatsApp" aria-label="New contact phone" className="input h-10" />
               <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" name="ncf" defaultChecked /> NCF</label>
-              <Submit className="btn h-10">Add contact</Submit>
+              <Submit className="btn btn-commit">Add contact</Submit>
             </ActionForm>
           </div>
         </Section>
       ))}
-      {rows.length === 0 && <p className="text-slate-600">No supplier found.</p>}
+      {rows.length === 0 && <p className="text-muted">No supplier found.</p>}
     </>
   );
 }
@@ -344,7 +329,7 @@ async function Calendar({ year }: { year: number }) {
               <ul className="flex flex-col">
                 {cal.holidays.map((h) => (
                   <li key={h.day}>
-                    <ActionForm action={setHolidayAction} className="flex items-center justify-between gap-2 border-t border-slate-200 py-1.5 text-sm first:border-t-0">
+                    <ActionForm action={setHolidayAction} className="flex items-center justify-between gap-2 border-t border-hairline py-1.5 text-sm first:border-t-0">
                       <Hidden name="day" value={h.day} /><Hidden name="name" value={h.name ?? ""} /><Hidden name="holiday" value="0" />
                       <span><span className="font-medium tabular-nums">{fmtDate(h.day)}</span> · {h.name}</span>
                       <Submit className="btn h-8 px-2 text-xs">Make working day</Submit>
@@ -379,13 +364,13 @@ async function Units() {
             <input name="code" defaultValue={b.code} aria-label="Code" className="input h-10 w-40 font-mono" />
             <input name="name" defaultValue={b.name} aria-label="Name" className="input h-10 max-w-sm" />
             <span className="text-xs text-slate-500">{b.ncfs} NCF{b.ncfs === 1 ? "" : "s"}</span>
-            <Submit className="btn h-10">Save</Submit>
+            <Submit className="btn btn-commit">Save</Submit>
           </ActionForm>
         ))}
-        <ActionForm action={saveUnitAction} resetOnOk className="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-4">
+        <ActionForm action={saveUnitAction} resetOnOk className="mt-3 flex flex-wrap items-center gap-3 border-t border-hairline pt-4">
           <input name="code" required placeholder="CODE" aria-label="New unit code" className="input h-10 w-40 font-mono" />
           <input name="name" required placeholder="Name" aria-label="New unit name" className="input h-10 max-w-sm" />
-          <Submit className="btn h-10">Add unit</Submit>
+          <Submit className="btn btn-commit">Add unit</Submit>
         </ActionForm>
       </div>
     </Section>

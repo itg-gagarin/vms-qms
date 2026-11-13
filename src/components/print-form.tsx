@@ -18,14 +18,15 @@ function Qr({ svg, label, href }: { svg: string; label: string; href: string }) 
   );
 }
 
-type PrintMeta = { kind: "COPY" | "DRAFT" | "VOID"; copy: number; printedBy: string; printedAt: Date };
+type PrintMeta = { kind: "COPY" | "DRAFT" | "VOID"; copy: number; printedBy: string; printedAt: Date; external?: boolean };
 
 /** The two-page A4 record (FD section 13). Page 2 is printed once the NCF has been sent. */
 export async function PrintForm({ d, meta, pages }: { d: NcfDetail; meta: PrintMeta; pages: 1 | 2 }) {
   const docUrl = d.version ? `${appUrl()}/v/${d.version.verify_code}` : "";
-  const docQr = d.version ? await qrSvg(docUrl) : null;
+  // The supplier's copy carries no QR code: no address of the system leaves Integra on it.
+  const docQr = d.version && !meta.external ? await qrSvg(docUrl) : null;
   const sigUrls = d.approvals.map((a) => (a.decision === "APPROVED" && a.verify_code ? `${appUrl()}/v/s/${a.verify_code}` : ""));
-  const sigQrs = await Promise.all(sigUrls.map((u) => (u ? qrSvg(u, 46) : null)));
+  const sigQrs = await Promise.all(sigUrls.map((u) => (u && !meta.external ? qrSvg(u, 46) : null)));
   const totals = d.items.reduce(
     (t, i) => ({ r: t.r + i.qty_received, s: t.s + i.qty_sample, c: t.c + i.qty_defect, x: t.x + i.qty_return }),
     { r: 0, s: 0, c: 0, x: 0 },
@@ -143,9 +144,9 @@ export async function PrintForm({ d, meta, pages }: { d: NcfDetail; meta: PrintM
               <div key={k} className={`flex flex-col ${k ? `border-l ${B}` : ""}`}>
                 <div className={`border-b ${B} py-1 text-center text-[11.5px] font-semibold uppercase`}>{a?.title ?? "–"}</div>
                 <div className="flex h-[78px] items-center gap-2 px-2">
-                  {sigQrs[k] ? (
+                  {a?.decision === "APPROVED" ? (
                     <>
-                      <Qr svg={sigQrs[k]!} href={sigUrls[k]} label={`QR tanda tangan ${a?.signer_name}`} />
+                      {sigQrs[k] && <Qr svg={sigQrs[k]!} href={sigUrls[k]} label={`QR tanda tangan ${a?.signer_name}`} />}
                       <span className="text-[11px] leading-tight">Disetujui secara elektronik<br />{fmtDateTime(a?.decided_at)}</span>
                     </>
                   ) : (
@@ -170,7 +171,7 @@ export async function PrintForm({ d, meta, pages }: { d: NcfDetail; meta: PrintM
               <div className="px-2.5 py-1.5"><b>Nama Supplier:</b> {d.supplier_name}</div>
             </div>
             <Band>CORRECTIVE DAN PREVENTIVE · DIISI SUPPLIER</Band>
-            <Box label="Akar masalah" value={d.capa?.root_cause} />
+            <Box label="Akar masalah" value={d.capa?.received_via === "PURCHASING" ? "Lihat balasan supplier, tersimpan di VMS." : d.capa?.root_cause} />
             <Box label="Corrective action" value={d.capa?.corrective_action} sideLabel="Target selesai" side={fmtDate(d.capa?.target_date)} />
             <Box label="Preventive action" value={d.capa?.preventive_action} sideLabel="Berlaku mulai" side={fmtDate(d.capa?.effective_from)} />
             <div className={`grid shrink-0 grid-cols-2 border-b ${B}`}>
@@ -190,9 +191,8 @@ export async function PrintForm({ d, meta, pages }: { d: NcfDetail; meta: PrintM
                     ["1. NCF dibuat", d.created_at, d.created_by_name],
                     ["2. Disetujui", d.approved_at, d.approvals.at(-1)?.signer_name],
                     ["3. Dikirim Integra ke supplier", d.request?.sent_at, d.request?.sent_by_name],
-                    ["4. Diterima supplier", d.request?.first_opened_at, d.request?.first_opened_at ? "Supplier" : ""],
-                    ["5. Direspons supplier", d.request?.responded_at, d.capa?.responder_name],
-                    ["6. Closed", d.closed_at, d.closed_by_name],
+                    ["4. Balasan supplier diterima", d.request?.responded_at, d.capa?.received_via === "PURCHASING" ? d.capa.recorded_by_name : d.capa?.responder_name],
+                    ["5. Closed", d.closed_at, d.closed_by_name],
                   ] as [string, Date | null | undefined, string | null | undefined][]
                 ).map(([l, t, who]) => (
                   <tr key={l} className="h-[28px]"><td>{l}</td><td>{t ? fmtDateTime(t) : ""}</td><td>{t ? who : ""}</td></tr>
@@ -200,7 +200,7 @@ export async function PrintForm({ d, meta, pages }: { d: NcfDetail; meta: PrintM
               </tbody>
             </table>
             <div className="shrink-0 px-2.5 py-2">
-              <b>Waktu respons supplier:</b> {d.request?.response_working_days ?? "…"} hari kerja, dihitung dari tahap 3 sampai tahap 5.
+              <b>Waktu respons supplier:</b> {d.request?.response_working_days ?? "…"} hari kerja, dihitung dari tahap 3 sampai tahap 4.
             </div>
           </div>
           <Foot ctx={ctx} page={2} />
@@ -229,12 +229,18 @@ function Head({ ctx, part }: { ctx: SheetCtx; part: string }) {
         <span className="text-[12px] text-slate-700">No. {ctx.ncfNo} · Versi {ctx.version ?? "–"} · {part}</span>
       </div>
       <div className={`flex w-[150px] items-center gap-2 border-l ${B} px-2.5`}>
-        {ctx.docQr ? (
-          <Qr svg={ctx.docQr} href={ctx.docUrl} label="QR verifikasi dokumen" />
+        {ctx.meta.external ? (
+          <span className="text-[12px] font-semibold leading-tight">Salinan untuk supplier</span>
         ) : (
-          <span className="flex size-[60px] items-center justify-center border border-dashed text-[11px]">QR</span>
+          <>
+            {ctx.docQr ? (
+              <Qr svg={ctx.docQr} href={ctx.docUrl} label="QR verifikasi dokumen" />
+            ) : (
+              <span className="flex size-[60px] items-center justify-center border border-dashed text-[11px]">QR</span>
+            )}
+            <span className="text-[11px] leading-tight">Pindai untuk cek nomor, versi dan bukti</span>
+          </>
         )}
-        <span className="text-[11px] leading-tight">Pindai untuk cek nomor, versi dan bukti</span>
       </div>
     </div>
   );

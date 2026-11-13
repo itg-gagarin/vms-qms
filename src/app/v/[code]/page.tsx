@@ -26,7 +26,7 @@ export default async function VerifyDoc({ params }: { params: Promise<{ code: st
     <Shell>
       <div>
         <p className="font-bold tracking-wide">INTEGRA GROUP · Verifikasi dokumen</p>
-        <h1 className="mt-1 text-3xl font-bold">NCF {v.ncf_no}</h1>
+        <h1 className="mt-1 text-[30px] font-bold">NCF {v.ncf_no}</h1>
       </div>
       {v.status === "VOID" && <Banner kind="error">VOID. This NCF was cancelled.</Banner>}
       {v.superseded ? (
@@ -44,7 +44,7 @@ export default async function VerifyDoc({ params }: { params: Promise<{ code: st
             ["Tanggal Masuk", fmtDate(v.receipt_date)],
             ["Version and content hash", `${v.version_no} · ${v.content_hash.slice(0, 16)}…`],
           ].map(([k, val]) => (
-            <div key={k}><dt className="text-[13px] font-semibold text-slate-600">{k}</dt><dd>{val}</dd></div>
+            <div key={k}><dt className="text-[13px] font-semibold text-muted">{k}</dt><dd>{val}</dd></div>
           ))}
         </dl>
       </Section>
@@ -65,7 +65,7 @@ export default async function VerifyDoc({ params }: { params: Promise<{ code: st
         </ul>
       </Section>
       {v.canOpenFull ? (
-        <Link href={`/ncf/${v.ncf_id}`} className="btn btn-primary no-underline">Open full record with evidence</Link>
+        <Link href={`/ncf/${v.ncf_id}`} className="btn">Open full record with evidence</Link>
       ) : (
         <Banner kind="info">
           Photos, videos and documents open only for auditors and Integra staff. <Link href="/login">Sign in</Link> to see them.

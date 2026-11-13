@@ -25,7 +25,7 @@ about. `scripts/reset.ts` drops the `public` schema.
 
 ## Where things go
 
-- Business rules live in `src/lib` (`ncf.ts`, `purchasing.ts`, `reports.ts`, `admin.ts`, `verify.ts`). Each function checks the caller's role and
+- Business rules live in `src/lib` (`ncf.ts`, `purchasing.ts`, `suppliers.ts`, `reports.ts`, `admin.ts`, `verify.ts`). Each function checks the caller's role and
   the NCF status itself, so screens and Server Actions stay thin. Put new rules there, not in `src/app`.
 - Schema changes are new numbered files in `db/migrations/` (plain SQL, applied in order by `scripts/migrate.ts`).
   Do not edit applied migrations; `001_schema.sql` mirrors the ERD and stays unchanged.
@@ -55,4 +55,7 @@ about. `scripts/reset.ts` drops the `public` schema.
   `btn` (outline) for everything else; codes, quantities and dates in mono (`num`); pills only for states.
 - Each department sees only its NCF stages (`STATUSES_BY_ROLE` in `core.ts`); keep lists, pages and exports on it.
 - Cache Components is off on purpose (`next.config.ts`); pages read the session and live data.
+- Forms go through `ActionForm`, which checks fields itself (`noValidate`): no browser validation bubbles.
+- `deploymentId` comes from `.deployment-id`, written by the Docker build, so open tabs reload after a deploy instead
+  of failing with "Failed to find Server Action".
 - Never commit `.env.local`, `storage/`, `*.xlsx` (SAP exports hold real supplier data) or `tests/screens/`.

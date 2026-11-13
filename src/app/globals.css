@@ -143,3 +143,9 @@ h1, h2, h3, h4 {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(300%); }
 }
+
+/* Fields our own form check marked invalid (forms use noValidate, so the browser shows no bubbles) */
+.input[aria-invalid="true"] {
+  border-color: var(--color-status-red);
+  box-shadow: 0 0 0 1px var(--color-status-red);
+}

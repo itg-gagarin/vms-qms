@@ -59,13 +59,6 @@ export const saveWorkflowAction = async (_: ActionState, d: FormData) =>
 export const saveCategoryAction = async (_: ActionState, d: FormData) =>
   run("Saved.", (u) => adm.saveCategory(u, n(d, "id"), s(d, "name"), d.get("id") ? s(d, "active") === "on" : true));
 
-export const saveContactAction = async (_: ActionState, d: FormData) =>
-  run("Contact saved.", (u) =>
-    adm.saveContact(u, {
-      id: n(d, "id"), supplierId: Number(d.get("supplier_id")), name: s(d, "name"), email: s(d, "email"), phone: s(d, "phone"),
-      active: d.get("id") ? s(d, "active") === "on" : true, ncf: s(d, "ncf") === "on",
-    }));
-
 export const setHolidayAction = async (_: ActionState, d: FormData) =>
   run(s(d, "holiday") === "1" ? "Holiday added. It no longer counts as a working day." : "Back to a working day.", (u) =>
     adm.setHoliday(u, s(d, "day"), s(d, "name"), s(d, "holiday") === "1"));

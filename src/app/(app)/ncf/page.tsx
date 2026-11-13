@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ClickableRow } from "@/components/clickable-row";
 import { EmptyState, PageHead, Pager, paging, Shell, StatusBadge, TableCard, Tabs } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { selectedBu } from "@/lib/bu";
 import { hasRole, visibleStatuses, type Role } from "@/lib/core";
 import { isNcfStatus, STATUS_LABEL, type NcfStatus } from "@/lib/labels";
 import { countNcf, listNcf } from "@/lib/ncf";
@@ -30,10 +31,11 @@ export default async function NcfList({ searchParams }: { searchParams: Promise<
   const status = isNcfStatus(sp.status) && seen.includes(sp.status) ? sp.status : undefined;
   const tab = status || (term && !sp.tab) ? "all" : (tabs.find((t) => t.key === sp.tab)?.key ?? tabs[0].key);
   const { page, size } = paging(sp);
+  const bu = await selectedBu(user);
   const [rows, total, ...tabCounts] = await Promise.all([
-    listNcf(user, tab, status, page, size, term),
-    countNcf(user, tab, status, term),
-    ...tabs.map((t) => countNcf(user, t.key, undefined, term)),
+    listNcf(user, tab, status, page, size, term, bu),
+    countNcf(user, tab, status, term, bu),
+    ...tabs.map((t) => countNcf(user, t.key, undefined, term, bu)),
   ]);
   const qs = (extra: Record<string, string | undefined>) =>
     `/ncf?${new URLSearchParams(Object.entries({ q: term || undefined, ...extra }).filter(([, v]) => v) as [string, string][])}`;

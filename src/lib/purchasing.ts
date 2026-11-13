@@ -81,10 +81,11 @@ export type DispatchRow = {
 };
 
 /** Purchasing's table, one page at a time: every NCF from approval to closure with the supplier's contacts and the clock. */
-export async function listDispatch(actor: Actor, tab: DispatchTab, page = 1, size = 20) {
+export async function listDispatch(actor: Actor, tab: DispatchTab, page = 1, size = 20, buId?: number) {
   requireRole(actor, [...PURCHASING]);
   const statuses = (DISPATCH_TABS.find((t) => t.key === tab) ?? DISPATCH_TABS[0]).statuses;
-  const total = (await one<{ n: number }>(pool, "select count(*)::int as n from ncf where status = any($1)", [statuses]))!.n;
+  const total = (await one<{ n: number }>(pool, "select count(*)::int as n from ncf where status = any($1) and ($2::bigint is null or bu_id = $2)",
+    [statuses, buId ?? null]))!.n;
   const rows = await q<DispatchRow>(
     pool,
     `select n.id, n.ncf_no, n.status, s.name as supplier, s.sap_vendor_code as supplier_code, po.po_no, n.approved_at,
@@ -98,11 +99,11 @@ export async function listDispatch(actor: Actor, tab: DispatchTab, page = 1, siz
      join supplier s on s.id = n.supplier_id
      left join purchase_order po on po.id = n.po_id
      left join supplier_request r on r.ncf_id = n.id
-     where n.status = any($1)
+     where n.status = any($1) and ($4::bigint is null or n.bu_id = $4)
      order by case n.status when 'APPROVED' then 0 when 'SENT' then 1 when 'RESPONDED' then 2 else 3 end,
               coalesce(r.sent_at, n.approved_at) asc nulls last, n.id
      limit $2 offset $3`,
-    [statuses, size, (page - 1) * size],
+    [statuses, size, (page - 1) * size, buId ?? null],
   );
   return { rows, total };
 }

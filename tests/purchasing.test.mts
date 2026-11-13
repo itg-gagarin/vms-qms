@@ -107,3 +107,33 @@ describe("Reports and export", () => {
     await assert.rejects(rep.dashboard(users.qc, { from: "2026-12-31", to: "2026-01-01" }), /starts after it ends/);
   });
 });
+
+describe("Supplier Master", () => {
+  test("Purchasing, PCH and Super Admin manage suppliers and contacts; QC cannot; every change is audited", async () => {
+    const sup = await import("../src/lib/suppliers.ts");
+    await assert.rejects(sup.listSuppliers(users.qc, ""), /role/);
+    await assert.rejects(sup.createSupplier(users.qc, { code: "VLP09999", name: "Uji Coba, PT" }), /role/);
+    const { rows, total } = await sup.listSuppliers(users.pur, "VLP", 1, 10);
+    assert.ok(total >= 2 && rows.every((r) => r.code.startsWith("VLP")));
+
+    const id = await sup.createSupplier(users.pch, { code: " vlp09999 ", name: "Uji Coba, PT" });
+    await assert.rejects(sup.createSupplier(users.admin, { code: "VLP09999", name: "Lain, PT" }), /already exists/);
+    await assert.rejects(sup.createSupplier(users.pur, { code: "a b", name: "X, PT" }), /Vendor code/);
+    await assert.rejects(sup.saveContact(users.pur, { id: null, supplierId: id, name: "Tanpa Kontak", email: "", phone: "", active: true, ncf: true }), /email or a phone/);
+    const c = await sup.saveContact(users.pur, { id: null, supplierId: id, name: "Rina (QA)", email: "QA@ujicoba.demo", phone: "", active: true, ncf: true });
+    await sup.saveContact(users.pur, { id: c, supplierId: id, name: "Rina (QA)", email: "qa@ujicoba.demo", phone: "0812", active: false, ncf: true });
+    await sup.renameSupplier(users.pur, id, "Uji Coba Sejahtera, PT");
+
+    const s = await sup.getSupplier(users.pur, id);
+    assert.equal(s.code, "VLP09999");
+    assert.equal(s.name, "Uji Coba Sejahtera, PT");
+    assert.deepEqual(s.contacts.map((x) => [x.email, x.active]), [["qa@ujicoba.demo", false]]);
+    const log = await q<{ action: string }>(pool, "select action from audit_log where entity = 'supplier' and entity_id = $1 order by id", [id]);
+    assert.deepEqual(log.map((l) => l.action), ["CREATE_SUPPLIER", "ADD_CONTACT", "EDIT_CONTACT", "RENAME_SUPPLIER"]);
+
+    // The NCF history shows only the stages the department works with: Purchasing never sees drafts.
+    const premier = (await one<{ id: number }>(pool, "select id from supplier where sap_vendor_code = 'VLP00412'"))!.id;
+    const hist = await sup.getSupplier(users.pur, premier);
+    assert.ok(hist.ncfs.length > 0 && hist.ncfs.every((n) => !["DRAFT", "WAITING_APPROVAL"].includes(n.status)));
+  });
+});

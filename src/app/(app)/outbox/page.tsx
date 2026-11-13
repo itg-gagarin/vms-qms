@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ClickableRow } from "@/components/clickable-row";
 import { PageHead, Pager, paging, Shell, StatusBadge, TableCard, Tabs } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { selectedBu } from "@/lib/bu";
 import { hasRole } from "@/lib/core";
 import { DISPATCH_TABS, listDispatch, reminderWindow, type DispatchTab } from "@/lib/purchasing";
 import { fmtDateTime } from "@/lib/util";
@@ -13,7 +14,7 @@ export default async function SupplierOutbox({ searchParams }: { searchParams: P
   const sp = await searchParams;
   const tab = (DISPATCH_TABS.find((t) => t.key === sp.tab)?.key ?? "send") as DispatchTab;
   const { page, size } = paging(sp);
-  const [{ rows, total }, window] = await Promise.all([listDispatch(user, tab, page, size), reminderWindow()]);
+  const [{ rows, total }, window] = await Promise.all([listDispatch(user, tab, page, size, await selectedBu(user)), reminderWindow()]);
   return (
     <Shell>
       <PageHead title="Supplier Outbox" crumbs={[{ label: "Purchasing" }, { label: "Supplier Outbox" }]}

@@ -43,14 +43,12 @@ const lines = async (id: number) => ncf.mrregLines(id);
 describe("NCF end to end: Premier, form sent by email", () => {
   let id = 0;
 
-  test("QC creates a draft from the MRReg; number continues the paper register; the receipt moves to Archive", async () => {
-    const open = async () => (await ncf.searchMrreg(users.qc, "260012841", 1, 20, "open")).length;
-    const archived = async () => (await ncf.searchMrreg(users.qc, "260012841", 1, 20, "archive"))[0];
+  test("QC creates a draft from the MRReg; number continues the paper register; the receipt leaves the open list", async () => {
+    const open = async () => (await ncf.searchMrreg(users.qc, "260012841")).length;
     assert.equal(await open(), 1, "no NCF yet: the receipt is open");
     id = await ncf.createDraft(users.qc, await mrreg("260012841"), at("2026-11-12 10:00"));
     assert.equal(await open(), 0, "once an NCF is made it leaves the open list");
-    assert.deepEqual((await archived()).ncfs.map((n) => n.ncf_no), ["424/XI/2026"]);
-    assert.equal(await ncf.countMrreg(users.qc, "260012841", "archive"), 1);
+    assert.equal(await ncf.countMrreg(users.qc, "260012841"), 0);
     const d = await ncf.getNcf(users.qc, id);
     assert.equal(d.ncf_no, "424/XI/2026");
     assert.equal(d.status, "DRAFT");
@@ -222,10 +220,42 @@ describe("Reject path", () => {
   });
 });
 
+describe("Open receipts", () => {
+  test("a receipt leaves the list with its first NCF, comes back if that NCF is voided, and never shows when cancelled", async () => {
+    // A fresh receipt: a copy of 260014212 under a new number, with its line.
+    const src = await mrreg("260014212");
+    const copy = async (no: string, sap: string | null) => {
+      const m = (await one<{ id: number }>(pool,
+        `insert into mrreg(mrreg_no,bu_id,supplier_id,sj_no,sj_date,receipt_date,sap_status,synced_at)
+         select $2,bu_id,supplier_id,sj_no,sj_date,receipt_date,$3,now() from mrreg where id = $1 returning id`, [src, no, sap]))!.id;
+      await pool.query(`insert into mrreg_line(mrreg_id,line_no,po_line_id,item_id,qty_received,uom)
+                        select $2,line_no,po_line_id,item_id,qty_received,uom from mrreg_line where mrreg_id = $1`, [src, m]);
+      return m;
+    };
+    const m = await copy("260099001", "CLOSED");
+    await copy("260099002", "CANCELED");
+    const shown = async (no: string) => (await ncf.searchMrreg(users.qc, no)).length === 1;
+    assert.ok(await shown("260099001"));
+    assert.ok(!(await shown("260099002")), "cancelled in SAP: not offered");
+    const id = await ncf.createDraft(users.qc, m);
+    assert.ok(!(await shown("260099001")), "has an NCF: hidden");
+    const [l] = await lines(id);
+    await ncf.addItem(users.qc, id, l.id, 10, 1, 0);
+    await ncf.updateHeader(users.qc, id, header({ goods_status: "OTHER" }));
+    await ncf.addEvidence(users.qc, id, [photo("y.png", "f")], "");
+    await ncf.submit(users.qc, id, PW);
+    await ncf.decide(users.qcm, id, "REJECTED", PW, "Bukan cacat.");
+    assert.ok(await shown("260099001"), "its only NCF is void: open again");
+    const drift = await one<{ n: number }>(pool,
+      "select count(*)::int as n from mrreg m where has_live_ncf <> exists (select 1 from ncf x where x.mrreg_id = m.id and x.status <> 'VOID')");
+    assert.equal(drift!.n, 0, "the flag matches the NCFs for every receipt");
+  });
+});
+
 describe("Access rules", () => {
   test("auditor reads everything; QC lists only its BU; settings need Super Admin", async () => {
     const all = await ncf.listNcf(users.audit, "all");
-    assert.equal(all.length, 3);
+    assert.equal(all.length, 4); // Premier, the no-email supplier, the rejected one, and the voided one from "Open receipts"
     const adm = await import("../src/lib/admin.ts");
     const values = { reminder_window_wd: "3", reminder_max: "2", response_target_wd: "3" };
     await assert.rejects(adm.saveWorkflow(users.pur, values), /role/);
@@ -292,7 +322,7 @@ describe("Access rules", () => {
   });
 
   test("Super Admin can do every role's work, but cannot sign an approval step named for someone else", async () => {
-    assert.ok((await ncf.countMrreg(users.admin, "", "open")) + (await ncf.countMrreg(users.admin, "", "archive")) > 0, "sees goods receipts like QC");
+    assert.equal(await ncf.countMrreg(users.admin, ""), await ncf.countMrreg(users.qc, ""), "sees goods receipts like QC");
     const id = await ncf.createDraft(users.admin, await mrreg("260014212"), at("2026-11-13 09:00"));
     await ncf.updateHeader(users.admin, id, header());
     const [l] = await lines(id);

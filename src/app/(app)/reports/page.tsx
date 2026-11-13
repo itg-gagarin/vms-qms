@@ -3,6 +3,7 @@ import { BarList, ColumnChart, StatTile } from "@/components/charts";
 import { Download } from "lucide-react";
 import { Banner, PageHead, Pager, paging, Section, Shell } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { selectedBu } from "@/lib/bu";
 import { hasRole } from "@/lib/core";
 import { isNcfStatus, STATUS_LABEL, type NcfStatus } from "@/lib/labels";
 import { dashboard, EXPORT_ROLES, REPORT_ROLES, supplierOptions, type ReportFilter } from "@/lib/reports";
@@ -21,6 +22,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     to: sp.to || today,
     status: isNcfStatus(sp.status) ? sp.status : undefined,
     supplierId: sp.supplier ? Number(sp.supplier) : undefined,
+    buId: await selectedBu(user),
   };
   const suppliers = await supplierOptions(user);
   let data: Awaited<ReturnType<typeof dashboard>> | null = null;

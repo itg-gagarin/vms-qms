@@ -362,43 +362,6 @@ export async function saveCategory(actor: Actor, id: number | null, name: string
 
 // ---------- Supplier contacts (suppliers themselves come from SAP) ----------
 
-export async function listSuppliers(term: string) {
-  return q<{ id: number; code: string; name: string; contacts: { id: number; name: string; email: string | null; phone: string | null; active: boolean; ncf: boolean }[] }>(
-    pool,
-    `select s.id, s.sap_vendor_code as code, s.name,
-            coalesce((select json_agg(json_build_object('id', c.id, 'name', c.name, 'email', c.email, 'phone', c.phone, 'active', c.active, 'ncf', c.is_ncf_recipient) order by c.id)
-                      from supplier_contact c where c.supplier_id = s.id), '[]') as contacts
-     from supplier s where $1 = '' or s.name ilike '%' || $1 || '%' or s.sap_vendor_code ilike '%' || $1 || '%'
-     order by s.name limit 100`,
-    [term.trim()],
-  );
-}
-
-export async function saveContact(actor: Actor, f: { id: number | null; supplierId: number; name: string; email: string; phone: string; active: boolean; ncf: boolean }) {
-  admin(actor);
-  const name = f.name.trim(), email = f.email.trim().toLowerCase() || null, phone = f.phone.trim() || null;
-  if (!name) throw new AppError("Contact name is required.");
-  if (email && !EMAIL.test(email)) throw new AppError("Email is not valid.");
-  if (!email && !phone) throw new AppError("Give an email or a phone number.");
-  return tx(async (c) => {
-    if (f.id) {
-      const r = await c.query(
-        "update supplier_contact set name=$2, email=$3, phone=$4, active=$5, is_ncf_recipient=$6 where id=$1 and supplier_id=$7",
-        [f.id, name, email, phone, f.active, f.ncf, f.supplierId],
-      );
-      if (!r.rowCount) throw new AppError("Contact not found.", 404);
-      await log(c, actor, "supplier", f.supplierId, "EDIT_CONTACT", "contact", null, `${name} ${email ?? ""} ${phone ?? ""} active=${f.active} ncf=${f.ncf}`);
-      return f.id;
-    }
-    const r = await one<{ id: number }>(
-      c, "insert into supplier_contact(supplier_id, name, email, phone, active, is_ncf_recipient) values ($1,$2,$3,$4,true,$5) returning id",
-      [f.supplierId, name, email, phone, f.ncf],
-    );
-    await log(c, actor, "supplier", f.supplierId, "ADD_CONTACT", "contact", null, `${name} ${email ?? ""} ${phone ?? ""}`);
-    return r!.id;
-  });
-}
-
 // ---------- Working-day calendar ----------
 
 export async function calendarYear(year: number) {

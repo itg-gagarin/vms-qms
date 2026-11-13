@@ -215,7 +215,7 @@ export default async function EditNcf({ params, searchParams }: { params: Promis
           <input type="hidden" name="id" value={d.id} />
           <div className="min-w-[240px]">
             <label htmlFor="password" className="label">Your password, to sign</label>
-            <input id="password" name="password" type="password" required autoComplete="current-password" className="input" />
+            <input id="password" name="password" type="password" required={missing.length === 0} autoComplete="current-password" className="input" />
           </div>
           <Submit className="btn btn-advance">Sign and submit</Submit>
         </ActionForm>

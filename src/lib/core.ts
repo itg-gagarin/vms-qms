@@ -32,6 +32,12 @@ export function roleScopes(actor: Actor, role: Role) {
   return actor.roles.filter((r) => grants(r, [role])).map((r) => r.bu_id);
 }
 
+/** Business Units the actor works in: null means all of them (a role without a unit, e.g. Purchasing or Super Admin). */
+export function buScope(actor: Actor): number[] | null {
+  if (actor.roles.some((r) => r.bu_id === null)) return null;
+  return [...new Set(actor.roles.map((r) => r.bu_id as number))];
+}
+
 export function requireRole(actor: Actor, roles: Role | Role[], buId?: number | null) {
   if (!hasRole(actor, roles, buId)) throw new AppError("You do not have the role for this action.", 403);
 }

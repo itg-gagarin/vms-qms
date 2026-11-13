@@ -1,12 +1,13 @@
 "use client";
 
-import { BarChart3, ChevronDown, ChevronRight, ClipboardCheck, FileWarning, LogOut, Menu, Search, Send, SlidersHorizontal, X, type LucideIcon } from "lucide-react";
+import { BarChart3, ChevronDown, ChevronRight, ClipboardCheck, Factory, FileWarning, LogOut, Menu, Search, Send, SlidersHorizontal, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { logoutAction } from "@/app/login/actions";
+import { BuSwitch, type BuOption } from "./bu-switch";
 
-export type NavIcon = "ncf" | "receipt" | "mail" | "settings" | "chart";
+export type NavIcon = "ncf" | "receipt" | "mail" | "settings" | "chart" | "supplier";
 /** A sub-link that is the parent's page with one query value, e.g. /ncf?status=DRAFT. */
 export type NavChild = { label: string; param: string; value: string; count?: number };
 export type NavItem = { href: string; label: string; icon: NavIcon; children?: NavChild[]; count?: number };
@@ -20,6 +21,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   mail: Send,
   settings: SlidersHorizontal,
   chart: BarChart3,
+  supplier: Factory,
 };
 
 /** The item whose href is the longest prefix of the path, so /ncf/new marks its own item, not /ncf. */
@@ -156,7 +158,7 @@ function UserMenu({ user }: { user: NavUser }) {
   );
 }
 
-export function Sidebar({ groups, user, search }: { groups: NavGroup[]; user: NavUser; search: boolean }) {
+export function Sidebar({ groups, user, search, units, bu }: { groups: NavGroup[]; user: NavUser; search: boolean; units: BuOption[]; bu?: number }) {
   const pathname = usePathname();
   const params = useSearchParams();
   // The phone drawer stays open only for the page it was opened on, so navigating closes it.
@@ -192,7 +194,10 @@ export function Sidebar({ groups, user, search }: { groups: NavGroup[]; user: Na
               </div>
             </form>
           ) : <div className="flex-1" />}
-          <div className="ml-auto"><UserMenu user={user} /></div>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="hidden sm:block"><BuSwitch units={units} selected={bu} /></div>
+            <UserMenu user={user} />
+          </div>
         </div>
       </header>
 
@@ -210,6 +215,8 @@ export function Sidebar({ groups, user, search }: { groups: NavGroup[]; user: Na
           </button>
         </div>
 
+        {/* Phones: the Business Unit switch lives in the menu */}
+        {units.length > 0 && <div className="border-b border-hairline px-4 py-3 sm:hidden"><BuSwitch units={units} selected={bu} id="bu-switch-menu" /></div>}
         <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 py-4">
           {groups.map((g) => (
             <div key={g.label} className="mb-5">

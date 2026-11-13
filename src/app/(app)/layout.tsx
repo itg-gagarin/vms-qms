@@ -1,9 +1,11 @@
 import { Sidebar, type NavGroup, type NavItem } from "@/components/sidebar";
 import { ROLES } from "@/lib/admin";
 import { requireUser } from "@/lib/auth";
+import { selectedBu, unitsFor } from "@/lib/bu";
 import { hasRole, visibleStatuses } from "@/lib/core";
 import type { NcfStatus } from "@/lib/labels";
 import { statusCounts } from "@/lib/ncf";
+import { SUPPLIER_ROLES } from "@/lib/suppliers";
 import { REPORT_ROLES } from "@/lib/reports";
 
 // Sidebar names for the NCF statuses, in workflow order. Every status is listed, so no NCF falls between links.
@@ -20,7 +22,9 @@ const NCF_STATUS_NAV: [NcfStatus, string][] = [
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const seen = visibleStatuses(user);
-  const counts = seen.length ? await statusCounts(user) : { byStatus: {} as Partial<Record<NcfStatus, number>>, toSign: 0 };
+  const units = await unitsFor(user);
+  const bu = await selectedBu(user, units);
+  const counts = seen.length ? await statusCounts(user, bu) : { byStatus: {} as Partial<Record<NcfStatus, number>>, toSign: 0 };
 
   // One item per QMS module. A new module adds an entry here with the roles that may open it;
   // items the user has no role for are left out, and a group with nothing left is hidden.
@@ -37,6 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           { href: "/ncf/new", label: "SAP Goods Receipt", icon: "receipt", show: hasRole(user, "QC_INSPECTOR") },
           { href: "/reports", label: "Reports", icon: "chart", show: hasRole(user, REPORT_ROLES) },
           { href: "/outbox", label: "Supplier Outbox", icon: "mail", show: hasRole(user, ["PURCHASING", "PCH_DIV_HEAD"]) },
+          { href: "/suppliers", label: "Supplier Master", icon: "supplier", show: hasRole(user, SUPPLIER_ROLES) },
           { href: "/settings", label: "Master Settings", icon: "settings", show: hasRole(user, "SUPER_ADMIN") },
         ],
       },
@@ -50,7 +55,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <>
-      <Sidebar groups={groups} search={seen.length > 0}
+      <Sidebar groups={groups} search={seen.length > 0} units={units} bu={bu}
         user={{ name: user.name, position: user.position, roles: [...new Set(user.roles.map((r) => ROLES.find((x) => x.role === r.role)?.label ?? r.role))] }} />
       <div className="lg:pl-64">{children}</div>
     </>

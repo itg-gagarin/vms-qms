@@ -7,3 +7,4 @@ tests/screens
 !.env.example
 *.xlsx
 npm-debug.log*
+.deployment-id

@@ -16,6 +16,11 @@ verification page, which shows what is already printed on the form (number, vers
 the system (internal notifications are queued in `notification_outbox` for a future SMTP worker), supplier scoring,
 "ask for more information", voiding after sending (no role owns it yet), SSO.
 
+**Also:** SAP Goods Receipt lists only open receipts (no NCF yet, not cancelled in SAP; a flag kept by a trigger and a
+partial index, migration 011). Supplier Master (`/suppliers`, Purchasing and PCH) keeps vendors, NCF contacts and each
+supplier's reply times. Users who work in several Business Units pick one in the top bar; it narrows lists, receipts,
+the outbox and reports. Saving the form as PDF proposes "No. Komplain_ddmmyyyy_Supplier - Integra Group".
+
 **Design:** the INTEC design system (github.com/itg-gagarin/intec-design-system): tokens in `src/app/globals.css`, fonts in
 `src/app/layout.tsx`, shared pieces in `src/components/ui.tsx`. One green button per screen for the action that advances the
 NCF; indigo for saving inside a card; pills only for states; Lucide icons; tables with a frozen header and 10/20/50 paging.
@@ -67,6 +72,8 @@ npm run typecheck && npx eslint src scripts tests
 | `src/lib/reports.ts` | Reports dashboard and the Excel export |
 | `src/lib/admin.ts` | Master Settings: accounts, roles, approval chain, numbering, calendar, categories, contacts |
 | `src/lib/verify.ts` | QR verification, print log |
+| `src/lib/suppliers.ts` | Supplier Master: suppliers, contacts, reply figures |
+| `src/lib/bu.ts` | The Business Unit chosen in the top bar |
 | `src/app/(app)` | Internal screens (login required) |
 | `src/app/v` | QR verification pages (read-only) |
 | `scripts/import-mrreg.ts` | Importer for the SAP MRReg xlsx export |

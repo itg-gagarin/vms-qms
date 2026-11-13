@@ -9,7 +9,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-RUN npm run build
+# One id per image, read by next.config.ts at build and at runtime (version-skew protection).
+RUN node -e "require('fs').writeFileSync('.deployment-id', Date.now().toString(36))" && npm run build
 
 ENV NODE_ENV=production
 # Uploaded evidence; mount a persistent volume here.

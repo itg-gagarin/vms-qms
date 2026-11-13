@@ -10,7 +10,7 @@ import { AppError } from "./util";
 export const REPORT_ROLES: Role[] = ["QC_INSPECTOR", "NCF_APPROVER", "PURCHASING", "PCH_DIV_HEAD", "AUDITOR"];
 export const EXPORT_ROLES: Role[] = ["QC_INSPECTOR", "NCF_APPROVER", "AUDITOR"];
 
-export type ReportFilter = { from: string; to: string; status?: NcfStatus; supplierId?: number };
+export type ReportFilter = { from: string; to: string; status?: NcfStatus; supplierId?: number; buId?: number };
 
 /** QC and approvers see their own Business Units; everyone else every unit. */
 function scope(actor: Actor) {
@@ -30,6 +30,7 @@ function where(actor: Actor, f: ReportFilter, opts: { drafts: boolean }) {
   if (!opts.drafts || !hasRole(actor, ["QC_INSPECTOR", "AUDITOR"])) conds.push("n.status <> 'DRAFT'");
   if (f.status) { params.push(f.status); conds.push(`n.status = $${params.length}`); }
   if (f.supplierId) { params.push(f.supplierId); conds.push(`n.supplier_id = $${params.length}`); }
+  if (f.buId) { params.push(f.buId); conds.push(`n.bu_id = $${params.length}`); }
   return { sql: conds.join(" and "), params };
 }
 

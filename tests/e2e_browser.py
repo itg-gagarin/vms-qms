@@ -234,6 +234,23 @@ def main():
         expect(page.get_by_role("heading", name="Supplier Outbox")).to_be_visible()
         assert page.get_by_text("System email queue").count() == 0
 
+        # 11. Supplier Master (Purchasing): our own field messages, add a supplier and a contact in dialogs
+        page.goto(f"{BASE}/suppliers")
+        expect(page.get_by_role("heading", name="Supplier Master")).to_be_visible()
+        page.click("button:has-text('Add supplier')")
+        page.click("dialog button:has-text('Add supplier')")
+        expect(page.locator("dialog").get_by_text("Please complete these fields")).to_be_visible()
+        page.fill("#new-code", "VLP09001")
+        page.fill("#new-name", "Uji E2E, PT")
+        page.click("dialog button:has-text('Add supplier')")
+        page.wait_for_url(re.compile(r"/suppliers/\d+$"))
+        page.click("button:has-text('Add contact')")
+        page.fill("#new-name", "Rina (QA)")
+        page.fill("#new-email", "qa@uji-e2e.demo")
+        page.click("dialog button:has-text('Add contact')")
+        expect(page.get_by_text("qa@uji-e2e.demo")).to_be_visible()
+        shot(page, "12-supplier")
+
         print("page errors:", errors)
         assert not errors, errors
         print("E2E OK")

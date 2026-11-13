@@ -1,4 +1,5 @@
 import { currentUser } from "@/lib/auth";
+import { selectedBu } from "@/lib/bu";
 import { isNcfStatus } from "@/lib/labels";
 import { exportXlsx } from "@/lib/reports";
 import { AppError, wib } from "@/lib/util";
@@ -15,6 +16,7 @@ export async function GET(req: Request) {
   try {
     const x = await exportXlsx(user, {
       from, to, status: isNcfStatus(status) ? status : undefined, supplierId: p.get("supplier") ? Number(p.get("supplier")) : undefined,
+      buId: await selectedBu(user),
     });
     return new Response(new Uint8Array(x.buffer), {
       headers: {

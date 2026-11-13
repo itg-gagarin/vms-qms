@@ -9,7 +9,7 @@ import { hasRole, type Actor } from "@/lib/core";
 import { fmtDate, wib } from "@/lib/util";
 import {
   addRoleAction, createUserAction, extendCalendarAction, removeRoleAction, resetPasswordAction, saveCategoryAction, saveChainAction,
-  saveContactAction, saveNumberingAction, saveUnitAction, saveWorkflowAction, setActiveAction, setHolidayAction, updateUserAction,
+  saveNumberingAction, saveUnitAction, saveWorkflowAction, setActiveAction, setHolidayAction, updateUserAction,
 } from "./actions";
 
 const TABS = [
@@ -18,7 +18,6 @@ const TABS = [
   { key: "numbering", label: "Numbering" },
   { key: "workflow", label: "Reminders & targets" },
   { key: "categories", label: "Problem categories" },
-  { key: "suppliers", label: "Supplier contacts" },
   { key: "calendar", label: "Working calendar" },
   { key: "units", label: "Business units" },
 ] as const;
@@ -37,7 +36,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       {tab === "numbering" && <Numbering />}
       {tab === "workflow" && <Workflow />}
       {tab === "categories" && <Categories />}
-      {tab === "suppliers" && <Suppliers term={sp.q ?? ""} />}
       {tab === "calendar" && <Calendar year={Number(sp.year) || Number(wib(new Date()).date.slice(0, 4))} />}
       {tab === "units" && <Units />}
     </Shell>
@@ -259,48 +257,6 @@ async function Categories() {
         </ActionForm>
       </div>
     </Section>
-  );
-}
-
-// ---------- Supplier contacts ----------
-
-async function Suppliers({ term }: { term: string }) {
-  const rows = await adm.listSuppliers(term);
-  return (
-    <>
-      <form className="card flex flex-wrap items-end gap-3 p-4" role="search">
-        <Hidden name="tab" value="suppliers" />
-        <Field id="sq" label="Search supplier" className="min-w-[260px] flex-1"><input id="sq" name="q" defaultValue={term} className="input h-10" placeholder="Name or vendor code" /></Field>
-        <button className="btn h-10">Search</button>
-        <p className="w-full text-xs text-slate-500">Suppliers come from SAP. Contacts are kept here: they appear in the Supplier Outbox, and those marked NCF get NCF emails once sending from the system starts.</p>
-      </form>
-      {rows.map((sup) => (
-        <Section key={sup.id} title={sup.name} aside={sup.code}>
-          <div className="flex flex-col gap-2">
-            {sup.contacts.map((c) => (
-              <ActionForm key={c.id} action={saveContactAction} className="grid items-center gap-2 md:grid-cols-[1fr_1fr_160px_auto_auto_auto]">
-                <Hidden name="id" value={c.id} /><Hidden name="supplier_id" value={sup.id} />
-                <input name="name" defaultValue={c.name} aria-label="Contact name" className="input h-10" />
-                <input name="email" type="email" defaultValue={c.email ?? ""} aria-label="Email" placeholder="email" className="input h-10" />
-                <input name="phone" defaultValue={c.phone ?? ""} aria-label="Phone" placeholder="phone / WhatsApp" className="input h-10" />
-                <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" name="ncf" defaultChecked={c.ncf} /> NCF</label>
-                <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" name="active" defaultChecked={c.active} /> Active</label>
-                <Submit className="btn btn-commit">Save</Submit>
-              </ActionForm>
-            ))}
-            <ActionForm action={saveContactAction} resetOnOk className="grid items-center gap-2 border-t border-hairline pt-3 md:grid-cols-[1fr_1fr_160px_auto_auto]">
-              <Hidden name="supplier_id" value={sup.id} />
-              <input name="name" required placeholder="New contact name" aria-label="New contact name" className="input h-10" />
-              <input name="email" type="email" placeholder="email" aria-label="New contact email" className="input h-10" />
-              <input name="phone" placeholder="phone / WhatsApp" aria-label="New contact phone" className="input h-10" />
-              <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" name="ncf" defaultChecked /> NCF</label>
-              <Submit className="btn btn-commit">Add contact</Submit>
-            </ActionForm>
-          </div>
-        </Section>
-      ))}
-      {rows.length === 0 && <p className="text-muted">No supplier found.</p>}
-    </>
   );
 }
 

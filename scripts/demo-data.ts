@@ -160,7 +160,7 @@ async function main() {
       "Foto sisi belakang box");
     await ncf.submit(u.qc, closed, PW, at("2026-10-15 10:00"));
     await approveAll(closed, ["2026-10-15 13:20", "2026-10-16 08:40", "2026-10-16 11:05"]);
-    const c1 = (await ncf.send(u.pur, closed, "EMAIL", at("2026-10-16 14:00"))).link.split("/s/")[1];
+    const c1 = (await ncf.send(u.pur, closed, "LINK", at("2026-10-16 14:00"))).link.split("/s/")[1];
     await sup.openForSupplier(c1, at("2026-10-19 08:30"));
     await sup.respond(c1, capa({
       root_cause: "Tinta printer habis pada shift malam dan QC akhir tidak memeriksa sisi belakang box.",
@@ -177,7 +177,7 @@ async function main() {
       [[80, 46, 120]], [["karton-penyok.png", [170, 140, 100]]], "Karton di area receiving");
     await ncf.submit(u.qc, responded, PW, at("2026-10-21 09:15"));
     await approveAll(responded, ["2026-10-21 11:00", "2026-10-21 14:30", "2026-10-22 09:10"]);
-    const c2 = (await ncf.send(u.pur, responded, "EMAIL", at("2026-10-22 13:00"))).link.split("/s/")[1];
+    const c2 = (await ncf.send(u.pur, responded, "LINK", at("2026-10-22 13:00"))).link.split("/s/")[1];
     await sup.openForSupplier(c2, at("2026-10-23 09:00"));
     await sup.respond(c2, capa({
       root_cause: "Truk pengiriman tidak tertutup terpal saat hujan; palet tidak dibungkus stretch film.",
@@ -186,7 +186,7 @@ async function main() {
       effective_from: "2026-10-28", responder_name: "Rina Kusuma", responder_position: "QC Supervisor", responder_email: "rina@megakemas.demo",
     }), [], { ip: "203.0.113.22" }, at("2026-10-26 16:40"));
 
-    // 3. SENT by email: the supplier opened it but has not answered; reminders follow the Settings window.
+    // 3. SENT: link generated and emailed by Purchasing; the supplier opened it but has not answered yet.
     const sentEmail = await draft("MR-2026-10-0118", "2026-10-28 10:00",
       { date: "2026-10-28", time: "09:30", status: "FAILED", category: "Dimension",
         desc: "Engsel: lubang cup 33 mm, spesifikasi 35 mm. Handle: jarak lubang 126 mm, spesifikasi 128 mm.",
@@ -194,7 +194,7 @@ async function main() {
       [[50, 50, 2000], [32, 18, 1000]], [["engsel-ukur.png", [120, 120, 130]], ["handle-ukur.png", [60, 60, 70]]], "Pengukuran dengan jangka sorong");
     await ncf.submit(u.qc, sentEmail, PW, at("2026-10-28 11:00"));
     await approveAll(sentEmail, ["2026-10-29 09:00", "2026-10-29 13:45", "2026-10-30 10:20"]);
-    const c3 = (await ncf.send(u.pur, sentEmail, "EMAIL", at("2026-11-02 09:30"))).link.split("/s/")[1];
+    const c3 = (await ncf.send(u.pur, sentEmail, "LINK", at("2026-11-02 09:30"))).link.split("/s/")[1];
     await sup.openForSupplier(c3, at("2026-11-03 10:05"));
 
     // 4. APPROVED: all three signatures in; waiting for Purchasing to send.

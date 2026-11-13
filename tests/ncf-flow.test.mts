@@ -240,9 +240,11 @@ describe("Access rules", () => {
   test("auditor reads everything; QC lists only its BU; settings need Super Admin", async () => {
     const all = await ncf.listNcf(users.audit, "all");
     assert.equal(all.length, 3);
-    await assert.rejects(ver.saveSettings(users.pur, { reminder_window_wd: "3", reminder_max: "2", token_valid_days: "30" }), /Super Admin/);
-    await ver.saveSettings(users.admin, { reminder_window_wd: "3", reminder_max: "2", token_valid_days: "30" });
-    assert.equal((await ver.readSettings()).reminder_window_wd, 3);
+    const adm = await import("../src/lib/admin.ts");
+    const values = { reminder_window_wd: "3", reminder_max: "2", token_valid_days: "30", response_target_wd: "3" };
+    await assert.rejects(adm.saveWorkflow(users.pur, values), /role/);
+    await adm.saveWorkflow(users.admin, values);
+    assert.equal((await adm.workflowSettings()).reminder_window_wd, 3);
   });
 
   test("a status filter lists only that status, inside the user's own scope", async () => {

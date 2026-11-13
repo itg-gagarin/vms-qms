@@ -9,12 +9,12 @@ import {
   enqueue,
   getSetting,
   hasRole,
-  nextNcfNo,
   requireRole,
   roleScopes,
   usersWithRole,
   visibleStatuses,
 } from "./core";
+import { nextNumber } from "./admin";
 import type { Db } from "./db";
 import { one, pool, q, tx } from "./db";
 import { LIMITS, saveFile } from "./files";
@@ -365,7 +365,8 @@ export async function createDraft(actor: Actor, mrregId: number, now = new Date(
     const po = poId ?? (pos.length === 1 ? pos[0].id : undefined);
     if (pos.length > 1 && po === undefined) throw new AppError("This MRReg holds several POs. Choose the PO first.");
     if (po !== undefined && !pos.some((p) => p.id === po)) throw new AppError("This PO is not on the MRReg.");
-    const no = await nextNcfNo(c, now);
+    const bu = await one<{ code: string }>(c, "select code from business_unit where id = $1", [m.bu_id]);
+    const no = await nextNumber(c, now, bu!.code);
     const t = wib(now);
     const row = await one<{ id: number }>(
       c,

@@ -1,6 +1,6 @@
 // QR verification pages and print log (FD sections 9 and 13).
 import type { Actor } from "./core";
-import { canRead, getSetting, hasRole } from "./core";
+import { canRead } from "./core";
 import type { NcfStatus } from "./labels";
 import { one, pool, q } from "./db";
 import { AppError } from "./util";
@@ -66,34 +66,6 @@ export async function logPrint(actor: Actor, ncfId: number, status: string) {
 }
 
 // ---------- Settings and outbox (Super Admin) ----------
-
-export const SETTING_KEYS = [
-  { key: "reminder_window_wd", label: "Reminder window (working days)", min: 1, max: 30 },
-  { key: "reminder_max", label: "Maximum reminders per NCF", min: 0, max: 10 },
-  { key: "token_valid_days", label: "Supplier link valid for (days)", min: 1, max: 180 },
-] as const;
-
-export async function readSettings() {
-  const out: Record<string, number> = {};
-  for (const s of SETTING_KEYS) out[s.key] = await getSetting(pool, s.key);
-  return out;
-}
-
-export async function saveSettings(actor: Actor, values: Record<string, string>) {
-  if (!hasRole(actor, "SUPER_ADMIN")) throw new AppError("Only the Super Admin can change settings.", 403);
-  const current = await readSettings();
-  for (const s of SETTING_KEYS) {
-    const v = Number(values[s.key]);
-    if (!Number.isInteger(v) || v < s.min || v > s.max) throw new AppError(`${s.label} must be a whole number from ${s.min} to ${s.max}.`);
-    if (v !== current[s.key]) {
-      await pool.query("insert into setting(key, value, changed_by) values ($1,$2,$3)", [s.key, JSON.stringify(v), actor.id]);
-      await pool.query(
-        "insert into audit_log(entity, entity_id, action, field, old_value, new_value, actor_type, actor_id) values ('setting',0,'CHANGE',$1,$2,$3,'USER',$4)",
-        [s.key, String(current[s.key]), String(v), actor.id],
-      );
-    }
-  }
-}
 
 export async function outbox(limit = 100) {
   return q<{ id: number; event: string; recipient: string; payload: { subject: string; body: string }; status: string; created: Date }>(

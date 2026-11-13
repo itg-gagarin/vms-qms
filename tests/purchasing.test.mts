@@ -147,7 +147,7 @@ describe("Reports and export", () => {
     assert.equal(x.ncfs, submitted[0].n, "approvers export every submitted NCF, not drafts");
     const ExcelJS = (await import("exceljs")).default;
     const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(x.buffer);
+    await wb.xlsx.load(new Uint8Array(x.buffer).buffer);
     assert.deepEqual(wb.worksheets.map((w) => w.name), ["NCF", "Items"]);
     assert.equal(wb.getWorksheet("NCF")!.rowCount - 1, x.ncfs);
     await assert.rejects(rep.dashboard(users.qc, { from: "2026-12-31", to: "2026-01-01" }), /starts after it ends/);

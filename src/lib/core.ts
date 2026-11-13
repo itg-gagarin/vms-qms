@@ -2,7 +2,7 @@
 import type { Db } from "./db";
 import { one, q } from "./db";
 import type { NcfStatus } from "./labels";
-import { AppError, romanMonth, wib } from "./util";
+import { AppError } from "./util";
 
 export type Role = "QC_INSPECTOR" | "NCF_APPROVER" | "PURCHASING" | "PCH_DIV_HEAD" | "AUDITOR" | "SUPER_ADMIN";
 
@@ -146,18 +146,4 @@ export async function workingDaysBetween(db: Db, from: Date, to: Date): Promise<
     [from, to],
   );
   return row?.n ?? 0;
-}
-
-/** Next No. Komplain, e.g. 424/XI/2026. The counter row is locked, so numbers never repeat. */
-export async function nextNcfNo(db: Db, now = new Date()) {
-  const { year, month } = wib(now);
-  const key = `NCF-${year}`;
-  const row = await one<{ last: number }>(
-    db,
-    `insert into doc_counter(key, last) values ($1, 1)
-     on conflict (key) do update set last = doc_counter.last + 1
-     returning last`,
-    [key],
-  );
-  return `${row!.last}/${romanMonth(month)}/${year}`;
 }

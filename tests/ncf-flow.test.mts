@@ -43,8 +43,14 @@ const lines = async (id: number) => ncf.mrregLines(id);
 describe("NCF end to end: Premier, form sent by email", () => {
   let id = 0;
 
-  test("QC creates a draft from the MRReg; number continues the paper register", async () => {
+  test("QC creates a draft from the MRReg; number continues the paper register; the receipt moves to Archive", async () => {
+    const open = async () => (await ncf.searchMrreg(users.qc, "MR-2026-10-0001", 1, 20, "open")).length;
+    const archived = async () => (await ncf.searchMrreg(users.qc, "MR-2026-10-0001", 1, 20, "archive"))[0];
+    assert.equal(await open(), 1, "no NCF yet: the receipt is open");
     id = await ncf.createDraft(users.qc, await mrreg("MR-2026-10-0001"), at("2026-11-12 10:00"));
+    assert.equal(await open(), 0, "once an NCF is made it leaves the open list");
+    assert.deepEqual((await archived()).ncfs.map((n) => n.ncf_no), ["424/XI/2026"]);
+    assert.equal(await ncf.countMrreg(users.qc, "MR-2026-10-0001", "archive"), 1);
     const d = await ncf.getNcf(users.qc, id);
     assert.equal(d.ncf_no, "424/XI/2026");
     assert.equal(d.status, "DRAFT");
@@ -70,6 +76,12 @@ describe("NCF end to end: Premier, form sent by email", () => {
 
   test("submit lists what is missing, and needs the password", async () => {
     await assert.rejects(ncf.submit(users.qc, id, PW), /Status barang.*Kategori.*evidence/s);
+    // The error names the cards to highlight (C status, D problem, E evidence, F follow-up), before any password is checked.
+    await assert.rejects(ncf.submit(users.qc, id, "wrong"), (e: unknown) => {
+      assert.ok(e instanceof ncf.IncompleteError);
+      assert.deepEqual([...new Set(e.missing.map((m) => m.part))], ["C", "D", "E", "F"]);
+      return true;
+    });
     await ncf.updateHeader(users.qc, id, header());
     await ncf.addEvidence(users.qc, id, [photo("cacat-1.png", "a")], "Foto sisi belakang");
     await assert.rejects(ncf.submit(users.qc, id, "wrong"), /Password/);
@@ -148,8 +160,7 @@ describe("NCF end to end: Premier, form sent by email", () => {
   });
 
   test("Purchasing verifies and closes", async () => {
-    await assert.rejects(ncf.close(users.pur, id, ""), /verification/);
-    await ncf.close(users.pur, id, "CAPA diterima. Box pengganti dicek saat datang.", at("2026-11-25 09:00"));
+    await ncf.close(users.pur, id, at("2026-11-25 09:00"));
     const d = await ncf.getNcf(users.audit, id);
     assert.equal(d.status, "CLOSED");
     assert.equal(d.evidence.filter((e) => e.capa_response_id && e.file_id).length, 1);
@@ -281,7 +292,7 @@ describe("Access rules", () => {
   });
 
   test("Super Admin can do every role's work, but cannot sign an approval step named for someone else", async () => {
-    assert.ok((await ncf.searchMrreg(users.admin, "")).length > 0, "sees goods receipts like QC");
+    assert.ok((await ncf.countMrreg(users.admin, "", "open")) + (await ncf.countMrreg(users.admin, "", "archive")) > 0, "sees goods receipts like QC");
     const id = await ncf.createDraft(users.admin, await mrreg("MR-2026-11-0007"), at("2026-11-13 09:00"));
     await ncf.updateHeader(users.admin, id, header());
     const [l] = await lines(id);

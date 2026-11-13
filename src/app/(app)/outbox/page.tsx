@@ -21,7 +21,45 @@ export default async function SupplierOutbox({ searchParams }: { searchParams: P
       <Tabs label="Outbox" items={DISPATCH_TABS.map((t) => ({ href: `/outbox?tab=${t.key}`, label: t.label, active: t.key === tab }))} />
 
       <TableCard footer={<Pager total={total} page={page} size={size} base={{ tab }} />}>
-        <table className="table w-full min-w-[880px]">
+        {/* Phones: one card per NCF, contacts tappable */}
+        <ul className="divide-y divide-hairline md:hidden">
+          {rows.length === 0 && <li className="px-4 py-8 text-center text-muted">Nothing here: no NCF is at this stage.</li>}
+          {rows.map((r) => {
+            const late = r.running && (r.working_days ?? 0) > window;
+            return (
+              <li key={r.id} className="flex flex-col gap-1.5 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <Link href={`/ncf/${r.id}`} className="num font-semibold">{r.ncf_no}</Link>
+                  <StatusBadge status={r.status} />
+                </div>
+                <div className="text-[14px] font-medium">{r.supplier} <span className="num text-[12px] font-normal text-muted">{r.supplier_code}{r.po_no && ` · PO ${r.po_no}`}</span></div>
+                <div className="text-[13px]">
+                  {r.contacts.length === 0 && <span className="text-status-amber">No contact on file</span>}
+                  {r.contacts.map((c, i) => (
+                    <div key={i} className="break-words leading-snug">
+                      <span className="font-medium">{c.name}</span>
+                      {c.email && <> · <a href={`mailto:${c.email}`}>{c.email}</a></>}
+                      {c.phone && <> · <a href={`tel:${c.phone}`} className="num">{c.phone}</a></>}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-[12px] text-muted">
+                  <span className="num">
+                    {r.sent_at ? `Sent ${fmtDateTime(r.sent_at)}` : "Not sent yet"}
+                    {r.responded_at && ` · returned ${fmtDateTime(r.responded_at)}`}
+                    {r.reminders > 0 && ` · ${r.reminders} reminder${r.reminders > 1 ? "s" : ""}`}
+                  </span>
+                  {r.working_days !== null && (
+                    <span className={`num text-[13px] font-semibold ${late ? "text-status-red" : r.running ? "text-ink" : "text-status-emerald"}`}>
+                      {r.working_days} wd{r.running ? " so far" : ""}{late && ` · over ${window}`}
+                    </span>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <table className="table w-full max-md:hidden">
           <thead>
             <tr>
               <th scope="col">NCF</th>

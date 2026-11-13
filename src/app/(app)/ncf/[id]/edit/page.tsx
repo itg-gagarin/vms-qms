@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ActionForm, Submit } from "@/components/action-form";
 import { EvidenceList, ItemTable } from "@/components/ncf-document";
+import { PhoneActionBar } from "@/components/phone-action-bar";
+import { ScrollToFlag } from "@/components/scroll-to-flag";
 import { Banner, Field, Section, Shell } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { hasRole } from "@/lib/core";
 import { LIMITS } from "@/lib/files";
 import { GOODS_STATUS } from "@/lib/labels";
-import { getNcf, missingForSubmit, mrregLines, mrregPos, problemCategories } from "@/lib/ncf";
+import { getNcf, missingParts, mrregLines, type DraftPart, mrregPos, problemCategories } from "@/lib/ncf";
 import { AppError, fmtDate } from "@/lib/util";
 import {
   addEvidenceAction,
@@ -19,9 +21,12 @@ import {
   submitAction,
 } from "../../actions";
 
-export default async function EditNcf({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditNcf({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ check?: string }> }) {
   const user = await requireUser();
   const { id } = await params;
+  // The pick lists load alongside the NCF; they are only used once getNcf has checked access.
+  const listsP = Promise.all([mrregLines(Number(id)), problemCategories(), mrregPos(Number(id))]);
+  listsP.catch(() => {});
   let d;
   try {
     d = await getNcf(user, Number(id));
@@ -30,13 +35,16 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
     throw e;
   }
   if (d.status !== "DRAFT" || !hasRole(user, "QC_INSPECTOR", d.bu_id)) redirect(`/ncf/${d.id}`);
-  const [lines, categories, pos] = await Promise.all([mrregLines(d.id), problemCategories(), mrregPos(d.id)]);
+  const [lines, categories, pos] = await listsP;
   const free = lines.filter((l) => !l.used);
-  const missing = missingForSubmit(d);
+  const missing = missingParts(d);
+  const flag = (await searchParams).check === "1" && missing.length > 0;
+  const mark = (part: DraftPart) => ({ id: `part-${part}`, flag, missing: missing.filter((m) => m.part === part).map((m) => m.text) });
   const ownFiles = d.evidence.filter((e) => e.capa_response_id === null);
 
   return (
     <Shell>
+      {flag && <ScrollToFlag />}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm"><Link href={`/ncf/${d.id}`}>← View NCF</Link></p>
@@ -46,7 +54,7 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
         <span className="font-mono text-lg font-semibold">No. {d.ncf_no}</span>
       </div>
 
-      <Section title="A. Identifikasi masalah" aside="No. Komplain and SAP fields are filled automatically">
+      <Section {...mark("A")} title="A. Identifikasi masalah" aside="No. Komplain and SAP fields are filled automatically">
         <div className="flex flex-wrap gap-x-6 gap-y-4">
           <Field label="No. Komplain">{d.ncf_no}</Field>
           <Field label="Business Unit">{d.bu_name}</Field>
@@ -74,7 +82,7 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
         </ActionForm>
       </Section>
 
-      <Section title="B. Penyimpangan yang terjadi" aside="Nama, kode barang dan Jumlah Datang dari SAP">
+      <Section {...mark("B")} title="B. Penyimpangan yang terjadi" aside="Nama, kode barang dan Jumlah Datang dari SAP">
         <ItemTable d={d}>
           {(itemId) => (
             <ActionForm action={removeItemAction}>
@@ -120,7 +128,7 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
 
       <ActionForm action={saveHeaderAction} className="flex flex-col gap-5">
         <input type="hidden" name="id" value={d.id} />
-        <Section title="Pemeriksaan dan status barang">
+        <Section {...mark("C")} title="C. Pemeriksaan dan status barang">
           <div className="flex flex-wrap gap-4">
             <div className="min-w-[200px] flex-1">
               <label htmlFor="inspect_date" className="label">Tanggal Periksa</label>
@@ -132,7 +140,7 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
             </div>
           </div>
           <fieldset className="mt-5">
-            <legend className="label">C. Status barang</legend>
+            <legend className="label">Status barang</legend>
             <div className="flex flex-wrap gap-3">
               {Object.entries(GOODS_STATUS).map(([k, label]) => (
                 <label key={k} className="flex min-h-11 flex-1 basis-56 cursor-pointer items-start gap-3 rounded-lg border border-slate-300 px-4 py-3 has-[:checked]:border-2 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
@@ -147,7 +155,7 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
             <input id="hold_note" name="hold_note" defaultValue={d.hold_note ?? ""} className="input" />
           </div>
         </Section>
-        <Section title="D. Masalah yang ditemukan">
+        <Section {...mark("D")} title="D. Masalah yang ditemukan">
           <div className="flex flex-wrap gap-4">
             <div className="min-w-[220px] flex-1">
               <label htmlFor="problem_category_id" className="label">Kategori masalah</label>
@@ -162,7 +170,7 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
             </div>
           </div>
         </Section>
-        <Section title="F. Tindak lanjut dari Integra">
+        <Section {...mark("F")} title="F. Tindak lanjut dari Integra">
           <label htmlFor="follow_up" className="label">Tindak lanjut</label>
           <textarea id="follow_up" name="follow_up" rows={3} defaultValue={d.follow_up ?? ""} className="input" />
         </Section>
@@ -171,7 +179,7 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
         </div>
       </ActionForm>
 
-      <Section title="E. Bukti" aside={`Foto, video, dokumen · max ${LIMITS.filesPerNcf} files, video up to 50 MB`}>
+      <Section {...mark("E")} title="E. Bukti" aside={`Foto, video, dokumen · max ${LIMITS.filesPerNcf} files, video up to 50 MB`}>
         <EvidenceList items={ownFiles} fileHref={(f) => `/api/files/${f}`}>
           {(evId) => (
             <ActionForm action={removeEvidenceAction}>
@@ -195,10 +203,13 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
         </ActionForm>
       </Section>
 
-      <Section title="Sign and submit for approval">
+      <Section id="submit" title="Sign and submit for approval">
         {missing.length > 0 ? (
-          <Banner kind="info">
-            Still missing: <ul className="mt-1 list-disc pl-5">{missing.map((m) => <li key={m}>{m}</li>)}</ul>
+          <Banner kind={flag ? "error" : "info"}>
+            Still missing:
+            <ul className="mt-1 list-disc pl-5">
+              {missing.map((m) => <li key={m.text}><a href={`#part-${m.part}`}>{m.part}</a> · {m.text}</li>)}
+            </ul>
           </Banner>
         ) : (
           <Banner kind="ok">Complete. Submitting locks the content, creates a numbered version and signs it with your name.</Banner>
@@ -212,6 +223,7 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
           <Submit className="btn btn-advance">Sign and submit</Submit>
         </ActionForm>
       </Section>
+      <PhoneActionBar href="#submit" label={missing.length ? `Sign and submit · ${missing.length} to complete` : "Sign and submit"} />
     </Shell>
   );
 }

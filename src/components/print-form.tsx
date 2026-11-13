@@ -23,10 +23,11 @@ type PrintMeta = { kind: "COPY" | "DRAFT" | "VOID"; copy: number; printedBy: str
 /** The two-page A4 record (FD section 13). Page 2 is printed once the NCF has been sent. */
 export async function PrintForm({ d, meta, pages }: { d: NcfDetail; meta: PrintMeta; pages: 1 | 2 }) {
   const docUrl = d.version ? `${appUrl()}/v/${d.version.verify_code}` : "";
-  // The supplier's copy carries no QR code: no address of the system leaves Integra on it.
-  const docQr = d.version && !meta.external ? await qrSvg(docUrl) : null;
+  // Every copy, the supplier's included, carries live QR codes: anyone holding the paper or PDF can scan them to check
+  // the number, version and signatures on the read-only /v pages. They lead to nothing else in the system.
+  const docQr = d.version ? await qrSvg(docUrl) : null;
   const sigUrls = d.approvals.map((a) => (a.decision === "APPROVED" && a.verify_code ? `${appUrl()}/v/s/${a.verify_code}` : ""));
-  const sigQrs = await Promise.all(sigUrls.map((u) => (u && !meta.external ? qrSvg(u, 46) : null)));
+  const sigQrs = await Promise.all(sigUrls.map((u) => (u ? qrSvg(u, 46) : null)));
   const totals = d.items.reduce(
     (t, i) => ({ r: t.r + i.qty_received, s: t.s + i.qty_sample, c: t.c + i.qty_defect, x: t.x + i.qty_return }),
     { r: 0, s: 0, c: 0, x: 0 },
@@ -178,8 +179,6 @@ export async function PrintForm({ d, meta, pages }: { d: NcfDetail; meta: PrintM
               <div className={`border-r ${B} px-2.5 py-1.5`}><b>Penanggung jawab supplier:</b> {d.capa?.responder_name}</div>
               <div className="px-2.5 py-1.5"><b>Jabatan:</b> {d.capa?.responder_position}</div>
             </div>
-            <Band>VERIFIKASI DAN PENUTUPAN · DIISI INTEGRA</Band>
-            <Box label="Hasil verifikasi atas respons supplier" value={d.closure_note} sideLabel="Ditutup oleh" side={d.closed_by_name ?? ""} grow={0.7} />
             <Band>JEJAK WAKTU · DICATAT SISTEM</Band>
             <table className="w-full shrink-0 border-collapse [&_td]:border-b [&_td]:border-r [&_td]:border-slate-900 [&_td]:px-2.5 [&_td]:py-1 [&_td:last-child]:border-r-0 [&_th]:border-b [&_th]:border-r [&_th]:border-slate-900 [&_th]:px-2.5 [&_th]:py-1 [&_th]:text-left [&_th:last-child]:border-r-0">
               <thead>
@@ -229,18 +228,15 @@ function Head({ ctx, part }: { ctx: SheetCtx; part: string }) {
         <span className="text-[12px] text-slate-700">No. {ctx.ncfNo} · Versi {ctx.version ?? "–"} · {part}</span>
       </div>
       <div className={`flex w-[150px] items-center gap-2 border-l ${B} px-2.5`}>
-        {ctx.meta.external ? (
-          <span className="text-[12px] font-semibold leading-tight">Salinan untuk supplier</span>
+        {ctx.docQr ? (
+          <Qr svg={ctx.docQr} href={ctx.docUrl} label="QR verifikasi dokumen" />
         ) : (
-          <>
-            {ctx.docQr ? (
-              <Qr svg={ctx.docQr} href={ctx.docUrl} label="QR verifikasi dokumen" />
-            ) : (
-              <span className="flex size-[60px] items-center justify-center border border-dashed text-[11px]">QR</span>
-            )}
-            <span className="text-[11px] leading-tight">Pindai untuk cek nomor, versi dan bukti</span>
-          </>
+          <span className="flex size-[60px] shrink-0 items-center justify-center border border-dashed text-[11px]">QR</span>
         )}
+        <span className="text-[11px] leading-tight">
+          {ctx.meta.external && <b className="block text-[12px]">Salinan untuk supplier</b>}
+          Pindai untuk cek keaslian
+        </span>
       </div>
     </div>
   );

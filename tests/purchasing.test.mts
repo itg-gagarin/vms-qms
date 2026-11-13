@@ -65,8 +65,8 @@ describe("Purchasing records the supplier's emailed reply (Returned)", () => {
     await assert.rejects(pur.markReturned(users.pur, id, { receivedAt: at("2026-11-11 09:00"), files: [reply()], note: "" }), /waiting for the supplier/);
   });
 
-  test("closing needs only the verification note", async () => {
-    await ncf.close(users.pur, id, "CAPA di balasan diterima, box pengganti dicek.");
+  test("closing takes no verification note", async () => {
+    await ncf.close(users.pur, id);
     assert.equal((await ncf.getNcf(users.pur, id)).status, "CLOSED");
   });
 

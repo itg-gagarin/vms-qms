@@ -166,7 +166,7 @@ async function main() {
         "Akar masalah: tinta printer habis pada shift malam dan QC akhir tidak memeriksa sisi belakang box.\n" +
         "Corrective: cetak ulang 165 box, kirim pengganti 30/10.\nPreventive: checklist QC akhir ditambah pemeriksaan sisi belakang.")],
     }, at("2026-10-20 10:20"));
-    await ncf.close(u.pur, closed, "CAPA diterima. Box pengganti diperiksa saat datang 30/10 dan sesuai.", at("2026-10-30 15:00"));
+    await ncf.close(u.pur, closed, at("2026-10-30 15:00"));
 
     // 2. RESPONDED: the supplier answered; Purchasing still has to verify and close.
     const responded = await draft("MR-2026-10-0102", "2026-10-21 08:30",

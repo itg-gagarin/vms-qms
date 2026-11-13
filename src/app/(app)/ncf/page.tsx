@@ -38,7 +38,25 @@ export default async function NcfList({ searchParams }: { searchParams: Promise<
       </PageHead>
       <Tabs label="Worklist" items={tabs.map((t) => ({ href: `/ncf?tab=${t.key}`, label: t.label, active: !status && t.key === tab }))} />
       <TableCard footer={<Pager total={total} page={page} size={size} base={{ tab: status ? undefined : tab, status }} />}>
-        <table className="table w-full min-w-[820px]">
+        {/* Phones: each NCF is one tappable card */}
+        <ul className="divide-y divide-hairline md:hidden">
+          {rows.length === 0 && <li className="px-4 py-8 text-center text-muted">No NCF here: nothing waits for you at this stage.</li>}
+          {rows.map((r) => (
+            <li key={r.id}>
+              <Link href={`/ncf/${r.id}`} className="block px-4 py-3 text-ink no-underline active:bg-row-hover hover:no-underline">
+                <span className="flex items-center justify-between gap-3">
+                  <span className="num font-semibold text-tint-ink">{r.ncf_no}</span>
+                  <StatusBadge status={r.status} />
+                </span>
+                <span className="mt-0.5 block truncate text-[14px]">{r.supplier_name}</span>
+                <span className="num mt-0.5 block text-[12px] text-muted">
+                  {[r.po_no && `PO ${r.po_no}`, fmtDate(r.receipt_date), `${r.items} item${r.items === 1 ? "" : "s"}`, `${r.defects} cacat`].filter(Boolean).join(" · ")}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <table className="table w-full max-md:hidden">
           <thead>
             <tr>
               <th scope="col">No. Komplain</th>

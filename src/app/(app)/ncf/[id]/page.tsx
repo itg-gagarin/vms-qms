@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ActionForm, Submit } from "@/components/action-form";
 import { AuditTimeline } from "@/components/audit-timeline";
 import { EvidenceList, NcfPart1, NcfPart2 } from "@/components/ncf-document";
+import { PhoneActionBar } from "@/components/phone-action-bar";
 import { StageStepper } from "@/components/stage-stepper";
 import { Banner, Chip, Section, Shell, StatusBadge } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -30,6 +31,9 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
   const user = await requireUser();
   const { id } = await params;
   const { msg } = await searchParams;
+  // The trail starts loading with the NCF; it is only shown once getNcf has checked the viewer may read it.
+  const trailP = auditTrail(Number(id));
+  trailP.catch(() => {});
   let d: NcfDetail;
   try {
     d = await getNcf(user, Number(id));
@@ -37,7 +41,7 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
     if (e instanceof AppError && (e.status === 404 || e.status === 403)) notFound();
     throw e;
   }
-  const trail = await auditTrail(d.id);
+  const trail = await trailP;
   const pending = d.status === "WAITING_APPROVAL" ? d.approvals.find((a) => a.decision === null) : undefined;
   const purchasing = hasRole(user, ["PURCHASING", "PCH_DIV_HEAD"]);
   const qc = hasRole(user, "QC_INSPECTOR", d.bu_id);
@@ -78,7 +82,7 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
           <div className="flex flex-wrap items-center gap-2">
             <Link href={`/print/${d.id}`} className="btn" target="_blank"><Printer size={16} aria-hidden="true" /> Print form</Link>
             {/* A jump to the action panel; when the panel is on this page, its button is the one green action. */}
-            {primary && <Link href={primary.href} className={actor === "qc" ? "btn btn-advance" : "btn"}>{primary.label}</Link>}
+            {primary && <Link href={primary.href} className={`max-md:hidden ${actor === "qc" ? "btn btn-advance" : "btn"}`}>{primary.label}</Link>}
           </div>
         </div>
 
@@ -92,7 +96,7 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
       {msg && MESSAGES[msg] && <Banner kind="ok">{MESSAGES[msg]}</Banner>}
 
       {actor && actor !== "qc" && (
-        <div id="action" className="scroll-mt-4">
+        <div id="action" className="scroll-mt-20">
           {actor === "approver" && pending && <ApprovalPanel d={d} pending={pending} />}
           {actor === "purchasing" && d.status === "APPROVED" && <SendPanel d={d} />}
           {actor === "purchasing" && d.status === "SENT" && <ReturnPanel d={d} runningDays={runningDays} />}
@@ -138,6 +142,7 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
           </Section>
         </aside>
       </div>
+      {primary && <PhoneActionBar href={primary.href} label={primary.label} />}
     </Shell>
   );
 }
@@ -270,10 +275,7 @@ function ClosePanel({ d, fileHref }: { d: NcfDetail; fileHref: (f: number) => st
         </div>
         <ActionForm action={closeAction} className="flex flex-col gap-2">
           <input type="hidden" name="id" value={d.id} />
-          <div>
-            <label htmlFor="close-note" className="label">Hasil verifikasi atas respons supplier</label>
-            <textarea id="close-note" name="note" rows={4} required className="input" />
-          </div>
+          <p className="text-[13px] text-muted">Close once you have checked the supplier&apos;s reply. The NCF then becomes read-only.</p>
           <div><Submit className="btn btn-advance">Close NCF</Submit></div>
         </ActionForm>
       </div>

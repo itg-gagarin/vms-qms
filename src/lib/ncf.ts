@@ -105,8 +105,20 @@ export async function getNcf(actor: Actor | null, id: number, db: Db = pool) {
 
 export type NcfDetail = Awaited<ReturnType<typeof loadDetails>>;
 
+/**
+ * Everything the NCF screens show, in one round of parallel queries (they all key on the NCF id), so a page waits for
+ * the slowest query instead of the sum of ten.
+ */
+/** Runs independent reads together on the pool; one after another on a transaction's client, which takes one query at a time. */
+async function runAll<T extends readonly (() => Promise<unknown>)[]>(db: Db, fs: T): Promise<{ -readonly [K in keyof T]: Awaited<ReturnType<T[K]>> }> {
+  if (db === pool) return Promise.all(fs.map((f) => f())) as never;
+  const out: unknown[] = [];
+  for (const f of fs) out.push(await f());
+  return out as never;
+}
+
 async function loadDetails(db: Db, n: NcfRow) {
-  const items = await q<{
+  const items = () => q<{
     id: number;
     mrreg_line_id: number | null;
     item_code: string;
@@ -128,7 +140,7 @@ async function loadDetails(db: Db, n: NcfRow) {
      where ni.ncf_id = $1 order by ni.id`,
     [n.id],
   );
-  const evidence = await q<{
+  const evidence = () => q<{
     id: number;
     kind: string;
     caption: string | null;
@@ -147,15 +159,15 @@ async function loadDetails(db: Db, n: NcfRow) {
      order by e.id`,
     [n.id],
   );
-  const version = n.current_version
-    ? await one<{ id: number; version_no: number; content_hash: string; verify_code: string; submitted_at: Date }>(
+  const version = () => n.current_version
+    ? one<{ id: number; version_no: number; content_hash: string; verify_code: string; submitted_at: Date }>(
         db,
         "select id, version_no, content_hash, verify_code, submitted_at from ncf_version where ncf_id = $1 and version_no = $2",
         [n.id, n.current_version],
       )
-    : undefined;
-  const approvals = version
-    ? await q<{
+    : Promise.resolve(undefined);
+  const approvals = () => n.current_version
+    ? q<{
         id: number;
         step_no: number;
         approver_id: number;
@@ -170,20 +182,20 @@ async function loadDetails(db: Db, n: NcfRow) {
         db,
         `select a.id, a.step_no, a.approver_id, coalesce(cs.approver_title, 'QC Incoming') as title, a.signer_name, a.signer_position,
                 a.decision, a.comment, a.decided_at, a.verify_code
-         from ncf_approval a
+         from ncf_approval a join ncf_version v on v.id = a.ncf_version_id and v.ncf_id = $1 and v.version_no = $3
          left join approval_chain_step cs on cs.bu_id = $2 and cs.step_no = a.step_no
-         where a.ncf_version_id = $1 order by a.step_no`,
-        [version.id, n.bu_id],
+         order by a.step_no`,
+        [n.id, n.bu_id, n.current_version],
       )
-    : [];
-  const history = await q<{ version_no: number; step_no: number; signer_name: string; decision: string | null; comment: string | null; decided_at: Date | null }>(
+    : Promise.resolve([]);
+  const history = () => q<{ version_no: number; step_no: number; signer_name: string; decision: string | null; comment: string | null; decided_at: Date | null }>(
     db,
     `select v.version_no, a.step_no, a.signer_name, a.decision, a.comment, a.decided_at
      from ncf_approval a join ncf_version v on v.id = a.ncf_version_id
      where v.ncf_id = $1 and a.decision is not null order by a.decided_at`,
     [n.id],
   );
-  const request = await one<{
+  const request = () => one<{
     id: number;
     ref_no: string;
     status: string;
@@ -201,8 +213,7 @@ async function loadDetails(db: Db, n: NcfRow) {
      from supplier_request r left join app_user u on u.id = r.sent_by where r.ncf_id = $1`,
     [n.id],
   );
-  const capa = request
-    ? await one<{
+  const capa = () => one<{
         id: number;
         root_cause: string | null;
         corrective_action: string | null;
@@ -221,24 +232,26 @@ async function loadDetails(db: Db, n: NcfRow) {
       }>(
         db,
         `select cr.*, ru.name as recorded_by_name, vu.name as reviewed_by_name
-         from capa_response cr left join app_user ru on ru.id = cr.recorded_by left join app_user vu on vu.id = cr.reviewed_by
-         where cr.request_id = $1 and not cr.is_addendum`,
-        [request.id],
-      )
-    : undefined;
-  const reminders = request
-    ? await q<{ seq_no: number; sent_at: Date; to_supplier: boolean }>(
-        db,
-        "select seq_no, sent_at, to_supplier from reminder where request_id = $1 order by seq_no",
-        [request.id],
-      )
-    : [];
-  const submittedAt = await one<{ at: Date }>(
+         from capa_response cr join supplier_request r on r.id = cr.request_id
+         left join app_user ru on ru.id = cr.recorded_by left join app_user vu on vu.id = cr.reviewed_by
+         where r.ncf_id = $1 and not cr.is_addendum`,
+        [n.id],
+      );
+  const reminders = () => q<{ seq_no: number; sent_at: Date; to_supplier: boolean }>(
+    db,
+    "select m.seq_no, m.sent_at, m.to_supplier from reminder m join supplier_request r on r.id = m.request_id where r.ncf_id = $1 order by m.seq_no",
+    [n.id],
+  );
+  const submittedAt = () => one<{ at: Date }>(
     db,
     "select min(submitted_at) as at from ncf_version where ncf_id = $1",
     [n.id],
   );
-  return { ...n, items, evidence, version, approvals, history, request, capa, reminders, firstSubmittedAt: submittedAt?.at ?? null };
+  const [it, ev, ver, ap, hi, req, cp, rem, sub] = await runAll(db, [items, evidence, version, approvals, history, request, capa, reminders, submittedAt] as const);
+  return {
+    ...n, items: it, evidence: ev, version: ver, approvals: ap, history: hi, request: req, capa: req ? cp : undefined, reminders: rem,
+    firstSubmittedAt: sub?.at ?? null,
+  };
 }
 
 /** The worklist filter: a tab, optionally one status, always the user's stages and Business Units. */
@@ -316,37 +329,46 @@ export async function countNcf(actor: Actor, filter: string, status?: NcfStatus)
   return (await one<{ n: number }>(pool, `select count(*)::int as n from ncf n ${where}`, params))!.n;
 }
 
-export async function searchMrreg(actor: Actor, term: string, page = 1, size = 20) {
+/** Open: no NCF yet. Archive: an NCF was raised on it (a void NCF does not count, so the receipt reopens). */
+export type ReceiptTab = "open" | "archive";
+
+function receiptWhere(actor: Actor, term: string, tab: ReceiptTab) {
   const bus = roleScopes(actor, "QC_INSPECTOR");
-  const all = bus.includes(null);
+  return {
+    sql: `($1 = '' or m.mrreg_no ilike '%' || $1 || '%' or s.name ilike '%' || $1 || '%' or m.sj_no ilike '%' || $1 || '%')
+          and ($2 or m.bu_id = any($3))
+          and ${tab === "archive" ? "" : "not "}exists (select 1 from ncf x where x.mrreg_id = m.id and x.status <> 'VOID')`,
+    params: [term.trim(), bus.includes(null), bus.filter((b) => b !== null)] as unknown[],
+  };
+}
+
+export async function searchMrreg(actor: Actor, term: string, page = 1, size = 20, tab: ReceiptTab = "open") {
+  const w = receiptWhere(actor, term, tab);
   return q<{
-    id: number; mrreg_no: string; supplier_name: string; sj_no: string; receipt_date: string; lines: number; sap_status: string | null;
+    id: number; bu_id: number; mrreg_no: string; supplier_name: string; sj_no: string; receipt_date: string; lines: number; sap_status: string | null;
     pos: { id: number; po_no: string; lines: number }[];
+    ncfs: { id: number; ncf_no: string; status: NcfStatus; po_no: string | null }[];
   }>(
     pool,
-    `select m.id, m.mrreg_no, s.name as supplier_name, m.sj_no, m.receipt_date, m.sap_status,
+    `select m.id, m.bu_id, m.mrreg_no, s.name as supplier_name, m.sj_no, m.receipt_date, m.sap_status,
             (select count(*)::int from mrreg_line l where l.mrreg_id = m.id) as lines,
             coalesce((select json_agg(json_build_object('id', x.id, 'po_no', x.po_no, 'lines', x.lines) order by x.po_no)
                       from (select po.id, po.po_no, count(*)::int as lines from mrreg_line l
                             join po_line pl on pl.id = l.po_line_id join purchase_order po on po.id = pl.po_id
-                            where l.mrreg_id = m.id group by po.id, po.po_no) x), '[]') as pos
+                            where l.mrreg_id = m.id group by po.id, po.po_no) x), '[]') as pos,
+            coalesce((select json_agg(json_build_object('id', n.id, 'ncf_no', n.ncf_no, 'status', n.status, 'po_no', po.po_no) order by n.id)
+                      from ncf n left join purchase_order po on po.id = n.po_id
+                      where n.mrreg_id = m.id and n.status <> 'VOID'), '[]') as ncfs
      from mrreg m join supplier s on s.id = m.supplier_id
-     where ($1 = '' or m.mrreg_no ilike '%' || $1 || '%' or s.name ilike '%' || $1 || '%' or m.sj_no ilike '%' || $1 || '%')
-       and ($2 or m.bu_id = any($3))
+     where ${w.sql}
      order by m.receipt_date desc, m.id desc limit ${Number(size)} offset ${(Number(page) - 1) * Number(size)}`,
-    [term.trim(), all, bus.filter((b) => b !== null)],
+    w.params,
   );
 }
 
-export async function countMrreg(actor: Actor, term: string) {
-  const bus = roleScopes(actor, "QC_INSPECTOR");
-  return (await one<{ n: number }>(
-    pool,
-    `select count(*)::int as n from mrreg m join supplier s on s.id = m.supplier_id
-     where ($1 = '' or m.mrreg_no ilike '%' || $1 || '%' or s.name ilike '%' || $1 || '%' or m.sj_no ilike '%' || $1 || '%')
-       and ($2 or m.bu_id = any($3))`,
-    [term.trim(), bus.includes(null), bus.filter((b) => b !== null)],
-  ))!.n;
+export async function countMrreg(actor: Actor, term: string, tab: ReceiptTab = "open") {
+  const w = receiptWhere(actor, term, tab);
+  return (await one<{ n: number }>(pool, `select count(*)::int as n from mrreg m join supplier s on s.id = m.supplier_id where ${w.sql}`, w.params))!.n;
 }
 
 export async function mrregLines(ncfId: number, db: Db = pool) {
@@ -535,29 +557,45 @@ export async function removeEvidence(actor: Actor, id: number, evidenceId: numbe
 
 // ---------- Submit and sign (FD section 8) ----------
 
-export function missingForSubmit(d: NcfDetail): string[] {
-  const miss: string[] = [];
-  if (!d.mrreg_id) miss.push("No. MRReg is not matched to SAP yet (Unmatched NCFs cannot be approved).");
-  if (!d.po_id) miss.push("No. PO.");
-  if (d.items.length === 0) miss.push("At least one item row.");
-  if (!d.goods_status) miss.push("Status barang.");
-  if (!d.problem_category_id) miss.push("Kategori masalah.");
-  if (!d.problem_desc) miss.push("Uraian masalah.");
-  if (!d.follow_up) miss.push("Tindak lanjut dari Integra.");
-  if (!d.evidence.some((e) => e.file_id && e.capa_response_id === null)) miss.push("At least one evidence file.");
-  if (d.goods_status === "FAILED" && d.items.reduce((t, i) => t + i.qty_return, 0) <= 0) {
-    miss.push("Qty Retur, because the status is Gagal / Failed.");
+/** The draft form's cards: A identification, B items, C status, D problem, E evidence, F follow-up. */
+export type DraftPart = "A" | "B" | "C" | "D" | "E" | "F";
+export type Missing = { part: DraftPart; text: string };
+
+/** What still blocks submitting, with the card it belongs to so the form can point at it. */
+export function missingParts(d: NcfDetail): Missing[] {
+  const miss: Missing[] = [];
+  if (!d.mrreg_id) miss.push({ part: "A", text: "No. MRReg is not matched to SAP yet (Unmatched NCFs cannot be approved)." });
+  if (!d.po_id) miss.push({ part: "A", text: "No. PO." });
+  if (d.items.length === 0) miss.push({ part: "B", text: "At least one item row." });
+  if (d.goods_status === "FAILED" && d.items.length > 0 && d.items.reduce((t, i) => t + i.qty_return, 0) <= 0) {
+    miss.push({ part: "B", text: "Qty Retur, because the status is Gagal / Failed." });
   }
+  if (!d.goods_status) miss.push({ part: "C", text: "Status barang." });
+  if (!d.problem_category_id) miss.push({ part: "D", text: "Kategori masalah." });
+  if (!d.problem_desc) miss.push({ part: "D", text: "Uraian masalah." });
+  if (!d.evidence.some((e) => e.file_id && e.capa_response_id === null)) miss.push({ part: "E", text: "At least one evidence file." });
+  if (!d.follow_up) miss.push({ part: "F", text: "Tindak lanjut dari Integra." });
   return miss;
+}
+
+export function missingForSubmit(d: NcfDetail): string[] {
+  return missingParts(d).map((m) => m.text);
+}
+
+/** Submitting an incomplete draft. Carries the cards to highlight. */
+export class IncompleteError extends AppError {
+  constructor(public missing: Missing[]) {
+    super("Not complete: " + missing.map((m) => m.text).join(" "));
+  }
 }
 
 export async function submit(actor: Actor, id: number, password: string, now = new Date()) {
   return tx(async (c) => {
     const n = await draftForEdit(c, actor, id);
-    await checkPassword(c, actor, password);
     const d = await loadDetails(c, n);
-    const miss = missingForSubmit(d);
-    if (miss.length) throw new AppError("Not complete: " + miss.join(" "));
+    const miss = missingParts(d);
+    if (miss.length) throw new IncompleteError(miss);
+    await checkPassword(c, actor, password);
     const chain = await q<{ step_no: number; approver_id: number | null; approver_title: string }>(
       c,
       "select step_no, approver_id, approver_title from approval_chain_step where bu_id = $1 order by step_no",
@@ -720,18 +758,18 @@ export async function markSent(actor: Actor, id: number, sentAt: Date, now = new
 
 // ---------- Verify and close (FD section 11) ----------
 
-export async function close(actor: Actor, id: number, note: string, now = new Date()) {
+/** Closing records that Purchasing checked the supplier's reply. No verification note: the reply is kept as received. */
+export async function close(actor: Actor, id: number, now = new Date()) {
   return tx(async (c) => {
     const n = await lockNcf(c, id);
     requireRole(actor, ["PURCHASING", "PCH_DIV_HEAD"]);
     expectStatus(n, "RESPONDED");
-    if (note.trim().length < 5) throw new AppError("Write the verification result before closing.");
-    await c.query("update ncf set status='CLOSED', closed_at=$2, closed_by=$3, closure_note=$4 where id=$1", [id, now, actor.id, note.trim()]);
+    await c.query("update ncf set status='CLOSED', closed_at=$2, closed_by=$3 where id=$1", [id, now, actor.id]);
     await c.query("update supplier_request set status='CLOSED', closed_at=$2 where ncf_id=$1", [id, now]);
-    await audit(c, { entity: "ncf", entityId: id, action: "CLOSE", newValue: note.trim(), actorType: "USER", actorId: actor.id });
+    await audit(c, { entity: "ncf", entityId: id, action: "CLOSE", actorType: "USER", actorId: actor.id });
     await enqueue(c, {
       event: "NCF_CLOSED", refTable: "ncf", refId: id, toUserId: n.created_by,
-      subject: `NCF ${n.ncf_no} is closed`, body: note.trim(),
+      subject: `NCF ${n.ncf_no} is closed`, body: `NCF ${n.ncf_no} was verified and closed.`,
     });
   });
 }

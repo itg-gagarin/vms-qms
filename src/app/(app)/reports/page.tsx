@@ -112,8 +112,28 @@ function Figures({ data, page, size, base }: { data: Awaited<ReturnType<typeof d
       </div>
 
       <Section title="Supplier responsiveness" aside={`longest delay first, unanswered included · target ${target} working days`}>
-        <div className="-mx-4 -mb-4 max-h-[70vh] overflow-auto">
-          <table className="table w-full min-w-[720px] text-[14px]">
+        <ul className="-mx-4 divide-y divide-hairline border-t border-hairline md:hidden">
+          {data.suppliers.length === 0 && <li className="px-4 py-6 text-center text-muted">No NCFs in this period.</li>}
+          {data.suppliers.slice((page - 1) * size, page * size).map((s) => (
+            <li key={s.id} className="px-4 py-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-medium">{s.name}</span>
+                <span className={`num shrink-0 font-semibold ${s.avg_wd !== null && s.avg_wd > target ? "text-red-700" : ""}`}>{s.avg_wd === null ? "–" : `${s.avg_wd} wd avg`}</span>
+              </div>
+              <div className="num mt-0.5 text-[12px] text-muted">
+                {s.ncfs} NCF · {s.responded} replied · slowest {s.max_wd === null ? "–" : `${s.max_wd} wd`}
+                {s.responded ? ` · ${Math.round((100 * s.on_time) / s.responded)}% on target` : ""}
+              </div>
+              {s.waiting > 0 && (
+                <div className={`num text-[12px] ${s.oldest_wait !== null && s.oldest_wait > target ? "font-semibold text-red-700" : "text-muted"}`}>
+                  Waiting now: {s.waiting} · oldest {s.oldest_wait} wd
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+        <div className="-mx-4 -mb-4 max-h-[70vh] overflow-auto max-md:hidden">
+          <table className="table w-full text-[14px]">
             <thead>
               <tr>
                 <th scope="col">Supplier</th>

@@ -85,6 +85,8 @@ export async function submitAction(_: ActionState, d: FormData): Promise<ActionS
   try {
     await ncf.submit(user, id(d), s(d, "password"));
   } catch (e) {
+    // Incomplete: reload the form with the unfinished cards highlighted and scroll to the first one.
+    if (e instanceof ncf.IncompleteError) redirect(`/ncf/${id(d)}/edit?check=1`);
     if (e instanceof AppError) return { error: e.message };
     throw e;
   }
@@ -146,7 +148,7 @@ export async function setPoAction(_: ActionState, d: FormData) {
 export async function closeAction(_: ActionState, d: FormData): Promise<ActionState> {
   const user = await requireUser();
   try {
-    await ncf.close(user, id(d), s(d, "note"));
+    await ncf.close(user, id(d));
   } catch (e) {
     if (e instanceof AppError) return { error: e.message };
     throw e;

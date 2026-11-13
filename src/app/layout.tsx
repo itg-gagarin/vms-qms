@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, Inter } from "next/font/google";
 import "./globals.css";
 
@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   title: "VMS · NCF – Integra Group",
   description: "Non Conformity Form, QMS to VMS",
 };
+
+// viewport-fit=cover lets the phone action bar sit above the iPhone home indicator (env(safe-area-inset-bottom)).
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#f7f8fa" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

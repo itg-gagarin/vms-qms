@@ -27,13 +27,31 @@ export function Chip({ children }: { children: ReactNode }) {
   return <span className="rounded-xs border border-hairline bg-white px-1.5 py-0.5 font-mono text-[12px] text-slate-700">{children}</span>;
 }
 
-export function Section({ title, aside, children, id }: { title: string; aside?: ReactNode; children: ReactNode; id?: string }) {
+/**
+ * A card. `missing` marks a draft card that still blocks submitting: a quiet note while filling in, and a red outline
+ * with the list once a submit has failed (`flag`).
+ */
+export function Section({ title, aside, children, id, missing, flag }: {
+  title: string; aside?: ReactNode; children: ReactNode; id?: string; missing?: string[]; flag?: boolean;
+}) {
+  const todo = missing && missing.length > 0;
+  const loud = todo && flag;
   return (
-    <section className="card" aria-label={title} id={id}>
+    <section className={`card scroll-mt-20 ${loud ? "border-red-400 ring-2 ring-red-200" : ""}`} aria-label={title} id={id}
+      data-missing={loud ? "flag" : todo ? "todo" : undefined}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="h2">{title}</h2>
-        {aside && <span className="text-[13px] text-muted">{aside}</span>}
+        {todo && !loud ? (
+          <span className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-800">
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-status-amber" />To complete
+          </span>
+        ) : aside ? <span className="text-[13px] text-muted">{aside}</span> : null}
       </div>
+      {loud && (
+        <div role="alert" className="mb-3 rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
+          <b>Fill in before submitting:</b> {missing.join(" ")}
+        </div>
+      )}
       {children}
     </section>
   );
@@ -41,7 +59,7 @@ export function Section({ title, aside, children, id }: { title: string; aside?:
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="min-w-[180px] flex-1">
+    <div className="min-w-[140px] flex-1 sm:min-w-[180px]">
       <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">{label}</div>
       <div className="mt-0.5 whitespace-pre-line text-[14px]">{children || <span className="text-muted">–</span>}</div>
     </div>

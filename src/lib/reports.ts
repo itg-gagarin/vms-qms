@@ -135,7 +135,7 @@ export async function exportXlsx(actor: Actor, f: ReportFilter) {
                where v.ncf_id = n.id and v.version_no = n.current_version and a.decision = 'APPROVED') as signatures,
             r.sent_at as link_generated_at, r.responded_at as returned_at, r.response_working_days,
             case when n.status = 'SENT' then working_days_between(r.sent_at, now()) end as waiting_working_days,
-            (select count(*)::int from evidence e where e.capa_response_id = cr.id and e.file_id is not null) as reply_files, n.closed_at, cu.name as closed_by, n.closure_note, n.void_reason
+            (select count(*)::int from evidence e where e.capa_response_id = cr.id and e.file_id is not null) as reply_files, n.closed_at, cu.name as closed_by, n.void_reason
      from ncf n
      join business_unit b on b.id = n.bu_id join supplier s on s.id = n.supplier_id
      left join mrreg m on m.id = n.mrreg_id left join purchase_order po on po.id = n.po_id
@@ -190,7 +190,7 @@ export async function exportXlsx(actor: Actor, f: ReportFilter) {
     ["current_version", "Versi", 7], ["approved_at", "Disetujui", 16], ["signatures", "Tanda tangan", 60],
     ["link_generated_at", "Dikirim ke supplier (jam mulai)", 22], ["returned_at", "Balasan diterima (jam berhenti)", 22],
     ["response_working_days", "Respons (hari kerja)", 12], ["waiting_working_days", "Menunggu (hari kerja)", 12],
-    ["reply_files", "File balasan supplier", 12], ["closed_at", "Ditutup", 16], ["closed_by", "Ditutup oleh", 16], ["closure_note", "Hasil verifikasi", 40],
+    ["reply_files", "File balasan supplier", 12], ["closed_at", "Ditutup", 16], ["closed_by", "Ditutup oleh", 16],
     ["void_reason", "Alasan void", 30],
   ], rows);
   sheet("Items", [

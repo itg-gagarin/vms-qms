@@ -23,17 +23,19 @@ export function StageStepper({ d }: { d: NcfDetail }) {
   const voided = d.status === "VOID";
 
   return (
-    <ol className="flex w-full items-start" aria-label="NCF stage">
+    <ol className="flex w-full flex-col md:flex-row md:items-start" aria-label="NCF stage">
       {steps.map((s, i) => {
         const done = !voided && i < current;
         const now = !voided && i === current;
         const stopped = voided && i === current;
         const last = i === steps.length - 1;
         return (
-          <li key={s.label} className="relative flex flex-1 flex-col items-center text-center" aria-current={now ? "step" : undefined}>
-            {!last && <span aria-hidden="true" className={`absolute left-1/2 top-[13px] h-[2px] w-full ${done ? "bg-advance" : "bg-hairline"}`} />}
+          <li key={s.label} aria-current={now ? "step" : undefined}
+            className="relative flex items-start gap-3 pb-3 last:pb-0 md:flex-1 md:flex-col md:items-center md:gap-0 md:pb-0 md:text-center">
+            {/* Phones: a vertical line down the left; wider screens: a line across */}
+            {!last && <span aria-hidden="true" className={`absolute left-[13px] top-7 h-[calc(100%-28px)] w-[2px] md:left-1/2 md:top-[13px] md:h-[2px] md:w-full ${done ? "bg-advance" : "bg-hairline"}`} />}
             <span aria-hidden="true"
-              className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 font-mono text-[12px] font-semibold ${
+              className={`relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 font-mono text-[12px] font-semibold ${
                 done ? "border-advance bg-advance text-advance-ink"
                   : stopped ? "border-status-red bg-status-red text-white"
                   : now ? "border-advance bg-white text-tint-ink ring-4 ring-tint"
@@ -41,7 +43,8 @@ export function StageStepper({ d }: { d: NcfDetail }) {
               }`}>
               {done ? <Check size={14} strokeWidth={3} /> : stopped ? <X size={13} strokeWidth={3} /> : i + 1}
             </span>
-            <span className={`mt-2 px-1 text-[13px] leading-tight ${done || now ? "font-semibold text-ink" : stopped ? "font-semibold text-status-red" : "text-muted"}`}>
+            <span className="flex min-w-0 flex-col pt-1 md:items-center md:pt-0">
+            <span className={`px-1 text-[13px] leading-tight md:mt-2 ${done || now ? "font-semibold text-ink" : stopped ? "font-semibold text-status-red" : "text-muted"}`}>
               {s.label}
               <span className="sr-only">{done ? " (done)" : now ? " (current)" : stopped ? " (stopped here)" : ""}</span>
             </span>
@@ -50,6 +53,7 @@ export function StageStepper({ d }: { d: NcfDetail }) {
                 {[s.sub, done && s.date ? fmtDate(s.date) : null].filter(Boolean).join(" · ")}
               </span>
             )}
+            </span>
           </li>
         );
       })}

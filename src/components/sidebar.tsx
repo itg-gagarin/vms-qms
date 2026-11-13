@@ -43,40 +43,47 @@ function ModuleItem({ item, active, pathname }: { item: NavItem; active: boolean
   const search = useSearchParams();
   const kids = item.children ?? [];
   const activeKid = pathname === item.href ? kids.find((k) => search.get(k.param) === k.value) : undefined;
-  // Open while you are inside the module; the chevron can still fold it.
-  const [folded, setFolded] = useState(false);
-  const open = kids.length > 0 && (active ? !folded : folded);
-  const linkOn = active && !activeKid;
+  // A module with sub-items opens and closes on tap, at once and without loading a page (on a phone, loading a page
+  // would also close the drawer before the sub-items show). It starts open while you are inside it.
+  const [manual, setManual] = useState<boolean | null>(null);
+  const open = kids.length > 0 && (manual ?? active);
   const Icon = ICONS[item.icon];
+  const row = "flex w-full items-center gap-2 rounded-sm px-3 py-2.5 text-left text-[14px] no-underline hover:no-underline lg:py-2";
 
-  return (
-    <li>
-      <div className={`flex items-center rounded-sm ${linkOn ? "bg-tint" : "hover:bg-row-hover"}`}>
-        <Link href={item.href} aria-current={linkOn ? "page" : undefined}
-          className={`flex flex-1 items-center gap-2 px-3 py-2 text-[14px] no-underline hover:no-underline ${
-            linkOn ? "font-semibold text-tint-ink" : active ? "font-semibold text-ink" : "font-medium text-slate-700"
-          }`}>
+  if (kids.length === 0) {
+    return (
+      <li>
+        <Link href={item.href} aria-current={active ? "page" : undefined}
+          className={`${row} ${active ? "bg-tint font-semibold text-tint-ink" : "font-medium text-slate-700 hover:bg-row-hover"}`}>
           <Icon size={18} strokeWidth={2} aria-hidden="true" />
           {item.label}
         </Link>
-        {kids.length > 0 && (
-          <button type="button" onClick={() => setFolded((f) => !f)} aria-expanded={open}
-            aria-label={`${open ? "Hide" : "Show"} ${item.label} statuses`}
-            className="mr-1 rounded-xs p-1 text-muted hover:bg-slate-100 hover:text-ink">
-            <ChevronRight size={16} className={`transition-transform ${open ? "rotate-90" : ""}`} aria-hidden="true" />
-          </button>
-        )}
-      </div>
+      </li>
+    );
+  }
+
+  const sub = (on: boolean) => `block rounded-sm px-2.5 py-2 text-[13px] no-underline hover:no-underline lg:py-1.5 ${
+    on ? "bg-tint font-semibold text-tint-ink" : "text-muted hover:bg-row-hover hover:text-ink"
+  }`;
+  const worklistOn = active && pathname === item.href && !activeKid;
+  return (
+    <li>
+      <button type="button" onClick={() => setManual(!open)} aria-expanded={open}
+        className={`${row} ${active ? "font-semibold text-ink" : "font-medium text-slate-700"} hover:bg-row-hover`}>
+        <Icon size={18} strokeWidth={2} aria-hidden="true" />
+        <span className="flex-1">{item.label}</span>
+        <ChevronRight size={16} className={`text-muted transition-transform ${open ? "rotate-90" : ""}`} aria-hidden="true" />
+      </button>
       {open && (
         <ul className="mb-1 ml-[21px] mt-0.5 flex flex-col gap-0.5 border-l border-hairline pl-2">
+          <li>
+            <Link href={item.href} aria-current={worklistOn ? "page" : undefined} className={sub(worklistOn)}>Worklist</Link>
+          </li>
           {kids.map((k) => {
             const on = k === activeKid;
             return (
               <li key={k.value}>
-                <Link href={`${item.href}?${k.param}=${encodeURIComponent(k.value)}`} aria-current={on ? "page" : undefined}
-                  className={`block rounded-sm px-2.5 py-1.5 text-[13px] no-underline hover:no-underline ${
-                    on ? "bg-tint font-semibold text-tint-ink" : "text-muted hover:bg-row-hover hover:text-ink"
-                  }`}>
+                <Link href={`${item.href}?${k.param}=${encodeURIComponent(k.value)}`} aria-current={on ? "page" : undefined} className={sub(on)}>
                   {k.label}
                 </Link>
               </li>

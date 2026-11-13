@@ -61,9 +61,33 @@ export function ItemTable({ d, totals, children }: { d: NcfDetail; totals?: { r:
     (a, i) => ({ r: a.r + i.qty_received, s: a.s + i.qty_sample, c: a.c + i.qty_defect, x: a.x + i.qty_return }),
     { r: 0, s: 0, c: 0, x: 0 },
   );
+  const pct = (c: number, s: number) => (s ? Math.round((c / s) * 100) : 0);
   return (
-    <div className="overflow-x-auto rounded-lg border border-hairline">
-      <table className="table w-full min-w-[560px] text-[14px] [&_td]:px-2 [&_th]:px-2">
+    <div className="rounded-sm border border-hairline">
+      {/* Phones: one card per item, the four quantities side by side. No sideways scrolling. */}
+      <ol className="divide-y divide-hairline md:hidden">
+        {d.items.length === 0 && <li className="px-3 py-6 text-center text-muted">No items yet.</li>}
+        {d.items.map((i, k) => (
+          <li key={i.id} className="px-3 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-semibold leading-snug"><span className="num mr-1.5 text-muted">{k + 1}.</span>{i.item_name}</div>
+                <div className="num break-all text-[12px] text-muted">{i.item_code}</div>
+              </div>
+              {children && <div className="-mr-2 -mt-2 shrink-0">{children(i.id)}</div>}
+            </div>
+            <Qty r={i.qty_received} s={i.qty_sample} c={i.qty_defect} x={i.qty_return} p={pct(i.qty_defect, i.qty_sample)} />
+          </li>
+        ))}
+        {d.items.length > 1 && (
+          <li className="bg-slate-50 px-3 py-3">
+            <div className="font-semibold">Total</div>
+            <Qty r={t.r} s={t.s} c={t.c} x={t.x} p={pct(t.c, t.s)} />
+          </li>
+        )}
+      </ol>
+      {/* Tablets and desktop: the form's table */}
+      <table className="table w-full text-[14px] max-md:hidden [&_td]:px-2 [&_th]:px-2">
         <thead>
           <tr>
             <th scope="col">No</th>
@@ -85,12 +109,12 @@ export function ItemTable({ d, totals, children }: { d: NcfDetail; totals?: { r:
             <tr key={i.id}>
               <td>{k + 1}</td>
               <td>{i.item_name}</td>
-              <td className="whitespace-nowrap">{i.item_code}</td>
-              <td className="text-right">{i.qty_received}</td>
-              <td className="text-right">{i.qty_sample}</td>
-              <td className="text-right">{i.qty_defect}</td>
-              <td className="text-right">{Math.round((i.qty_defect / i.qty_sample) * 100)}%</td>
-              <td className="text-right">{i.qty_return}</td>
+              <td className="num whitespace-nowrap">{i.item_code}</td>
+              <td className="num text-right">{i.qty_received}</td>
+              <td className="num text-right">{i.qty_sample}</td>
+              <td className="num text-right">{i.qty_defect}</td>
+              <td className="num text-right">{pct(i.qty_defect, i.qty_sample)}%</td>
+              <td className="num text-right">{i.qty_return}</td>
               {children && <td className="text-right">{children(i.id)}</td>}
             </tr>
           ))}
@@ -99,17 +123,30 @@ export function ItemTable({ d, totals, children }: { d: NcfDetail; totals?: { r:
               <td />
               <td>Total</td>
               <td />
-              <td className="text-right">{t.r}</td>
-              <td className="text-right">{t.s}</td>
-              <td className="text-right">{t.c}</td>
-              <td className="text-right">{t.s ? Math.round((t.c / t.s) * 100) : 0}%</td>
-              <td className="text-right">{t.x}</td>
+              <td className="num text-right">{t.r}</td>
+              <td className="num text-right">{t.s}</td>
+              <td className="num text-right">{t.c}</td>
+              <td className="num text-right">{pct(t.c, t.s)}%</td>
+              <td className="num text-right">{t.x}</td>
               {children && <td />}
             </tr>
           )}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function Qty({ r, s, c, x, p }: { r: number; s: number; c: number; x: number; p: number }) {
+  return (
+    <dl className="mt-2 grid grid-cols-4 gap-2 text-center">
+      {([["Datang", r], ["Sample", s], ["Cacat", `${c} · ${p}%`], ["Retur", x]] as const).map(([k, v]) => (
+        <div key={k} className="rounded-xs bg-slate-50 px-1 py-1.5">
+          <dt className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted">{k}</dt>
+          <dd className="num text-[14px] font-semibold">{v}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -186,11 +223,6 @@ export function NcfPart2({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: num
           <p className="text-muted">The supplier fills in Part 2 of the exported form and emails it back to Purchasing.</p>
         )}
       </Section>
-      {d.closure_note && (
-        <Section title="Verifikasi dan penutupan">
-          <Field label="Hasil verifikasi">{d.closure_note}</Field>
-        </Section>
-      )}
       <Section title="Jejak waktu" aside="Dicatat sistem">
         <ol className="flex flex-col">
           {steps.map(([label, when, who]) => (

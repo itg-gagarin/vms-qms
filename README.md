@@ -5,11 +5,12 @@ Digital Non Conformity Form for Integra Group, built from the Functional Design 
 
 **Flow covered:** QC creates the NCF from an MRReg → fills items, status, problem, follow-up and evidence → signs and submits
 (password re-entry, versioned and hashed) → QC Manager, Material WHS Manager and GM approve in order → Purchasing exports
-the form (PDF, no QR codes and no link to the system), emails it from their own mailbox and marks it sent (the response clock
+the form (PDF with the same QR codes as the internal print, marked "Salinan untuk supplier"), emails it from their own mailbox and marks it sent (the response clock
 starts) → the supplier fills in Part 2 and emails it back → Purchasing attaches the reply and marks it returned (the clock
-stops) → reminders to Purchasing follow the window and maximum in Settings → Purchasing or PCH Div. Head verifies and
-closes → two-page A4 print with a document QR and one signature QR per approver → QR verification pages → audit trail of
-every step. There is no supplier-facing page: nothing from the system is reachable through a link sent outside Integra.
+stops) → reminders to Purchasing follow the window and maximum in Settings → Purchasing or PCH Div. Head checks the reply and
+closes (no verification note) → two-page A4 print with a document QR and one signature QR per approver → QR verification pages → audit trail of
+every step. There is no supplier-facing page. The only part of the system a supplier can reach is the read-only QR
+verification page, which shows what is already printed on the form (number, version, items, who signed and when).
 
 **Not in this MVP:** live SAP connection (MRRegs come from the SAP export via `npm run import:mrreg`), sending email from
 the system (internal notifications are queued in `notification_outbox` for a future SMTP worker), supplier scoring,

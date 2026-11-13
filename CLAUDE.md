@@ -42,8 +42,10 @@ about. `scripts/reset.ts` drops the `public` schema.
   person, and only that person signs it, Super Admin included.
 - The sidebar (`src/app/(app)/layout.tsx`) and each page's guard must use the same role list.
 - Every state change writes `audit_log`. Keep that when adding actions.
-- No supplier-facing page or link: nothing that reaches the system leaves Integra. The supplier's copy of the form
-  (`/print/[id]?export=1`) carries no QR code. Do not add a supplier link or upload page without the owner's decision.
+- No supplier-facing page or link besides the QR codes. The supplier's copy (`/print/[id]?export=1`) carries the same
+  document and signature QRs as the internal print (owner's decision); they open only the read-only `/v` pages, which must
+  show nothing beyond what is printed on the form. Do not add a supplier link or upload page without the owner's decision.
+- Closing takes no verification note (owner's decision); `ncf.closure_note` stays only for rows closed before 008.
 - The system keeps the supplier's reply as received and does not re-type or interpret the CAPA in it.
 - Styling follows the INTEC design system (README, "Design"): one `btn-advance` per screen, `btn-commit` for saves,
   `btn` (outline) for everything else; codes, quantities and dates in mono (`num`); pills only for states.

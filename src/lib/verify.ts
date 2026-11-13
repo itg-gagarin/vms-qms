@@ -1,6 +1,7 @@
 // QR verification pages and print log (FD sections 9 and 13).
 import type { Actor } from "./core";
-import { canRead, getSetting, hasRole } from "./core";
+import { canRead } from "./core";
+import type { NcfStatus } from "./labels";
 import { one, pool, q } from "./db";
 import { AppError } from "./util";
 
@@ -30,8 +31,13 @@ export async function verifyDocument(code: string, viewer: Actor | null, ip: str
     "select step_no, signer_name, signer_position, decision, decided_at from ncf_approval where ncf_version_id = $1 order by step_no",
     [v.id],
   );
-  const full = viewer ? canRead(viewer, v.bu_id) : false;
-  return { ...v, ...n!, items, approvals, superseded: v.version_no !== v.current_version, canOpenFull: full };
+  const full = viewer ? canRead(viewer, v.bu_id, n!.status as NcfStatus) : false;
+  // What anyone holding the paper may see: only what is printed on it. No hashes, versions, workflow status or method.
+  return {
+    ncf_id: v.ncf_id, ncf_no: n!.ncf_no, supplier: n!.supplier, bu: n!.bu, sj_no: n!.sj_no, receipt_date: n!.receipt_date,
+    void: n!.status === "VOID", items, approvals: approvals.filter((a) => a.decision === "APPROVED"),
+    superseded: v.version_no !== v.current_version, canOpenFull: full,
+  };
 }
 
 export async function verifySignature(code: string, viewer: Actor | null, ip: string | null) {
@@ -48,7 +54,10 @@ export async function verifySignature(code: string, viewer: Actor | null, ip: st
   );
   if (!a) throw new AppError("This signature QR does not match any approval record.", 404);
   await pool.query("insert into qr_scan(qr_type, ncf_approval_id, user_id, ip) values ('SIGNATURE',$1,$2,$3)", [a.id, viewer?.id ?? null, ip]);
-  return { ...a, superseded: a.version_no !== a.current_version };
+  return {
+    signer_name: a.signer_name, signer_position: a.signer_position, step_no: a.step_no, decided_at: a.decided_at,
+    ncf_no: a.ncf_no, verify_code: a.verify_code, superseded: a.version_no !== a.current_version,
+  };
 }
 
 export async function logPrint(actor: Actor, ncfId: number, status: string) {
@@ -65,40 +74,3 @@ export async function logPrint(actor: Actor, ncfId: number, status: string) {
 }
 
 // ---------- Settings and outbox (Super Admin) ----------
-
-export const SETTING_KEYS = [
-  { key: "reminder_window_wd", label: "Reminder window (working days)", min: 1, max: 30 },
-  { key: "reminder_max", label: "Maximum reminders per NCF", min: 0, max: 10 },
-  { key: "token_valid_days", label: "Supplier link valid for (days)", min: 1, max: 180 },
-] as const;
-
-export async function readSettings() {
-  const out: Record<string, number> = {};
-  for (const s of SETTING_KEYS) out[s.key] = await getSetting(pool, s.key);
-  return out;
-}
-
-export async function saveSettings(actor: Actor, values: Record<string, string>) {
-  if (!hasRole(actor, "SUPER_ADMIN")) throw new AppError("Only the Super Admin can change settings.", 403);
-  const current = await readSettings();
-  for (const s of SETTING_KEYS) {
-    const v = Number(values[s.key]);
-    if (!Number.isInteger(v) || v < s.min || v > s.max) throw new AppError(`${s.label} must be a whole number from ${s.min} to ${s.max}.`);
-    if (v !== current[s.key]) {
-      await pool.query("insert into setting(key, value, changed_by) values ($1,$2,$3)", [s.key, JSON.stringify(v), actor.id]);
-      await pool.query(
-        "insert into audit_log(entity, entity_id, action, field, old_value, new_value, actor_type, actor_id) values ('setting',0,'CHANGE',$1,$2,$3,'USER',$4)",
-        [s.key, String(current[s.key]), String(v), actor.id],
-      );
-    }
-  }
-}
-
-export async function outbox(limit = 100) {
-  return q<{ id: number; event: string; recipient: string; payload: { subject: string; body: string }; status: string; created: Date }>(
-    pool,
-    `select o.id, o.event, coalesce(o.recipient_email, u.email) as recipient, o.payload, o.status, o.next_try_at as created
-     from notification_outbox o left join app_user u on u.id = o.recipient_user_id order by o.id desc limit $1`,
-    [limit],
-  );
-}

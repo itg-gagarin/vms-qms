@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/action-form";
 import { requireUser } from "@/lib/auth";
 import * as ncf from "@/lib/ncf";
+import * as pur from "@/lib/purchasing";
 import { AppError } from "@/lib/util";
 
 const id = (d: FormData) => Number(d.get("id"));
@@ -84,6 +85,8 @@ export async function submitAction(_: ActionState, d: FormData): Promise<ActionS
   try {
     await ncf.submit(user, id(d), s(d, "password"));
   } catch (e) {
+    // Incomplete: reload the form with the unfinished cards highlighted and scroll to the first one.
+    if (e instanceof ncf.IncompleteError) redirect(`/ncf/${id(d)}/edit?check=1`);
     if (e instanceof AppError) return { error: e.message };
     throw e;
   }
@@ -105,32 +108,50 @@ export async function decideAction(_: ActionState, d: FormData): Promise<ActionS
   redirect(`/ncf/${id(d)}?msg=${msg}`);
 }
 
-export async function sendAction(_: ActionState, d: FormData) {
+/** Purchasing emailed the exported form to the supplier: record when, which starts the response clock. */
+export async function markSentAction(_: ActionState, d: FormData): Promise<ActionState> {
   const user = await requireUser();
-  const method = s(d, "method") === "LINK" ? "LINK" : "EMAIL";
-  return run(async () => {
-    const r = await ncf.send(user, id(d), method);
-    return method === "LINK" ? { link: r.link } : { ok: "Email queued to the supplier's NCF contacts." };
-  });
+  try {
+    await ncf.markSent(user, id(d), pur.parseWib(s(d, "sent_at")));
+  } catch (e) {
+    if (e instanceof AppError) return { error: e.message };
+    throw e;
+  }
+  redirect(`/ncf/${id(d)}?msg=sent`);
 }
 
-export async function reissueAction(_: ActionState, d: FormData) {
+/** The supplier's reply came back by email: stop the clock and keep the reply files. */
+export async function markReturnedAction(_: ActionState, d: FormData): Promise<ActionState> {
   const user = await requireUser();
-  return run(async () => ({ link: await ncf.reissueLink(user, id(d)) }));
+  try {
+    await pur.markReturned(user, id(d), {
+      receivedAt: pur.parseWib(s(d, "received_at")),
+      files: d.getAll("files").filter((f): f is File => f instanceof File),
+      note: s(d, "note"),
+    });
+  } catch (e) {
+    if (e instanceof AppError) return { error: e.message };
+    throw e;
+  }
+  redirect(`/ncf/${id(d)}?msg=returned-reply`);
+}
+
+/** QC picks the PO of the draft (one MRReg can hold several POs of the same supplier). */
+export async function setPoAction(_: ActionState, d: FormData) {
+  const user = await requireUser();
+  return run(async () => {
+    await ncf.setPo(user, id(d), Number(d.get("po_id")));
+    return { ok: "PO set. Items now come from this PO." };
+  });
 }
 
 export async function closeAction(_: ActionState, d: FormData): Promise<ActionState> {
   const user = await requireUser();
   try {
-    await ncf.close(user, id(d), s(d, "note"));
+    await ncf.close(user, id(d));
   } catch (e) {
     if (e instanceof AppError) return { error: e.message };
     throw e;
   }
   redirect(`/ncf/${id(d)}?msg=closed`);
-}
-
-/** Send and reissue share one form, so the generated link stays on screen after the status changes. */
-export async function supplierPanelAction(prev: ActionState, d: FormData) {
-  return s(d, "op") === "reissue" ? reissueAction(prev, d) : sendAction(prev, d);
 }

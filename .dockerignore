@@ -1,0 +1,10 @@
+.git
+.next
+node_modules
+storage
+tests/screens
+.env*
+!.env.example
+*.xlsx
+npm-debug.log*
+.deployment-id

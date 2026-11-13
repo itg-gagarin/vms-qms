@@ -1,7 +1,8 @@
 // Small shared services: audit log, outbox, settings, working days, numbering, roles.
 import type { Db } from "./db";
 import { one, q } from "./db";
-import { AppError, romanMonth, wib } from "./util";
+import type { NcfStatus } from "./labels";
+import { AppError } from "./util";
 
 export type Role = "QC_INSPECTOR" | "NCF_APPROVER" | "PURCHASING" | "PCH_DIV_HEAD" | "AUDITOR" | "SUPER_ADMIN";
 
@@ -13,19 +14,57 @@ export type Actor = {
   roles: { role: Role; bu_id: number | null }[];
 };
 
+/**
+ * Super Admin counts as every role, in every module, within its own Business Unit scope (null = all).
+ * Signatures are not roles: an approval step names one person, and only that person can sign it.
+ */
+const grants = (r: Actor["roles"][number], list: Role[]) => r.role === "SUPER_ADMIN" || list.includes(r.role);
+
 export function hasRole(actor: Actor, roles: Role | Role[], buId?: number | null) {
   const list = Array.isArray(roles) ? roles : [roles];
   return actor.roles.some(
-    (r) => list.includes(r.role) && (r.bu_id === null || buId === undefined || buId === null || r.bu_id === buId),
+    (r) => grants(r, list) && (r.bu_id === null || buId === undefined || buId === null || r.bu_id === buId),
   );
+}
+
+/** Business Units where the actor holds this role (null = all of them). Super Admin counts. */
+export function roleScopes(actor: Actor, role: Role) {
+  return actor.roles.filter((r) => grants(r, [role])).map((r) => r.bu_id);
+}
+
+/** Business Units the actor works in: null means all of them (a role without a unit, e.g. Purchasing or Super Admin). */
+export function buScope(actor: Actor): number[] | null {
+  if (actor.roles.some((r) => r.bu_id === null)) return null;
+  return [...new Set(actor.roles.map((r) => r.bu_id as number))];
 }
 
 export function requireRole(actor: Actor, roles: Role | Role[], buId?: number | null) {
   if (!hasRole(actor, roles, buId)) throw new AppError("You do not have the role for this action.", 403);
 }
 
-/** Internal users who may read an NCF of this BU. */
-export function canRead(actor: Actor, buId: number) {
+/**
+ * Which NCF statuses each department works with. A user sees the union over their roles; Auditor and
+ * Super Admin see every status. Lists, the detail page, prints, evidence files and the sidebar all read this.
+ */
+const ALL_STATUSES: NcfStatus[] = ["DRAFT", "WAITING_APPROVAL", "APPROVED", "SENT", "RESPONDED", "CLOSED", "VOID"];
+export const STATUSES_BY_ROLE: Record<Role, NcfStatus[]> = {
+  QC_INSPECTOR: ["DRAFT", "WAITING_APPROVAL", "CLOSED", "VOID"],
+  NCF_APPROVER: ["WAITING_APPROVAL", "APPROVED", "CLOSED", "VOID"],
+  PURCHASING: ["APPROVED", "SENT", "RESPONDED", "CLOSED"],
+  PCH_DIV_HEAD: ["APPROVED", "SENT", "RESPONDED", "CLOSED"],
+  AUDITOR: ALL_STATUSES,
+  SUPER_ADMIN: ALL_STATUSES,
+};
+
+/** NCF statuses this user may see, in workflow order. */
+export function visibleStatuses(actor: Actor): NcfStatus[] {
+  const mine = new Set(actor.roles.flatMap((r) => STATUSES_BY_ROLE[r.role] ?? []));
+  return ALL_STATUSES.filter((s) => mine.has(s));
+}
+
+/** Internal users who may read an NCF of this BU in this status. */
+export function canRead(actor: Actor, buId: number, status: NcfStatus) {
+  if (!visibleStatuses(actor).includes(status)) return false;
   return hasRole(actor, ["QC_INSPECTOR", "NCF_APPROVER"], buId) ||
     hasRole(actor, ["PURCHASING", "PCH_DIV_HEAD", "AUDITOR", "SUPER_ADMIN"]);
 }
@@ -113,18 +152,4 @@ export async function workingDaysBetween(db: Db, from: Date, to: Date): Promise<
     [from, to],
   );
   return row?.n ?? 0;
-}
-
-/** Next No. Komplain, e.g. 424/XI/2026. The counter row is locked, so numbers never repeat. */
-export async function nextNcfNo(db: Db, now = new Date()) {
-  const { year, month } = wib(now);
-  const key = `NCF-${year}`;
-  const row = await one<{ last: number }>(
-    db,
-    `insert into doc_counter(key, last) values ($1, 1)
-     on conflict (key) do update set last = doc_counter.last + 1
-     returning last`,
-    [key],
-  );
-  return `${row!.last}/${romanMonth(month)}/${year}`;
 }

@@ -3,13 +3,15 @@
 # VMS · NCF (QMS 1)
 
 Digital Non Conformity Form for Integra Group: QC raises an NCF from an MRReg, managers approve in order, Purchasing
-sends it to the supplier, the supplier answers the CAPA through a no-account link, and Purchasing verifies and closes.
+exports the form and emails it to the supplier themselves, records the supplier's emailed reply, and verifies and closes.
+The main aims are a digital record and measuring responsiveness (supplier reply time and our approval/send times).
 See README.md for the full flow, stack and known gaps.
 
 ## Commands
 
 ```bash
 npm run db:migrate && npm run db:seed   # dev DB from .env.local (copy .env.example first)
+npm run db:demo && npm run db:demo-sap  # optional demo NCFs: one per status, then 30 SAP-shaped cases (never on real data)
 npm run dev                             # http://localhost:3000, demo logins <role>@demo.local / demo1234
 npm test                                # node:test suites; DROPS and rebuilds TEST_DATABASE_URL every run
 npm run typecheck                       # runs `next typegen` first: LayoutProps/PageProps are generated globals
@@ -23,19 +25,37 @@ about. `scripts/reset.ts` drops the `public` schema.
 
 ## Where things go
 
-- Business rules live in `src/lib` (`ncf.ts`, `supplier.ts`, `verify.ts`). Each function checks the caller's role and
+- Business rules live in `src/lib` (`ncf.ts`, `purchasing.ts`, `suppliers.ts`, `reports.ts`, `admin.ts`, `verify.ts`). Each function checks the caller's role and
   the NCF status itself, so screens and Server Actions stay thin. Put new rules there, not in `src/app`.
 - Schema changes are new numbered files in `db/migrations/` (plain SQL, applied in order by `scripts/migrate.ts`).
   Do not edit applied migrations; `001_schema.sql` mirrors the ERD and stays unchanged.
-- `src/app/(app)` is internal and needs a login; `src/app/s/[token]` (supplier) and `src/app/v` (QR verification) are
-  public, so treat everything they receive as untrusted.
+- `src/app/(app)` is internal and needs a login; `src/app/v` (QR verification) is public and read-only, so treat what it
+  receives as untrusted.
 - Form fields and the printed form are Indonesian, matching the paper form (FR/IG/ALL/IN/QUAC/007); app chrome and
   status names are English. Shared labels live in `src/lib/labels.ts` (no database imports there; client code uses it).
 - Times are shown in WIB (UTC+7); supplier response time is counted in working days from `calendar_day`.
+- Receipts follow the SAP MRReg export (`scripts/import-mrreg.ts`): 9-digit MRReg and PO, vendor codes, item groups,
+  SAP status and its dates. Demo data uses the same shapes with made-up suppliers; never real export rows.
+- The public `/v` pages show only what is printed on the form: no hashes, versions, workflow status or signing method.
 
 ## Rules
 
 - Submitting and approving is an electronic signature (password re-entry, versioned, hashed). Do not weaken it.
+- Role checks go through `hasRole`/`requireRole`/`roleScopes` in `src/lib/core.ts`, never `actor.roles` directly:
+  Super Admin counts as every role there, in every module. Signatures are not roles: an approval step names one
+  person, and only that person signs it, Super Admin included.
+- The sidebar (`src/app/(app)/layout.tsx`) and each page's guard must use the same role list.
 - Every state change writes `audit_log`. Keep that when adding actions.
+- No supplier-facing page or link besides the QR codes. The supplier's copy (`/print/[id]?export=1`) carries the same
+  document and signature QRs as the internal print (owner's decision); they open only the read-only `/v` pages, which must
+  show nothing beyond what is printed on the form. Do not add a supplier link or upload page without the owner's decision.
+- Closing takes no verification note (owner's decision); `ncf.closure_note` stays only for rows closed before 008.
+- The system keeps the supplier's reply as received and does not re-type or interpret the CAPA in it.
+- Styling follows the INTEC design system (README, "Design"): one `btn-advance` per screen, `btn-commit` for saves,
+  `btn` (outline) for everything else; codes, quantities and dates in mono (`num`); pills only for states.
+- Each department sees only its NCF stages (`STATUSES_BY_ROLE` in `core.ts`); keep lists, pages and exports on it.
 - Cache Components is off on purpose (`next.config.ts`); pages read the session and live data.
+- Forms go through `ActionForm`, which checks fields itself (`noValidate`): no browser validation bubbles.
+- `deploymentId` comes from `.deployment-id`, written by the Docker build, so open tabs reload after a deploy instead
+  of failing with "Failed to find Server Action".
 - Never commit `.env.local`, `storage/`, `*.xlsx` (SAP exports hold real supplier data) or `tests/screens/`.

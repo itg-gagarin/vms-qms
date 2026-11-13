@@ -4,14 +4,26 @@ Digital Non Conformity Form for Integra Group, built from the Functional Design 
 (*Functional Design – NCF Digitalization*, tabs "FD" and "ERD · QMS to VMS").
 
 **Flow covered:** QC creates the NCF from an MRReg → fills items, status, problem, follow-up and evidence → signs and submits
-(password re-entry, versioned and hashed) → QC Manager, Material WHS Manager and GM approve in order → Purchasing sends by
-email or by a generated link → the supplier answers the CAPA on a page without an account → reminders follow the window and
-maximum in Settings → Purchasing or PCH Div. Head verifies and closes → two-page A4 print with a document QR and one
-signature QR per approver → public QR verification pages → audit trail of every step.
+(password re-entry, versioned and hashed) → QC Manager, Material WHS Manager and GM approve in order → Purchasing exports
+the form (PDF with the same QR codes as the internal print, marked "Salinan untuk supplier"), emails it from their own mailbox and marks it sent (the response clock
+starts) → the supplier fills in Part 2 and emails it back → Purchasing attaches the reply and marks it returned (the clock
+stops) → reminders to Purchasing follow the window and maximum in Settings → Purchasing or PCH Div. Head checks the reply and
+closes (no verification note) → two-page A4 print with a document QR and one signature QR per approver → QR verification pages → audit trail of
+every step. There is no supplier-facing page. The only part of the system a supplier can reach is the read-only QR
+verification page, which shows what is already printed on the form (number, version, items, who signed and when).
 
-**Not in this MVP:** live SAP connection (MRRegs come from the SAP export via `npm run import:mrreg`), SMTP sending
-(emails are queued in the *Email outbox* screen), supplier scoring, "ask for more information", voiding after sending
-(no role owns it yet), SSO.
+**Not in this MVP:** live SAP connection (MRRegs come from the SAP export via `npm run import:mrreg`), sending email from
+the system (internal notifications are queued in `notification_outbox` for a future SMTP worker), supplier scoring,
+"ask for more information", voiding after sending (no role owns it yet), SSO.
+
+**Also:** SAP Goods Receipt lists only open receipts (no NCF yet, not cancelled in SAP; a flag kept by a trigger and a
+partial index, migration 011). Supplier Master (`/suppliers`, Purchasing and PCH) keeps vendors, NCF contacts and each
+supplier's reply times. Users who work in several Business Units pick one in the top bar; it narrows lists, receipts,
+the outbox and reports. Saving the form as PDF proposes "No. Komplain_ddmmyyyy_Supplier - Integra Group".
+
+**Design:** the INTEC design system (github.com/itg-gagarin/intec-design-system): tokens in `src/app/globals.css`, fonts in
+`src/app/layout.tsx`, shared pieces in `src/components/ui.tsx`. One green button per screen for the action that advances the
+NCF; indigo for saving inside a card; pills only for states; Lucide icons; tables with a frozen header and 10/20/50 paging.
 
 ## Stack
 
@@ -54,12 +66,16 @@ npm run typecheck && npx eslint src scripts tests
 | `db/migrations/001_schema.sql` | The 33-table schema from the ERD tab, unchanged |
 | `db/migrations/002_app.sql` | Login password, No. Komplain counter, QR codes as stored codes, default log partitions |
 | `db/migrations/003_sap_export.sql` | Fits the current SAP MRReg export (no PO date, price, line number) |
-| `src/lib/ncf.ts` | All NCF rules: create, items, evidence, submit and sign, approve, send, close |
-| `src/lib/supplier.ts` | Supplier link, CAPA response, working days, reminder job |
-| `src/lib/verify.ts` | QR verification, print log, settings, outbox |
+| `src/lib/ncf.ts` | All NCF rules: create, PO, items, evidence, submit and sign, approve, mark sent, close |
+| `src/lib/purchasing.ts` | Supplier Outbox table, marking the supplier's emailed reply returned |
+| `src/lib/reminders.ts` | Daily reminder job (to Purchasing) |
+| `src/lib/reports.ts` | Reports dashboard and the Excel export |
+| `src/lib/admin.ts` | Master Settings: accounts, roles, approval chain, numbering, calendar, categories, contacts |
+| `src/lib/verify.ts` | QR verification, print log |
+| `src/lib/suppliers.ts` | Supplier Master: suppliers, contacts, reply figures |
+| `src/lib/bu.ts` | The Business Unit chosen in the top bar |
 | `src/app/(app)` | Internal screens (login required) |
-| `src/app/s/[token]` | Supplier page, no account |
-| `src/app/v` | Public QR verification pages |
+| `src/app/v` | QR verification pages (read-only) |
 | `scripts/import-mrreg.ts` | Importer for the SAP MRReg xlsx export |
 
 Rules live in `src/lib`, not in the screens: every function checks the role and the NCF status itself.

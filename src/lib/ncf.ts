@@ -7,12 +7,13 @@ import {
   audit,
   canRead,
   enqueue,
-  getSetting,
   hasRole,
-  nextNcfNo,
   requireRole,
+  roleScopes,
   usersWithRole,
+  visibleStatuses,
 } from "./core";
+import { nextNumber } from "./admin";
 import type { Db } from "./db";
 import { one, pool, q, tx } from "./db";
 import { LIMITS, saveFile } from "./files";
@@ -31,6 +32,8 @@ type NcfRow = {
   supplier_code: string;
   mrreg_id: number | null;
   mrreg_no: string | null;
+  po_id: number | null;
+  po_no: string | null;
   status: NcfStatus;
   current_version: number;
   sj_no: string | null;
@@ -56,7 +59,7 @@ type NcfRow = {
 
 const NCF_SELECT = `
   select n.id, n.ncf_no, n.bu_id, b.name as bu_name, n.supplier_id, s.name as supplier_name, s.sap_vendor_code as supplier_code,
-         n.mrreg_id, m.mrreg_no, n.status, n.current_version,
+         n.mrreg_id, m.mrreg_no, n.po_id, po.po_no, n.status, n.current_version,
          coalesce(n.sj_no, m.sj_no) as sj_no, coalesce(n.sj_date, m.sj_date) as sj_date,
          coalesce(n.receipt_date, m.receipt_date) as receipt_date,
          n.inspect_date, to_char(n.inspect_time, 'HH24:MI') as inspect_time, n.goods_status, n.hold_note,
@@ -67,6 +70,7 @@ const NCF_SELECT = `
   join business_unit b on b.id = n.bu_id
   join supplier s on s.id = n.supplier_id
   left join mrreg m on m.id = n.mrreg_id
+  left join purchase_order po on po.id = n.po_id
   left join problem_category pc on pc.id = n.problem_category_id
   left join app_user u on u.id = n.created_by
   left join app_user cu on cu.id = n.closed_by`;
@@ -95,14 +99,26 @@ async function checkPassword(c: Db, actor: Actor, password: string) {
 export async function getNcf(actor: Actor | null, id: number, db: Db = pool) {
   const n = await one<NcfRow>(db, `${NCF_SELECT} where n.id = $1`, [id]);
   if (!n) throw new AppError("NCF not found.", 404);
-  if (actor && !canRead(actor, n.bu_id)) throw new AppError("You cannot open NCFs of this Business Unit.", 403);
+  if (actor && !canRead(actor, n.bu_id, n.status)) throw new AppError("This NCF is not open to your department at its current stage.", 403);
   return loadDetails(db, n);
 }
 
 export type NcfDetail = Awaited<ReturnType<typeof loadDetails>>;
 
+/**
+ * Everything the NCF screens show, in one round of parallel queries (they all key on the NCF id), so a page waits for
+ * the slowest query instead of the sum of ten.
+ */
+/** Runs independent reads together on the pool; one after another on a transaction's client, which takes one query at a time. */
+async function runAll<T extends readonly (() => Promise<unknown>)[]>(db: Db, fs: T): Promise<{ -readonly [K in keyof T]: Awaited<ReturnType<T[K]>> }> {
+  if (db === pool) return Promise.all(fs.map((f) => f())) as never;
+  const out: unknown[] = [];
+  for (const f of fs) out.push(await f());
+  return out as never;
+}
+
 async function loadDetails(db: Db, n: NcfRow) {
-  const items = await q<{
+  const items = () => q<{
     id: number;
     mrreg_line_id: number | null;
     item_code: string;
@@ -124,7 +140,7 @@ async function loadDetails(db: Db, n: NcfRow) {
      where ni.ncf_id = $1 order by ni.id`,
     [n.id],
   );
-  const evidence = await q<{
+  const evidence = () => q<{
     id: number;
     kind: string;
     caption: string | null;
@@ -143,15 +159,15 @@ async function loadDetails(db: Db, n: NcfRow) {
      order by e.id`,
     [n.id],
   );
-  const version = n.current_version
-    ? await one<{ id: number; version_no: number; content_hash: string; verify_code: string; submitted_at: Date }>(
+  const version = () => n.current_version
+    ? one<{ id: number; version_no: number; content_hash: string; verify_code: string; submitted_at: Date }>(
         db,
         "select id, version_no, content_hash, verify_code, submitted_at from ncf_version where ncf_id = $1 and version_no = $2",
         [n.id, n.current_version],
       )
-    : undefined;
-  const approvals = version
-    ? await q<{
+    : Promise.resolve(undefined);
+  const approvals = () => n.current_version
+    ? q<{
         id: number;
         step_no: number;
         approver_id: number;
@@ -166,20 +182,20 @@ async function loadDetails(db: Db, n: NcfRow) {
         db,
         `select a.id, a.step_no, a.approver_id, coalesce(cs.approver_title, 'QC Incoming') as title, a.signer_name, a.signer_position,
                 a.decision, a.comment, a.decided_at, a.verify_code
-         from ncf_approval a
+         from ncf_approval a join ncf_version v on v.id = a.ncf_version_id and v.ncf_id = $1 and v.version_no = $3
          left join approval_chain_step cs on cs.bu_id = $2 and cs.step_no = a.step_no
-         where a.ncf_version_id = $1 order by a.step_no`,
-        [version.id, n.bu_id],
+         order by a.step_no`,
+        [n.id, n.bu_id, n.current_version],
       )
-    : [];
-  const history = await q<{ version_no: number; step_no: number; signer_name: string; decision: string | null; comment: string | null; decided_at: Date | null }>(
+    : Promise.resolve([]);
+  const history = () => q<{ version_no: number; step_no: number; signer_name: string; decision: string | null; comment: string | null; decided_at: Date | null }>(
     db,
     `select v.version_no, a.step_no, a.signer_name, a.decision, a.comment, a.decided_at
      from ncf_approval a join ncf_version v on v.id = a.ncf_version_id
      where v.ncf_id = $1 and a.decision is not null order by a.decided_at`,
     [n.id],
   );
-  const request = await one<{
+  const request = () => one<{
     id: number;
     ref_no: string;
     status: string;
@@ -197,36 +213,49 @@ async function loadDetails(db: Db, n: NcfRow) {
      from supplier_request r left join app_user u on u.id = r.sent_by where r.ncf_id = $1`,
     [n.id],
   );
-  const capa = request
-    ? await one<{
+  const capa = () => one<{
         id: number;
-        root_cause: string;
-        corrective_action: string;
-        target_date: string;
-        preventive_action: string;
-        effective_from: string;
-        responder_name: string;
-        responder_position: string;
-        responder_email: string;
+        root_cause: string | null;
+        corrective_action: string | null;
+        target_date: string | null;
+        preventive_action: string | null;
+        effective_from: string | null;
+        responder_name: string | null;
+        responder_position: string | null;
+        responder_email: string | null;
         submitted_at: Date;
-      }>(db, "select * from capa_response where request_id = $1 and not is_addendum", [request.id])
-    : undefined;
-  const reminders = request
-    ? await q<{ seq_no: number; sent_at: Date; to_supplier: boolean }>(
+        received_via: "SUPPLIER_LINK" | "PURCHASING";
+        recorded_by_name: string | null;
+        extraction: { model: string | null; error: string | null; skipped: string[]; fields: Record<string, string> | null } | null;
+        reviewed_at: Date | null;
+        reviewed_by_name: string | null;
+      }>(
         db,
-        "select seq_no, sent_at, to_supplier from reminder where request_id = $1 order by seq_no",
-        [request.id],
-      )
-    : [];
-  const submittedAt = await one<{ at: Date }>(
+        `select cr.*, ru.name as recorded_by_name, vu.name as reviewed_by_name
+         from capa_response cr join supplier_request r on r.id = cr.request_id
+         left join app_user ru on ru.id = cr.recorded_by left join app_user vu on vu.id = cr.reviewed_by
+         where r.ncf_id = $1 and not cr.is_addendum`,
+        [n.id],
+      );
+  const reminders = () => q<{ seq_no: number; sent_at: Date; to_supplier: boolean }>(
+    db,
+    "select m.seq_no, m.sent_at, m.to_supplier from reminder m join supplier_request r on r.id = m.request_id where r.ncf_id = $1 order by m.seq_no",
+    [n.id],
+  );
+  const submittedAt = () => one<{ at: Date }>(
     db,
     "select min(submitted_at) as at from ncf_version where ncf_id = $1",
     [n.id],
   );
-  return { ...n, items, evidence, version, approvals, history, request, capa, reminders, firstSubmittedAt: submittedAt?.at ?? null };
+  const [it, ev, ver, ap, hi, req, cp, rem, sub] = await runAll(db, [items, evidence, version, approvals, history, request, capa, reminders, submittedAt] as const);
+  return {
+    ...n, items: it, evidence: ev, version: ver, approvals: ap, history: hi, request: req, capa: req ? cp : undefined, reminders: rem,
+    firstSubmittedAt: sub?.at ?? null,
+  };
 }
 
-export async function listNcf(actor: Actor, filter: string) {
+/** The worklist filter: a tab, optionally one status, always the user's stages and Business Units. */
+function worklistWhere(actor: Actor, filter: string, status?: NcfStatus, term = "", buId?: number) {
   const conds: string[] = [];
   const params: unknown[] = [];
   const add = (sql: string, v?: unknown) => {
@@ -257,58 +286,151 @@ export async function listNcf(actor: Actor, filter: string) {
       add("n.status in ('CLOSED','VOID')");
       break;
   }
+  if (status) add("n.status = $?", status);
+  // The Business Unit picked in the top bar (inside the user's own scope, which is applied below as well).
+  if (buId) add("n.bu_id = $?", buId);
+  // Search: No. Komplain, supplier name or vendor code, No. PO, No. MRReg.
+  if (term.trim()) {
+    params.push(term.trim());
+    const t = `$${params.length}`;
+    conds.push(`(n.ncf_no ilike '%' || ${t} || '%'
+      or exists (select 1 from supplier s2 where s2.id = n.supplier_id and (s2.name ilike '%' || ${t} || '%' or s2.sap_vendor_code ilike '%' || ${t} || '%'))
+      or exists (select 1 from purchase_order p2 where p2.id = n.po_id and p2.po_no ilike '%' || ${t} || '%')
+      or exists (select 1 from mrreg m2 where m2.id = n.mrreg_id and m2.mrreg_no ilike '%' || ${t} || '%'))`);
+  }
+  // Each department sees only the stages it works with (core.STATUSES_BY_ROLE).
+  add("n.status = any($?)", visibleStatuses(actor));
   // Business Unit scope for QC and approvers; Purchasing, PCH, Auditor and Admin see all.
   if (!hasRole(actor, ["PURCHASING", "PCH_DIV_HEAD", "AUDITOR", "SUPER_ADMIN"])) {
     const bus = actor.roles.filter((r) => r.bu_id !== null).map((r) => r.bu_id);
     add("n.bu_id = any($?)", bus);
   }
-  const where = conds.length ? "where " + conds.join(" and ") : "";
+  return { where: conds.length ? "where " + conds.join(" and ") : "", params };
+}
+
+/** Worklist rows, one page at a time. `filter` is a worklist tab; `status`, when given, narrows to one NCF status. */
+export async function listNcf(actor: Actor, filter: string, status?: NcfStatus, page = 1, size = 200, term = "", buId?: number) {
+  const { where, params } = worklistWhere(actor, filter, status, term, buId);
   return q<{
     id: number;
     ncf_no: string;
     status: NcfStatus;
     supplier_name: string;
     bu_name: string;
+    po_no: string | null;
     receipt_date: string | null;
     created_at: Date;
     items: number;
     defects: number;
   }>(
     pool,
-    `select n.id, n.ncf_no, n.status, s.name as supplier_name, b.name as bu_name,
+    `select n.id, n.ncf_no, n.status, s.name as supplier_name, b.name as bu_name, po.po_no,
             coalesce(n.receipt_date, m.receipt_date) as receipt_date, n.created_at,
             (select count(*)::int from ncf_item ni where ni.ncf_id = n.id) as items,
             (select coalesce(sum(qty_defect),0) from ncf_item ni where ni.ncf_id = n.id) as defects
      from ncf n join supplier s on s.id = n.supplier_id join business_unit b on b.id = n.bu_id
-     left join mrreg m on m.id = n.mrreg_id
-     ${where} order by n.created_at desc limit 200`,
+     left join mrreg m on m.id = n.mrreg_id left join purchase_order po on po.id = n.po_id
+     ${where} order by n.created_at desc, n.id desc limit ${Number(size)} offset ${(Number(page) - 1) * Number(size)}`,
     params,
   );
 }
 
-export async function searchMrreg(actor: Actor, term: string) {
-  const bus = actor.roles.filter((r) => r.role === "QC_INSPECTOR").map((r) => r.bu_id);
-  const all = bus.includes(null);
-  return q<{ id: number; mrreg_no: string; supplier_name: string; sj_no: string; receipt_date: string; lines: number; sap_status: string | null }>(
+export async function countNcf(actor: Actor, filter: string, status?: NcfStatus, term = "", buId?: number) {
+  const { where, params } = worklistWhere(actor, filter, status, term, buId);
+  return (await one<{ n: number }>(pool, `select count(*)::int as n from ncf n ${where}`, params))!.n;
+}
+
+/** How many NCFs the user can see in each status (for the menu), and how many wait on the user's own signature. */
+export async function statusCounts(actor: Actor, buId?: number) {
+  const all = worklistWhere(actor, "all", undefined, "", buId);
+  const mine = worklistWhere(actor, "approve", undefined, "", buId);
+  const [rows, toSign] = await Promise.all([
+    q<{ status: NcfStatus; n: number }>(pool, `select n.status, count(*)::int as n from ncf n ${all.where} group by n.status`, all.params),
+    one<{ n: number }>(pool, `select count(*)::int as n from ncf n ${mine.where}`, mine.params),
+  ]);
+  return { byStatus: Object.fromEntries(rows.map((x) => [x.status, x.n])) as Partial<Record<NcfStatus, number>>, toSign: toSign?.n ?? 0 };
+}
+
+/**
+ * The receipt list: only receipts that can still get an NCF (no NCF yet, a void one does not count; not cancelled
+ * in SAP), read through the partial index of migration 011. Search: No. MRReg, vendor name or code, No. SJ, PO
+ * number, item code or description (any line); always the user's Business Units.
+ */
+function receiptWhere(actor: Actor, term: string, buId?: number) {
+  const bus = roleScopes(actor, "QC_INSPECTOR");
+  return {
+    sql: `not m.has_live_ncf and m.sap_status is distinct from 'CANCELED'
+          and ($1 = '' or m.mrreg_no ilike '%' || $1 || '%' or s.name ilike '%' || $1 || '%' or s.sap_vendor_code ilike '%' || $1 || '%'
+            or m.sj_no ilike '%' || $1 || '%'
+            or exists (select 1 from mrreg_line l join item i on i.id = l.item_id
+                       join po_line pl on pl.id = l.po_line_id join purchase_order po on po.id = pl.po_id
+                       where l.mrreg_id = m.id and (po.po_no ilike '%' || $1 || '%' or i.sap_material_code ilike '%' || $1 || '%'
+                                                    or i.description ilike '%' || $1 || '%')))
+          and ($2 or m.bu_id = any($3))
+          and ($4::bigint is null or m.bu_id = $4)`,
+    params: [term.trim(), bus.includes(null), bus.filter((b) => b !== null), buId ?? null] as unknown[],
+  };
+}
+
+export type ReceiptLine = {
+  item_code: string; item_name: string; item_group: string | null; po_no: string; uom: string;
+  qty_reg: number; qty_open: number | null; qty_po: number | null; open_qty_po: number | null;
+};
+
+export async function searchMrreg(actor: Actor, term: string, page = 1, size = 20, buId?: number) {
+  const w = receiptWhere(actor, term, buId);
+  return q<{
+    id: number; bu_id: number; mrreg_no: string; supplier_name: string; vendor_code: string; sj_no: string; sj_date: string | null;
+    receipt_date: string; lines: number; qty_reg: number;
+    items: ReceiptLine[];
+    pos: { id: number; po_no: string; lines: number }[];
+  }>(
     pool,
-    `select m.id, m.mrreg_no, s.name as supplier_name, m.sj_no, m.receipt_date, m.sap_status,
-            (select count(*)::int from mrreg_line l where l.mrreg_id = m.id) as lines
+    `select m.id, m.bu_id, m.mrreg_no, s.name as supplier_name, s.sap_vendor_code as vendor_code, m.sj_no, m.sj_date, m.receipt_date,
+            (select count(*)::int from mrreg_line l where l.mrreg_id = m.id) as lines,
+            (select coalesce(sum(l.qty_received), 0)::float from mrreg_line l where l.mrreg_id = m.id) as qty_reg,
+            coalesce((select json_agg(json_build_object(
+                        'item_code', i.sap_material_code, 'item_name', i.description, 'item_group', i.item_group, 'po_no', po.po_no, 'uom', l.uom,
+                        'qty_reg', l.qty_received::float, 'qty_open', l.qty_open::float, 'qty_po', pl.qty::float, 'open_qty_po', pl.open_qty::float)
+                        order by l.line_no)
+                      from mrreg_line l join item i on i.id = l.item_id
+                      join po_line pl on pl.id = l.po_line_id join purchase_order po on po.id = pl.po_id
+                      where l.mrreg_id = m.id), '[]') as items,
+            coalesce((select json_agg(json_build_object('id', x.id, 'po_no', x.po_no, 'lines', x.lines) order by x.po_no)
+                      from (select po.id, po.po_no, count(*)::int as lines from mrreg_line l
+                            join po_line pl on pl.id = l.po_line_id join purchase_order po on po.id = pl.po_id
+                            where l.mrreg_id = m.id group by po.id, po.po_no) x), '[]') as pos
      from mrreg m join supplier s on s.id = m.supplier_id
-     where ($1 = '' or m.mrreg_no ilike '%' || $1 || '%' or s.name ilike '%' || $1 || '%' or m.sj_no ilike '%' || $1 || '%')
-       and ($2 or m.bu_id = any($3))
-     order by m.receipt_date desc limit 30`,
-    [term.trim(), all, bus.filter((b) => b !== null)],
+     where ${w.sql}
+     order by m.receipt_date desc, m.id desc limit ${Number(size)} offset ${(Number(page) - 1) * Number(size)}`,
+    w.params,
   );
 }
 
+export async function countMrreg(actor: Actor, term: string, buId?: number) {
+  const w = receiptWhere(actor, term, buId);
+  return (await one<{ n: number }>(pool, `select count(*)::int as n from mrreg m join supplier s on s.id = m.supplier_id where ${w.sql}`, w.params))!.n;
+}
+
 export async function mrregLines(ncfId: number, db: Db = pool) {
-  return q<{ id: number; line_no: number; item_code: string; item_name: string; uom: string; qty_received: number; po_no: string; used: boolean }>(
+  return q<{ id: number; line_no: number; item_code: string; item_name: string; item_group: string | null; uom: string; qty_received: number; po_no: string; used: boolean }>(
     db,
-    `select l.id, l.line_no, i.sap_material_code as item_code, i.description as item_name, l.uom, l.qty_received, po.po_no,
+    `select l.id, l.line_no, i.sap_material_code as item_code, i.description as item_name, i.item_group, l.uom, l.qty_received, po.po_no,
             exists (select 1 from ncf_item ni where ni.ncf_id = n.id and ni.mrreg_line_id = l.id) as used
      from ncf n join mrreg_line l on l.mrreg_id = n.mrreg_id
      join item i on i.id = l.item_id join po_line pl on pl.id = l.po_line_id join purchase_order po on po.id = pl.po_id
-     where n.id = $1 order by l.line_no`,
+     where n.id = $1 and pl.po_id = n.po_id order by l.line_no`,
+    [ncfId],
+  );
+}
+
+/** The POs on the draft's MRReg, for the PO dropdown (one MRReg can hold several POs of the same supplier). */
+export async function mrregPos(ncfId: number, db: Db = pool) {
+  return q<{ id: number; po_no: string; lines: number }>(
+    db,
+    `select po.id, po.po_no, count(*)::int as lines
+     from ncf n join mrreg_line l on l.mrreg_id = n.mrreg_id join po_line pl on pl.id = l.po_line_id join purchase_order po on po.id = pl.po_id
+     where n.id = $1 group by po.id, po.po_no order by po.po_no`,
     [ncfId],
   );
 }
@@ -319,7 +441,8 @@ export async function problemCategories() {
 
 // ---------- Draft (Part 1) ----------
 
-export async function createDraft(actor: Actor, mrregId: number, now = new Date()) {
+/** A new draft for an MRReg. With a single PO it is filled in; with several, QC chooses it in the draft (setPo). */
+export async function createDraft(actor: Actor, mrregId: number, now = new Date(), poId?: number) {
   return tx(async (c) => {
     const m = await one<{ id: number; bu_id: number; supplier_id: number; sj_no: string; sj_date: string; receipt_date: string; sap_status: string | null }>(
       c,
@@ -329,13 +452,21 @@ export async function createDraft(actor: Actor, mrregId: number, now = new Date(
     if (!m) throw new AppError("MRReg not found.", 404);
     if (m.sap_status === "CANCELED") throw new AppError("This MRReg is cancelled in SAP. An NCF cannot be created for it.", 409);
     requireRole(actor, "QC_INSPECTOR", m.bu_id);
-    const no = await nextNcfNo(c, now);
+    const pos = await q<{ id: number }>(
+      c,
+      "select distinct pl.po_id as id from mrreg_line l join po_line pl on pl.id = l.po_line_id where l.mrreg_id = $1",
+      [m.id],
+    );
+    const po = poId ?? (pos.length === 1 ? pos[0].id : undefined);
+    if (po !== undefined && !pos.some((p) => p.id === po)) throw new AppError("This PO is not on the MRReg.");
+    const bu = await one<{ code: string }>(c, "select code from business_unit where id = $1", [m.bu_id]);
+    const no = await nextNumber(c, now, bu!.code);
     const t = wib(now);
     const row = await one<{ id: number }>(
       c,
-      `insert into ncf(ncf_no, bu_id, supplier_id, mrreg_id, sj_no, sj_date, receipt_date, inspect_date, inspect_time, created_by, created_at)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id`,
-      [no, m.bu_id, m.supplier_id, m.id, m.sj_no, m.sj_date, m.receipt_date, t.date, t.time, actor.id, now],
+      `insert into ncf(ncf_no, bu_id, supplier_id, mrreg_id, po_id, sj_no, sj_date, receipt_date, inspect_date, inspect_time, created_by, created_at)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning id`,
+      [no, m.bu_id, m.supplier_id, m.id, po ?? null, m.sj_no, m.sj_date, m.receipt_date, t.date, t.time, actor.id, now],
     );
     await audit(c, { entity: "ncf", entityId: row!.id, action: "CREATE", newValue: no, actorType: "USER", actorId: actor.id });
     return row!.id;
@@ -347,6 +478,25 @@ async function draftForEdit(c: PoolClient, actor: Actor, id: number) {
   expectStatus(n, "DRAFT");
   requireRole(actor, "QC_INSPECTOR", n.bu_id);
   return n;
+}
+
+/** QC chooses or changes the draft's PO. Not while items from another PO are on it: they would not match the PO. */
+export async function setPo(actor: Actor, id: number, poId: number) {
+  return tx(async (c) => {
+    const n = await draftForEdit(c, actor, id);
+    if (n.po_id === poId) return;
+    const po = await one<{ po_no: string }>(
+      c,
+      `select distinct po.po_no from mrreg_line l join po_line pl on pl.id = l.po_line_id join purchase_order po on po.id = pl.po_id
+       where l.mrreg_id = $1 and po.id = $2`,
+      [n.mrreg_id, poId],
+    );
+    if (!po) throw new AppError("This PO is not on the MRReg.");
+    const other = await one<{ n: number }>(c, "select count(*)::int as n from ncf_item where ncf_id = $1", [id]);
+    if (other!.n > 0) throw new AppError(`Remove the ${other!.n} item(s) of PO ${n.po_no} first, then change the PO.`);
+    await c.query("update ncf set po_id = $2 where id = $1", [id, poId]);
+    await audit(c, { entity: "ncf", entityId: id, action: "SET_PO", field: "po", oldValue: n.po_no, newValue: po.po_no, actorType: "USER", actorId: actor.id });
+  });
 }
 
 export type HeaderInput = {
@@ -391,12 +541,14 @@ export async function updateHeader(actor: Actor, id: number, f: HeaderInput) {
 export async function addItem(actor: Actor, id: number, lineId: number, sample: unknown, defect: unknown, ret: unknown) {
   return tx(async (c) => {
     const n = await draftForEdit(c, actor, id);
+    if (!n.po_id) throw new AppError("Choose the PO first (section A).");
     const line = await one<{ id: number; item_id: number; qty_received: number }>(
       c,
-      "select id, item_id, qty_received from mrreg_line where id = $1 and mrreg_id = $2",
-      [lineId, n.mrreg_id],
+      `select l.id, l.item_id, l.qty_received from mrreg_line l join po_line pl on pl.id = l.po_line_id
+       where l.id = $1 and l.mrreg_id = $2 and ($3::bigint is null or pl.po_id = $3)`,
+      [lineId, n.mrreg_id, n.po_id],
     );
-    if (!line) throw new AppError("Choose an item from this MRReg.");
+    if (!line) throw new AppError("Choose an item from this MRReg and PO.");
     const s = num(sample), d = num(defect), r = ret === "" || ret === undefined ? 0 : num(ret);
     if (!(s > 0 && s <= line.qty_received)) throw new AppError(`Jumlah Sample must be between 1 and ${line.qty_received}.`);
     if (!(d >= 1 && d <= s)) throw new AppError("Jumlah Cacat must be at least 1 and not more than Jumlah Sample.");
@@ -446,28 +598,45 @@ export async function removeEvidence(actor: Actor, id: number, evidenceId: numbe
 
 // ---------- Submit and sign (FD section 8) ----------
 
-export function missingForSubmit(d: NcfDetail): string[] {
-  const miss: string[] = [];
-  if (!d.mrreg_id) miss.push("No. MRReg is not matched to SAP yet (Unmatched NCFs cannot be approved).");
-  if (d.items.length === 0) miss.push("At least one item row.");
-  if (!d.goods_status) miss.push("Status barang.");
-  if (!d.problem_category_id) miss.push("Kategori masalah.");
-  if (!d.problem_desc) miss.push("Uraian masalah.");
-  if (!d.follow_up) miss.push("Tindak lanjut dari Integra.");
-  if (!d.evidence.some((e) => e.file_id && e.capa_response_id === null)) miss.push("At least one evidence file.");
-  if (d.goods_status === "FAILED" && d.items.reduce((t, i) => t + i.qty_return, 0) <= 0) {
-    miss.push("Qty Retur, because the status is Gagal / Failed.");
+/** The draft form's cards: A identification, B items, C status, D problem, E evidence, F follow-up. */
+export type DraftPart = "A" | "B" | "C" | "D" | "E" | "F";
+export type Missing = { part: DraftPart; text: string };
+
+/** What still blocks submitting, with the card it belongs to so the form can point at it. */
+export function missingParts(d: NcfDetail): Missing[] {
+  const miss: Missing[] = [];
+  if (!d.mrreg_id) miss.push({ part: "A", text: "No. MRReg is not matched to SAP yet (Unmatched NCFs cannot be approved)." });
+  if (!d.po_id) miss.push({ part: "A", text: "No. PO." });
+  if (d.items.length === 0) miss.push({ part: "B", text: "At least one item row." });
+  if (d.goods_status === "FAILED" && d.items.length > 0 && d.items.reduce((t, i) => t + i.qty_return, 0) <= 0) {
+    miss.push({ part: "B", text: "Qty Retur, because the status is Gagal / Failed." });
   }
+  if (!d.goods_status) miss.push({ part: "C", text: "Status barang." });
+  if (!d.problem_category_id) miss.push({ part: "D", text: "Kategori masalah." });
+  if (!d.problem_desc) miss.push({ part: "D", text: "Uraian masalah." });
+  if (!d.evidence.some((e) => e.file_id && e.capa_response_id === null)) miss.push({ part: "E", text: "At least one evidence file." });
+  if (!d.follow_up) miss.push({ part: "F", text: "Tindak lanjut dari Integra." });
   return miss;
+}
+
+export function missingForSubmit(d: NcfDetail): string[] {
+  return missingParts(d).map((m) => m.text);
+}
+
+/** Submitting an incomplete draft. Carries the cards to highlight. */
+export class IncompleteError extends AppError {
+  constructor(public missing: Missing[]) {
+    super("Not complete: " + missing.map((m) => m.text).join(" "));
+  }
 }
 
 export async function submit(actor: Actor, id: number, password: string, now = new Date()) {
   return tx(async (c) => {
     const n = await draftForEdit(c, actor, id);
-    await checkPassword(c, actor, password);
     const d = await loadDetails(c, n);
-    const miss = missingForSubmit(d);
-    if (miss.length) throw new AppError("Not complete: " + miss.join(" "));
+    const miss = missingParts(d);
+    if (miss.length) throw new IncompleteError(miss);
+    await checkPassword(c, actor, password);
     const chain = await q<{ step_no: number; approver_id: number | null; approver_title: string }>(
       c,
       "select step_no, approver_id, approver_title from approval_chain_step where bu_id = $1 order by step_no",
@@ -488,6 +657,7 @@ export async function submit(actor: Actor, id: number, password: string, now = n
       bu: n.bu_name,
       supplier: { code: n.supplier_code, name: n.supplier_name },
       mrreg_no: n.mrreg_no,
+      po_no: n.po_no,
       sj_no: m!.sj_no,
       sj_date: m!.sj_date,
       receipt_date: m!.receipt_date,
@@ -602,98 +772,46 @@ export async function decide(actor: Actor, id: number, decision: Decision, passw
 }
 
 // ---------- Purchasing sends (FD section 10) ----------
+// No link to the system leaves Integra: Purchasing exports the form as PDF, emails it from their own mailbox,
+// and records when it went out. That time starts the supplier's response clock.
 
-async function issueToken(c: PoolClient, requestId: number, now: Date) {
-  const days = await getSetting(c, "token_valid_days", now);
-  const raw = randomToken();
-  await c.query(
-    "insert into access_token(request_id, token_hash, expires_at, created_at) values ($1,$2,$3,$4)",
-    [requestId, sha256(raw), new Date(now.getTime() + days * 86400000), now],
-  );
-  return raw;
-}
-
-export const supplierLink = (raw: string) => `${appUrl()}/s/${raw}`;
-
-export async function send(actor: Actor, id: number, method: "EMAIL" | "LINK", now = new Date()) {
+/** Purchasing sent the exported form to the supplier at `sentAt`. Starts the response clock. */
+export async function markSent(actor: Actor, id: number, sentAt: Date, now = new Date()) {
   return tx(async (c) => {
     const n = await lockNcf(c, id);
     requireRole(actor, ["PURCHASING", "PCH_DIV_HEAD"]);
     expectStatus(n, "APPROVED");
-    const contacts = await q<{ name: string; email: string }>(
-      c,
-      "select name, email from supplier_contact where supplier_id = $1 and active and is_ncf_recipient and email is not null",
-      [n.supplier_id],
-    );
-    if (method === "EMAIL" && contacts.length === 0) {
-      throw new AppError("This supplier has no email contact. Use Generate link and share it through another channel.", 409);
+    if (sentAt.getTime() > now.getTime() + 60_000) throw new AppError("Sent at cannot be in the future.");
+    if (n.approved_at && sentAt.getTime() < Math.floor(n.approved_at.getTime() / 60_000) * 60_000) {
+      throw new AppError("The form cannot be sent before the NCF was approved.");
     }
     const req = await one<{ id: number }>(
       c,
       `insert into supplier_request(ref_no, type, supplier_id, ncf_id, status, send_method, sent_by, sent_at)
-       values ($1,'NCF',$2,$3,'SENT',$4,$5,$6) returning id`,
-      [`RQ-${n.ncf_no}`, n.supplier_id, id, method, actor.id, now],
+       values ($1,'NCF',$2,$3,'SENT','EMAIL',$4,$5) returning id`,
+      [`RQ-${n.ncf_no}`, n.supplier_id, id, actor.id, sentAt],
     );
-    const raw = await issueToken(c, req!.id, now);
     await c.query("update ncf set status='SENT' where id=$1", [id]);
-    if (method === "EMAIL") {
-      for (const ct of contacts) {
-        await enqueue(c, {
-          event: "NCF_SENT", refTable: "supplier_request", refId: req!.id, toEmail: ct.email,
-          subject: `Non Conformity Form ${n.ncf_no} – Integra Group`,
-          body:
-            `Dear ${ct.name},\n\nIntegra Group found a non-conformity in your delivery SJ ${n.sj_no}. ` +
-            `Please open the link below to read the NCF (Page 1, printable for your records) and submit your corrective and preventive action.\n\n` +
-            `${supplierLink(raw)}\n\nRegards,\n${actor.name}, Purchasing`,
-        });
-      }
-    }
-    await audit(c, { entity: "ncf", entityId: id, action: "SEND", field: "method", newValue: method, actorType: "USER", actorId: actor.id });
-    return { requestId: req!.id, link: supplierLink(raw) };
-  });
-}
-
-/** A new link for the supplier. Earlier links stop working (FD section 10). */
-export async function reissueLink(actor: Actor, id: number, now = new Date()) {
-  return tx(async (c) => {
-    const n = await lockNcf(c, id);
-    requireRole(actor, ["PURCHASING", "PCH_DIV_HEAD"]);
-    expectStatus(n, "SENT");
-    const r = await one<{ id: number }>(c, "select id from supplier_request where ncf_id = $1", [id]);
-    await c.query("update access_token set revoked_at = $2 where request_id = $1 and revoked_at is null", [r!.id, now]);
-    const raw = await issueToken(c, r!.id, now);
-    await audit(c, { entity: "ncf", entityId: id, action: "REISSUE_LINK", actorType: "USER", actorId: actor.id });
-    return supplierLink(raw);
+    await audit(c, { entity: "ncf", entityId: id, action: "SENT", field: "sent_at", newValue: sentAt.toISOString(), actorType: "USER", actorId: actor.id });
+    return { requestId: req!.id };
   });
 }
 
 // ---------- Verify and close (FD section 11) ----------
 
-export async function close(actor: Actor, id: number, note: string, now = new Date()) {
+/** Closing records that Purchasing checked the supplier's reply. No verification note: the reply is kept as received. */
+export async function close(actor: Actor, id: number, now = new Date()) {
   return tx(async (c) => {
     const n = await lockNcf(c, id);
     requireRole(actor, ["PURCHASING", "PCH_DIV_HEAD"]);
     expectStatus(n, "RESPONDED");
-    if (note.trim().length < 5) throw new AppError("Write the verification result before closing.");
-    await c.query("update ncf set status='CLOSED', closed_at=$2, closed_by=$3, closure_note=$4 where id=$1", [id, now, actor.id, note.trim()]);
+    await c.query("update ncf set status='CLOSED', closed_at=$2, closed_by=$3 where id=$1", [id, now, actor.id]);
     await c.query("update supplier_request set status='CLOSED', closed_at=$2 where ncf_id=$1", [id, now]);
-    await audit(c, { entity: "ncf", entityId: id, action: "CLOSE", newValue: note.trim(), actorType: "USER", actorId: actor.id });
+    await audit(c, { entity: "ncf", entityId: id, action: "CLOSE", actorType: "USER", actorId: actor.id });
     await enqueue(c, {
       event: "NCF_CLOSED", refTable: "ncf", refId: id, toUserId: n.created_by,
-      subject: `NCF ${n.ncf_no} is closed`, body: note.trim(),
+      subject: `NCF ${n.ncf_no} is closed`, body: `NCF ${n.ncf_no} was verified and closed.`,
     });
-    const contacts = await q<{ email: string }>(
-      c,
-      "select email from supplier_contact where supplier_id = $1 and active and is_ncf_recipient and email is not null",
-      [n.supplier_id],
-    );
-    for (const ct of contacts) {
-      await enqueue(c, {
-        event: "NCF_CLOSED", refTable: "ncf", refId: id, toEmail: ct.email,
-        subject: `NCF ${n.ncf_no} is closed – Integra Group`,
-        body: `Thank you. Integra Group has verified your corrective and preventive action and closed NCF ${n.ncf_no}.`,
-      });
-    }
   });
 }
 

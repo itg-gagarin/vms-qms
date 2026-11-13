@@ -21,6 +21,10 @@ const ALLOWED: Record<string, "PHOTO" | "VIDEO" | "DOC"> = {
   "application/pdf": "DOC",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "DOC",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "DOC",
+  // Supplier replies saved from the mail client (.eml, .msg) or as plain text.
+  "message/rfc822": "DOC",
+  "application/vnd.ms-outlook": "DOC",
+  "text/plain": "DOC",
 };
 
 export function kindOf(mime: string) {

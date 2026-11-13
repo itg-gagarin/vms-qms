@@ -1,43 +1,63 @@
-import Link from "next/link";
-import { logoutAction } from "@/app/login/actions";
+import { Sidebar, type NavGroup, type NavItem } from "@/components/sidebar";
+import { ROLES } from "@/lib/admin";
 import { requireUser } from "@/lib/auth";
-import { hasRole } from "@/lib/core";
+import { selectedBu, unitsFor } from "@/lib/bu";
+import { hasRole, visibleStatuses } from "@/lib/core";
+import type { NcfStatus } from "@/lib/labels";
+import { statusCounts } from "@/lib/ncf";
+import { SUPPLIER_ROLES } from "@/lib/suppliers";
+import { REPORT_ROLES } from "@/lib/reports";
+
+// Sidebar names for the NCF statuses, in workflow order. Every status is listed, so no NCF falls between links.
+const NCF_STATUS_NAV: [NcfStatus, string][] = [
+  ["DRAFT", "Drafts"],
+  ["WAITING_APPROVAL", "Pending Approval"],
+  ["APPROVED", "Approved · to send"],
+  ["SENT", "Sent"],
+  ["RESPONDED", "Responded"],
+  ["CLOSED", "Closed"],
+  ["VOID", "Void"],
+];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const nav = [
-    { href: "/ncf", label: "NCF", show: true },
-    { href: "/ncf/new", label: "New NCF", show: hasRole(user, "QC_INSPECTOR") },
-    { href: "/outbox", label: "Email outbox", show: hasRole(user, ["SUPER_ADMIN", "PURCHASING", "PCH_DIV_HEAD"]) },
-    { href: "/settings", label: "Settings", show: hasRole(user, "SUPER_ADMIN") },
-  ].filter((n) => n.show);
+  const seen = visibleStatuses(user);
+  const units = await unitsFor(user);
+  const bu = await selectedBu(user, units);
+  const counts = seen.length ? await statusCounts(user, bu) : { byStatus: {} as Partial<Record<NcfStatus, number>>, toSign: 0 };
+
+  // One item per QMS module. A new module adds an entry here with the roles that may open it;
+  // items the user has no role for are left out, and a group with nothing left is hidden.
+  const groups: NavGroup[] = (
+    [
+      {
+        label: "Active modules",
+        items: [
+          {
+            href: "/ncf", label: "NCF Management", icon: "ncf", show: seen.length > 0, count: counts.toSign || undefined,
+            children: NCF_STATUS_NAV.filter(([value]) => seen.includes(value))
+              .map(([value, label]) => ({ label, param: "status", value, count: counts.byStatus[value] })),
+          },
+          { href: "/ncf/new", label: "SAP Goods Receipt", icon: "receipt", show: hasRole(user, "QC_INSPECTOR") },
+          { href: "/reports", label: "Reports", icon: "chart", show: hasRole(user, REPORT_ROLES) },
+          { href: "/outbox", label: "Supplier Outbox", icon: "mail", show: hasRole(user, ["PURCHASING", "PCH_DIV_HEAD"]) },
+          { href: "/suppliers", label: "Supplier Master", icon: "supplier", show: hasRole(user, SUPPLIER_ROLES) },
+          { href: "/settings", label: "Master Settings", icon: "settings", show: hasRole(user, "SUPER_ADMIN") },
+        ],
+      },
+    ] satisfies { label: string; items: (NavItem & { show: boolean })[] }[]
+  )
+    .map((g) => ({
+      label: g.label,
+      items: g.items.filter((i) => i.show).map(({ href, label, icon, children, count }) => ({ href, label, icon, children, count })),
+    }))
+    .filter((g) => g.items.length > 0);
+
   return (
     <>
-      <header className="no-print border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-8">
-          <div className="flex flex-wrap items-center gap-6">
-            <Link href="/ncf" className="font-bold tracking-wide text-slate-900 no-underline">
-              INTEGRA GROUP <span className="font-normal text-slate-600">· VMS</span>
-            </Link>
-            <nav aria-label="Main" className="flex flex-wrap gap-1">
-              {nav.map((n) => (
-                <Link key={n.href} href={n.href} className="rounded-md px-3 py-2 text-sm font-semibold text-slate-700 no-underline hover:bg-slate-100">
-                  {n.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-slate-700">
-              <span className="font-semibold">{user.name}</span> · {user.position}
-            </span>
-            <form action={logoutAction}>
-              <button className="rounded-md px-3 py-2 text-sm font-semibold text-brand hover:bg-brand-soft">Sign out</button>
-            </form>
-          </div>
-        </div>
-      </header>
-      {children}
+      <Sidebar groups={groups} search={seen.length > 0} units={units} bu={bu}
+        user={{ name: user.name, position: user.position, roles: [...new Set(user.roles.map((r) => ROLES.find((x) => x.role === r.role)?.label ?? r.role))] }} />
+      <div className="lg:pl-64">{children}</div>
     </>
   );
 }

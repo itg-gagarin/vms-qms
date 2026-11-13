@@ -94,12 +94,12 @@ export default async function NewNcf({ searchParams }: { searchParams: Promise<{
           <table className="table w-full max-md:hidden">
             <thead>
               <tr>
-                <th scope="col">No. MRReg · Registrasi</th>
+                <th scope="col" title="No. MRReg and Registration Date">MRReg</th>
                 <th scope="col">Vendor</th>
                 <th scope="col">Item</th>
-                <th scope="col">No. PO</th>
-                <th scope="col" className="text-right">Qty Reg</th>
-                <th scope="col">Surat Jalan</th>
+                <th scope="col">PO<span className="2xl:hidden"> · SJ</span></th>
+                <th scope="col" className="text-right" title="Qty Reg">Qty</th>
+                <th scope="col" className="max-2xl:hidden">Surat Jalan</th>
                 <th scope="col">SAP</th>
                 {tab === "archive" && <th scope="col">NCF</th>}
                 <th scope="col"><span className="sr-only">Action</span></th>
@@ -112,14 +112,18 @@ export default async function NewNcf({ searchParams }: { searchParams: Promise<{
                     <div className="num font-semibold">{r.mrreg_no}</div>
                     <div className="num text-[12px] text-muted" title="Registration Date (Tanggal Masuk)">{fmtDate(r.receipt_date)}</div>
                   </td>
-                  <td className="max-w-[200px]">
-                    <div className="truncate font-medium" title={r.supplier_name}>{r.supplier_name}</div>
+                  <td>
+                    <div className="max-w-[150px] truncate font-medium 2xl:max-w-[220px]" title={r.supplier_name}>{r.supplier_name}</div>
                     <div className="num text-[12px] text-muted">{r.vendor_code}</div>
                   </td>
-                  <td className="min-w-[200px] max-w-[300px]"><Items r={r} /></td>
-                  <td className="num"><Pos r={r} /></td>
+                  <td><div className="w-[190px] xl:w-[220px] 2xl:w-[280px]"><Items r={r} /></div></td>
+                  <td className="num">
+                    <Pos r={r} />
+                    {/* Narrower screens: the surat jalan sits under the PO instead of in its own column */}
+                    <div className="mt-1 text-[12px] text-muted 2xl:hidden" title="No. Surat Jalan · Tanggal Surat Jalan"><Sj sj={r.sj_no} /> · {fmtDate(r.sj_date)}</div>
+                  </td>
                   <td className="num text-right">{qtyFmt(r.qty_reg)}</td>
-                  <td>
+                  <td className="max-2xl:hidden">
                     <div className="num"><Sj sj={r.sj_no} /></div>
                     <div className="num text-[12px] text-muted" title="Tanggal Surat Jalan">{fmtDate(r.sj_date)}</div>
                   </td>

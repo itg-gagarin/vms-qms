@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logoutAction } from "@/app/login/actions";
 
-export type NavIcon = "ncf" | "receipt" | "mail" | "settings";
+export type NavIcon = "ncf" | "receipt" | "mail" | "settings" | "chart";
 /** A sub-link that is the parent's page with one query value, e.g. /ncf?status=DRAFT. */
 export type NavChild = { label: string; param: string; value: string };
 export type NavItem = { href: string; label: string; icon: NavIcon; children?: NavChild[] };
@@ -16,6 +16,7 @@ const ICON_PATHS: Record<NavIcon | "menu" | "close" | "chevron", string> = {
   receipt: "M9 3h6v3H9zM8 4.5H6a1 1 0 0 0-1 1V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5.5a1 1 0 0 0-1-1h-2M9 14l2 2 4-4",
   mail: "M4 6h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM3.5 7l8.5 6 8.5-6",
   settings: "M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4",
+  chart: "M4 20h16M7 16v-5M12 16V7M17 16v-8",
   menu: "M4 6h16M4 12h16M4 18h16",
   close: "M6 6l12 12M18 6L6 18",
   chevron: "M9 6l6 6-6 6",

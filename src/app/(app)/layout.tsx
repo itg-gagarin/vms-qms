@@ -2,6 +2,7 @@ import { Sidebar, type NavGroup, type NavItem } from "@/components/sidebar";
 import { requireUser } from "@/lib/auth";
 import { hasRole, visibleStatuses } from "@/lib/core";
 import type { NcfStatus } from "@/lib/labels";
+import { REPORT_ROLES } from "@/lib/reports";
 
 // Sidebar names for the NCF statuses, in workflow order. Every status is listed, so no NCF falls between links.
 const NCF_STATUS_NAV: [NcfStatus, string][] = [
@@ -30,6 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             children: NCF_STATUS_NAV.filter(([value]) => seen.includes(value)).map(([value, label]) => ({ label, param: "status", value })),
           },
           { href: "/ncf/new", label: "SAP Goods Receipt", icon: "receipt", show: hasRole(user, "QC_INSPECTOR") },
+          { href: "/reports", label: "Reports", icon: "chart", show: hasRole(user, REPORT_ROLES) },
           { href: "/outbox", label: "Supplier Outbox", icon: "mail", show: hasRole(user, ["PURCHASING", "PCH_DIV_HEAD"]) },
           { href: "/settings", label: "Master Settings", icon: "settings", show: hasRole(user, "SUPER_ADMIN") },
         ],

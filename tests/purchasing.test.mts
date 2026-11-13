@@ -129,3 +129,27 @@ describe("Purchasing records an emailed reply (Returned)", () => {
     await assert.rejects(pur.listDispatch(users.qc, "waiting"), /role/);
   });
 });
+
+describe("Reports and export", () => {
+  test("dashboard counts replies and waits; export has an NCF sheet and an Items sheet; roles are enforced", async () => {
+    const rep = await import("../src/lib/reports.ts");
+    const period = { from: "2026-01-01", to: "2026-12-31" };
+    const d = await rep.dashboard(users.qcm, period);
+    const sent = await q<{ n: number }>(pool, "select count(*)::int as n from ncf where status = 'SENT'");
+    const replied = await q<{ n: number }>(pool, "select count(*)::int as n from supplier_request where responded_at is not null");
+    assert.equal(d.kpi.waiting, sent[0].n);
+    assert.equal(d.kpi.responded, replied[0].n);
+    assert.ok(d.suppliers.length > 0 && d.monthly.length > 0);
+
+    await assert.rejects(rep.exportXlsx(users.pur, period), /role/);
+    const x = await rep.exportXlsx(users.qcm, period);
+    const submitted = await q<{ n: number }>(pool, "select count(*)::int as n from ncf where status <> 'DRAFT'");
+    assert.equal(x.ncfs, submitted[0].n, "approvers export every submitted NCF, not drafts");
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(x.buffer);
+    assert.deepEqual(wb.worksheets.map((w) => w.name), ["NCF", "Items"]);
+    assert.equal(wb.getWorksheet("NCF")!.rowCount - 1, x.ncfs);
+    await assert.rejects(rep.dashboard(users.qc, { from: "2026-12-31", to: "2026-01-01" }), /starts after it ends/);
+  });
+});

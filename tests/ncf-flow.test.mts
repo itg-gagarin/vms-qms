@@ -259,6 +259,25 @@ describe("Access rules", () => {
     assert.ok(qcDrafts.every((d) => qcAll.some((r) => r.id === d.id)));
   });
 
+  test("each department sees only its stages; drafts stay with QC", async () => {
+    const draft = await ncf.createDraft(users.qc, await mrreg("MR-2026-11-0007"), at("2026-11-13 08:00"));
+    for (const who of ["qcm", "gm", "pur", "pch"]) {
+      await assert.rejects(ncf.getNcf(users[who], draft), /not open to your department/, who);
+    }
+    assert.equal((await ncf.getNcf(users.qc, draft)).status, "DRAFT");
+    assert.equal((await ncf.getNcf(users.audit, draft)).status, "DRAFT");
+
+    const only = async (who: string, allowed: string[]) => {
+      const rows = await ncf.listNcf(users[who], "all");
+      assert.ok(rows.every((r) => allowed.includes(r.status)), `${who} saw ${[...new Set(rows.map((r) => r.status))]}`);
+    };
+    await only("qc", ["DRAFT", "WAITING_APPROVAL", "CLOSED", "VOID"]);
+    await only("qcm", ["WAITING_APPROVAL", "APPROVED", "CLOSED", "VOID"]);
+    await only("pur", ["APPROVED", "SENT", "RESPONDED", "CLOSED"]);
+    // Asking for a status outside the department's stages returns nothing, not an error.
+    assert.equal((await ncf.listNcf(users.pur, "all", "DRAFT")).length, 0);
+  });
+
   test("Super Admin can do every role's work, but cannot sign an approval step named for someone else", async () => {
     assert.ok((await ncf.searchMrreg(users.admin, "")).length > 0, "sees goods receipts like QC");
     const id = await ncf.createDraft(users.admin, await mrreg("MR-2026-11-0007"), at("2026-11-13 09:00"));

@@ -13,6 +13,7 @@ import {
   requireRole,
   roleScopes,
   usersWithRole,
+  visibleStatuses,
 } from "./core";
 import type { Db } from "./db";
 import { one, pool, q, tx } from "./db";
@@ -96,7 +97,7 @@ async function checkPassword(c: Db, actor: Actor, password: string) {
 export async function getNcf(actor: Actor | null, id: number, db: Db = pool) {
   const n = await one<NcfRow>(db, `${NCF_SELECT} where n.id = $1`, [id]);
   if (!n) throw new AppError("NCF not found.", 404);
-  if (actor && !canRead(actor, n.bu_id)) throw new AppError("You cannot open NCFs of this Business Unit.", 403);
+  if (actor && !canRead(actor, n.bu_id, n.status)) throw new AppError("This NCF is not open to your department at its current stage.", 403);
   return loadDetails(db, n);
 }
 
@@ -260,6 +261,8 @@ export async function listNcf(actor: Actor, filter: string, status?: NcfStatus) 
       break;
   }
   if (status) add("n.status = $?", status);
+  // Each department sees only the stages it works with (core.STATUSES_BY_ROLE).
+  add("n.status = any($?)", visibleStatuses(actor));
   // Business Unit scope for QC and approvers; Purchasing, PCH, Auditor and Admin see all.
   if (!hasRole(actor, ["PURCHASING", "PCH_DIV_HEAD", "AUDITOR", "SUPER_ADMIN"])) {
     const bus = actor.roles.filter((r) => r.bu_id !== null).map((r) => r.bu_id);

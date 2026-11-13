@@ -1,6 +1,7 @@
 // QR verification pages and print log (FD sections 9 and 13).
 import type { Actor } from "./core";
 import { canRead, getSetting, hasRole } from "./core";
+import type { NcfStatus } from "./labels";
 import { one, pool, q } from "./db";
 import { AppError } from "./util";
 
@@ -30,7 +31,7 @@ export async function verifyDocument(code: string, viewer: Actor | null, ip: str
     "select step_no, signer_name, signer_position, decision, decided_at from ncf_approval where ncf_version_id = $1 order by step_no",
     [v.id],
   );
-  const full = viewer ? canRead(viewer, v.bu_id) : false;
+  const full = viewer ? canRead(viewer, v.bu_id, n!.status as NcfStatus) : false;
   return { ...v, ...n!, items, approvals, superseded: v.version_no !== v.current_version, canOpenFull: full };
 }
 

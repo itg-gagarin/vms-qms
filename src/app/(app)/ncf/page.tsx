@@ -1,27 +1,29 @@
 import Link from "next/link";
 import { Shell, StatusBadge } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { hasRole } from "@/lib/core";
+import { hasRole, visibleStatuses, type Role } from "@/lib/core";
 import { listNcf } from "@/lib/ncf";
-import { isNcfStatus, STATUS_LABEL } from "@/lib/labels";
+import { isNcfStatus, STATUS_LABEL, type NcfStatus } from "@/lib/labels";
 import { fmtDate } from "@/lib/util";
 
-const TABS = [
-  { key: "mine", label: "My drafts", role: ["QC_INSPECTOR"] },
-  { key: "approve", label: "To approve", role: ["NCF_APPROVER"] },
-  { key: "send", label: "To send", role: ["PURCHASING", "PCH_DIV_HEAD"] },
-  { key: "waiting", label: "Waiting supplier", role: null },
-  { key: "verify", label: "To verify and close", role: ["PURCHASING", "PCH_DIV_HEAD"] },
-  { key: "closed", label: "Closed and void", role: null },
-  { key: "all", label: "All", role: null },
-] as const;
+// Worklist tabs. A tab shows only if the user may see at least one of its statuses (core.STATUSES_BY_ROLE).
+const TABS: { key: string; label: string; role: Role[] | null; statuses: NcfStatus[] | null }[] = [
+  { key: "mine", label: "My drafts", role: ["QC_INSPECTOR"], statuses: ["DRAFT", "WAITING_APPROVAL"] },
+  { key: "approve", label: "To approve", role: ["NCF_APPROVER"], statuses: ["WAITING_APPROVAL"] },
+  { key: "send", label: "To send", role: ["PURCHASING", "PCH_DIV_HEAD"], statuses: ["APPROVED"] },
+  { key: "waiting", label: "Waiting supplier", role: null, statuses: ["SENT"] },
+  { key: "verify", label: "To verify and close", role: ["PURCHASING", "PCH_DIV_HEAD"], statuses: ["RESPONDED"] },
+  { key: "closed", label: "Closed and void", role: null, statuses: ["CLOSED", "VOID"] },
+  { key: "all", label: "All", role: null, statuses: null },
+];
 
 export default async function NcfList({ searchParams }: { searchParams: Promise<{ tab?: string; status?: string }> }) {
   const user = await requireUser();
-  const tabs = TABS.filter((t) => !t.role || hasRole(user, [...t.role]));
+  const seen = visibleStatuses(user);
+  const tabs = TABS.filter((t) => (!t.role || hasRole(user, t.role)) && (!t.statuses || t.statuses.some((x) => seen.includes(x))));
   const { tab: asked, status: askedStatus } = await searchParams;
   // A status (from the sidebar) lists every NCF in that status the user may see; otherwise a worklist tab.
-  const status = isNcfStatus(askedStatus) ? askedStatus : undefined;
+  const status = isNcfStatus(askedStatus) && seen.includes(askedStatus) ? askedStatus : undefined;
   const tab = status ? "all" : (tabs.find((t) => t.key === asked)?.key ?? tabs[0].key);
   const rows = await listNcf(user, tab, status);
   return (

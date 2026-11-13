@@ -1,6 +1,7 @@
 // Small shared services: audit log, outbox, settings, working days, numbering, roles.
 import type { Db } from "./db";
 import { one, q } from "./db";
+import type { NcfStatus } from "./labels";
 import { AppError, romanMonth, wib } from "./util";
 
 export type Role = "QC_INSPECTOR" | "NCF_APPROVER" | "PURCHASING" | "PCH_DIV_HEAD" | "AUDITOR" | "SUPER_ADMIN";
@@ -35,8 +36,29 @@ export function requireRole(actor: Actor, roles: Role | Role[], buId?: number | 
   if (!hasRole(actor, roles, buId)) throw new AppError("You do not have the role for this action.", 403);
 }
 
-/** Internal users who may read an NCF of this BU. */
-export function canRead(actor: Actor, buId: number) {
+/**
+ * Which NCF statuses each department works with. A user sees the union over their roles; Auditor and
+ * Super Admin see every status. Lists, the detail page, prints, evidence files and the sidebar all read this.
+ */
+const ALL_STATUSES: NcfStatus[] = ["DRAFT", "WAITING_APPROVAL", "APPROVED", "SENT", "RESPONDED", "CLOSED", "VOID"];
+export const STATUSES_BY_ROLE: Record<Role, NcfStatus[]> = {
+  QC_INSPECTOR: ["DRAFT", "WAITING_APPROVAL", "CLOSED", "VOID"],
+  NCF_APPROVER: ["WAITING_APPROVAL", "APPROVED", "CLOSED", "VOID"],
+  PURCHASING: ["APPROVED", "SENT", "RESPONDED", "CLOSED"],
+  PCH_DIV_HEAD: ["APPROVED", "SENT", "RESPONDED", "CLOSED"],
+  AUDITOR: ALL_STATUSES,
+  SUPER_ADMIN: ALL_STATUSES,
+};
+
+/** NCF statuses this user may see, in workflow order. */
+export function visibleStatuses(actor: Actor): NcfStatus[] {
+  const mine = new Set(actor.roles.flatMap((r) => STATUSES_BY_ROLE[r.role] ?? []));
+  return ALL_STATUSES.filter((s) => mine.has(s));
+}
+
+/** Internal users who may read an NCF of this BU in this status. */
+export function canRead(actor: Actor, buId: number, status: NcfStatus) {
+  if (!visibleStatuses(actor).includes(status)) return false;
   return hasRole(actor, ["QC_INSPECTOR", "NCF_APPROVER"], buId) ||
     hasRole(actor, ["PURCHASING", "PCH_DIV_HEAD", "AUDITOR", "SUPER_ADMIN"]);
 }

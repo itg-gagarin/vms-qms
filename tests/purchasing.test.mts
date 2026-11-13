@@ -22,7 +22,7 @@ after(async () => pool.end());
 
 /** An NCF whose exported form Purchasing sent at `sentAt` (WIB). */
 async function sentNcf(sentAt: string) {
-  const mr = (await one<{ id: number }>(pool, "select id from mrreg where mrreg_no = 'MR-2026-10-0001'"))!.id;
+  const mr = (await one<{ id: number }>(pool, "select id from mrreg where mrreg_no = '260012841'"))!.id;
   const id = await ncf.createDraft(users.qc, mr, at("2026-11-02 08:00"));
   await ncf.updateHeader(users.qc, id, {
     inspect_date: "2026-11-02", inspect_time: "08:00", goods_status: "FAILED", hold_note: "",

@@ -32,7 +32,12 @@ export async function verifyDocument(code: string, viewer: Actor | null, ip: str
     [v.id],
   );
   const full = viewer ? canRead(viewer, v.bu_id, n!.status as NcfStatus) : false;
-  return { ...v, ...n!, items, approvals, superseded: v.version_no !== v.current_version, canOpenFull: full };
+  // What anyone holding the paper may see: only what is printed on it. No hashes, versions, workflow status or method.
+  return {
+    ncf_id: v.ncf_id, ncf_no: n!.ncf_no, supplier: n!.supplier, bu: n!.bu, sj_no: n!.sj_no, receipt_date: n!.receipt_date,
+    void: n!.status === "VOID", items, approvals: approvals.filter((a) => a.decision === "APPROVED"),
+    superseded: v.version_no !== v.current_version, canOpenFull: full,
+  };
 }
 
 export async function verifySignature(code: string, viewer: Actor | null, ip: string | null) {
@@ -49,7 +54,10 @@ export async function verifySignature(code: string, viewer: Actor | null, ip: st
   );
   if (!a) throw new AppError("This signature QR does not match any approval record.", 404);
   await pool.query("insert into qr_scan(qr_type, ncf_approval_id, user_id, ip) values ('SIGNATURE',$1,$2,$3)", [a.id, viewer?.id ?? null, ip]);
-  return { ...a, superseded: a.version_no !== a.current_version };
+  return {
+    signer_name: a.signer_name, signer_position: a.signer_position, step_no: a.step_no, decided_at: a.decided_at,
+    ncf_no: a.ncf_no, verify_code: a.verify_code, superseded: a.version_no !== a.current_version,
+  };
 }
 
 export async function logPrint(actor: Actor, ncfId: number, status: string) {

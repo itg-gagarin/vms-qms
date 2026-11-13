@@ -1,5 +1,6 @@
 // Demo data. SAP is not connected in the MVP, so receipts and POs are seeded here.
-// Receipt MR-2026-10-0001 reproduces paper NCF 423/X/2026 (Premier, two Tombu Spindle items).
+// Receipt 260012841 reproduces paper NCF 423/X/2026 (Premier, two Tombu Spindle items). Numbers, codes, item groups,
+// SAP status and dates follow the SAP MRReg export (mrreg2026.xlsx): 9-digit MRReg and PO, VLP/VSM vendor codes.
 import bcrypt from "bcryptjs";
 import { Client } from "pg";
 
@@ -58,25 +59,25 @@ async function main() {
   }
 
   const premier = (await c.query(
-    "insert into supplier(sap_vendor_code,name) values ('V0001','Premier') returning id",
+    "insert into supplier(sap_vendor_code,name) values ('VLP00412','Premier') returning id",
   )).rows[0].id;
   await c.query(
     "insert into supplier_contact(supplier_id,name,email) values ($1,'Premier QA','qa@premier.demo')",
     [premier],
   );
   const noEmail = (await c.query(
-    "insert into supplier(sap_vendor_code,name) values ('V0002','CV Sinar Kayu') returning id",
+    "insert into supplier(sap_vendor_code,name) values ('VLP01187','Sinar Kayu, CV') returning id",
   )).rows[0].id;
   await c.query(
     "insert into supplier_contact(supplier_id,name,email,phone) values ($1,'Pak Budi',null,'0812-0000-0000')",
     [noEmail],
   );
 
-  const item = async (code: string, desc: string) =>
-    (await c.query("insert into item(sap_material_code,description,uom) values ($1,$2,'PCS') returning id", [code, desc])).rows[0].id;
-  const iBlack = await item("RP.001.0008.0005.00419", "Tombu Spindle Queen Bed Box 2 Black");
-  const iWhite = await item("RP.001.0008.0005.00506", "Tombu Spindle Queen Bed Box 2 White");
-  const iLeg = await item("RP.001.0009.0001.00101", "Kaki Meja Jati 72 cm");
+  const item = async (code: string, desc: string, group: string) =>
+    (await c.query("insert into item(sap_material_code,description,uom,item_group) values ($1,$2,'PCS',$3) returning id", [code, desc, group])).rows[0].id;
+  const iBlack = await item("RP.001.0008.0005.00419", "Tombu Spindle Queen Bed Box 2 Black", "Raw Material Packaging");
+  const iWhite = await item("RP.001.0008.0005.00506", "Tombu Spindle Queen Bed Box 2 White", "Raw Material Packaging");
+  const iLeg = await item("RB.001.0009.0001.00101", "Kaki Meja Jati 72 cm", "Raw Material Board");
 
   const po = async (no: string, sup: number, date: string) =>
     (await c.query(
@@ -89,31 +90,34 @@ async function main() {
        values ($1,$2,$3,$4,$5,$6,$6) returning id`,
       [poId, line, itemId, qty, price, req],
     )).rows[0].id;
-  const po1 = await po("4500012345", premier, "2026-09-20");
+  const po1 = await po("260009812", premier, "2026-09-20");
   const pl1 = await poLine(po1, 10, iBlack, 100, 185000, "2026-10-14");
   const pl2 = await poLine(po1, 20, iWhite, 65, 185000, "2026-10-14");
-  const po2 = await po("4500012399", noEmail, "2026-10-01");
+  const po2 = await po("260010245", noEmail, "2026-10-01");
   const pl3 = await poLine(po2, 10, iLeg, 200, 42000, "2026-11-05");
 
-  const mr = async (no: string, sup: number, sj: string, sjDate: string, rcv: string) =>
+  // SAP: created at the gate on the registration day, confirmed, then closed once the goods receipt is posted.
+  const mr = async (no: string, sup: number, sj: string, sjDate: string, rcv: string, status = "CLOSED") =>
     (await c.query(
-      "insert into mrreg(mrreg_no,bu_id,supplier_id,sj_no,sj_date,receipt_date,synced_at) values ($1,$2,$3,$4,$5,$6,now()) returning id",
-      [no, bu, sup, sj, sjDate, rcv],
+      `insert into mrreg(mrreg_no,bu_id,supplier_id,sj_no,sj_date,receipt_date,sap_status,sap_created_at,confirmed_on,sap_closed_at,synced_at)
+       values ($1,$2,$3,$4,$5,$6,$7,($6::date + time '08:12') at time zone 'Asia/Jakarta',$6,
+               case when $7 = 'CLOSED' then ($6::date + 1 + time '10:41') at time zone 'Asia/Jakarta' end, now()) returning id`,
+      [no, bu, sup, sj, sjDate, rcv, status],
     )).rows[0].id;
   const mrLine = (mrId: number, line: number, plId: number, itemId: number, qty: number) =>
     c.query(
       "insert into mrreg_line(mrreg_id,line_no,po_line_id,item_id,qty_received,uom) values ($1,$2,$3,$4,$5,'PCS')",
       [mrId, line, plId, itemId, qty],
     );
-  const mr1 = await mr("MR-2026-10-0001", premier, "SJ-PRM-0410", "2026-10-13", "2026-10-14");
+  const mr1 = await mr("260012841", premier, "0410/PRM/X/26", "2026-10-13", "2026-10-14");
   await mrLine(mr1, 1, pl1, iBlack, 100);
   await mrLine(mr1, 2, pl2, iWhite, 65);
-  const mr2 = await mr("MR-2026-11-0007", noEmail, "SJ-SK-1102", "2026-11-04", "2026-11-05");
+  const mr2 = await mr("260014212", noEmail, "1102", "2026-11-04", "2026-11-05");
   await mrLine(mr2, 1, pl3, iLeg, 200);
   // One receipt, two POs of the same supplier: QC picks the PO before the items.
-  const po3 = await po("4500012367", premier, "2026-10-20");
+  const po3 = await po("260010390", premier, "2026-10-20");
   const pl4 = await poLine(po3, 10, iWhite, 50, 185000, "2026-11-10");
-  const mr3 = await mr("MR-2026-11-0009", premier, "SJ-PRM-1109", "2026-11-09", "2026-11-10");
+  const mr3 = await mr("260014390", premier, "1109/PRM/XI/26", "2026-11-09", "2026-11-10", "CONFIRMED");
   await mrLine(mr3, 1, pl1, iBlack, 40);
   await mrLine(mr3, 2, pl4, iWhite, 50);
 

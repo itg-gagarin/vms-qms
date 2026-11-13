@@ -1,7 +1,7 @@
 import type { NcfDetail } from "@/lib/ncf";
 import { GOODS_STATUS } from "@/lib/labels";
 import { fmtDate, fmtDateTime } from "@/lib/util";
-import { Field, Section } from "./ui";
+import { Field, FieldGrid, Section } from "./ui";
 
 /** Part 1 (sections A to F), read-only. Used on the internal page and the supplier page, so both look the same. */
 export function NcfPart1({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: number) => string }) {
@@ -14,21 +14,19 @@ export function NcfPart1({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: num
   return (
     <>
       <Section title="A. Identifikasi masalah">
-        <div className="flex flex-wrap gap-x-6 gap-y-4">
-          <Field label="No. Komplain">{d.ncf_no}</Field>
+        <FieldGrid cols={4}>
+          <Field label="No. Komplain"><span className="num">{d.ncf_no}</span></Field>
           <Field label="Business Unit">{d.bu_name}</Field>
           <Field label="Nama Supplier">{d.supplier_name}</Field>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-4">
-          <Field label="No. SJ">{d.sj_no}</Field>
-          <Field label="Tanggal SJ">{fmtDate(d.sj_date)}</Field>
-          <Field label="No. PO">{poNos}</Field>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-4">
-          <Field label="Tanggal Masuk">{fmtDate(d.receipt_date)}</Field>
-          <Field label="Tanggal Periksa">{fmtDate(d.inspect_date)}</Field>
-          <Field label="Jam Periksa">{d.inspect_time}</Field>
-        </div>
+          <Field label="Kode Vendor"><span className="num">{d.supplier_code}</span></Field>
+          <Field label="No. MRReg"><span className="num">{d.mrreg_no}</span></Field>
+          <Field label="No. PO"><span className="num">{poNos}</span></Field>
+          <Field label="No. SJ"><span className="num">{d.sj_no}</span></Field>
+          <Field label="Tanggal SJ"><span className="num">{fmtDate(d.sj_date)}</span></Field>
+          <Field label="Tanggal Masuk"><span className="num">{fmtDate(d.receipt_date)}</span></Field>
+          <Field label="Tanggal Periksa"><span className="num">{fmtDate(d.inspect_date)}</span></Field>
+          <Field label="Jam Periksa"><span className="num">{d.inspect_time}</span></Field>
+        </FieldGrid>
       </Section>
       <Section title="B. Penyimpangan yang terjadi">
         <ItemTable d={d} totals={totals} />
@@ -40,9 +38,8 @@ export function NcfPart1({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: num
         </div>
       </Section>
       <Section title="D. Masalah yang ditemukan">
-        <div className="flex flex-wrap gap-x-6 gap-y-4">
+        <div className="grid gap-4 sm:grid-cols-[220px_minmax(0,1fr)]">
           <Field label="Kategori masalah">{d.problem_category}</Field>
-          <div className="basis-full" />
           <Field label="Uraian masalah">{d.problem_desc}</Field>
         </div>
       </Section>
@@ -50,7 +47,7 @@ export function NcfPart1({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: num
         <EvidenceList items={files} fileHref={fileHref} />
       </Section>
       <Section title="F. Tindak lanjut dari Integra">
-        <p className="whitespace-pre-line text-[15px]">{d.follow_up || <span className="text-slate-500">–</span>}</p>
+        <p className="whitespace-pre-line text-[14px]">{d.follow_up || <span className="text-slate-500">–</span>}</p>
       </Section>
     </>
   );

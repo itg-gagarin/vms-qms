@@ -48,27 +48,36 @@ function detail(e: Event) {
   }
 }
 
-const dot = (a: string) =>
-  a.includes("REJECTED") ? "bg-status-red"
-    : a.includes("RETURNED") && a.startsWith("APPROVAL") ? "bg-status-amber"
-    : ["SUBMIT", "APPROVAL_APPROVED", "CLOSE", "SENT", "SUPPLIER_RESPONDED", "SUPPLIER_RETURNED"].includes(a) ? "bg-advance"
-    : "bg-slate-300";
+const tone = (a: string) =>
+  a.includes("REJECTED") ? "bg-status-red ring-red-100"
+    : a.includes("RETURNED") && a.startsWith("APPROVAL") ? "bg-status-amber ring-amber-100"
+    : ["SUBMIT", "APPROVAL_APPROVED", "CLOSE", "SENT", "SUPPLIER_RESPONDED", "SUPPLIER_RETURNED"].includes(a) ? "bg-advance ring-tint"
+    : "bg-slate-300 ring-slate-100";
 
-/** The audit trail, newest first, always open. */
+/**
+ * The audit trail, newest first, always open. Each event has its own marker column, so the dots and the line
+ * between them are drawn inside the box (never clipped by a scrolling parent).
+ */
 export function AuditTimeline({ events }: { events: Event[] }) {
   const list = [...events].reverse();
   return (
-    <ol className="relative flex flex-col gap-3 border-l border-hairline pl-4">
+    <ol className="flex flex-col">
       {list.map((e, i) => {
         const more = detail(e);
+        const last = i === list.length - 1;
         return (
-          <li key={i} className="relative">
-            <span aria-hidden="true" className={`absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${dot(e.action)}`} />
-            <div className="text-[13px] font-semibold text-ink">{LABEL[e.action] ?? e.action.replace(/_/g, " ").toLowerCase()}</div>
-            <div className="font-mono text-[11px] text-muted">
-              {fmtDateTime(e.at)} · {e.actor_name ?? (e.actor_type === "SUPPLIER" ? "Supplier" : "System")}
+          <li key={i} className="grid grid-cols-[20px_minmax(0,1fr)] gap-x-3">
+            <div className="relative flex justify-center" aria-hidden="true">
+              {!last && <span className="absolute bottom-0 top-4 w-px bg-hairline" />}
+              <span className={`relative mt-1.5 size-2.5 rounded-full ring-4 ${tone(e.action)}`} />
             </div>
-            {more && <div className="mt-0.5 break-words text-[12px] text-slate-700" title={more.full}>{more.text}</div>}
+            <div className={last ? "" : "pb-4"}>
+              <div className="text-[13px] font-semibold leading-snug text-ink">{LABEL[e.action] ?? e.action.replace(/_/g, " ").toLowerCase()}</div>
+              <div className="num mt-0.5 text-[11px] text-muted">
+                {fmtDateTime(e.at)} · <span className="font-sans">{e.actor_name ?? (e.actor_type === "SUPPLIER" ? "Supplier" : "System")}</span>
+              </div>
+              {more && <div className="mt-1 break-words text-[12px] text-slate-700" title={more.full}>{more.text}</div>}
+            </div>
           </li>
         );
       })}

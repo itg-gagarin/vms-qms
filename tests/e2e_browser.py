@@ -40,7 +40,7 @@ def main():
         # 1. QC creates the NCF from the MRReg
         login(page, "qc")
         shot(page, "01-worklist-qc")
-        page.goto(f"{BASE}/ncf/new?q=MR-2026-10-0001")
+        page.goto(f"{BASE}/ncf/new?q=260012841")
         page.click("button:visible:has-text('Create NCF')")
         page.wait_for_url(re.compile(r"/ncf/\d+/edit"))
         ncf_url = page.url.replace("/edit", "")
@@ -123,13 +123,13 @@ def main():
 
         # 5b. An MRReg with two POs: the PO is chosen in the draft
         login(page, "qc")
-        page.goto(f"{BASE}/ncf/new?q=MR-2026-11-0009")
+        page.goto(f"{BASE}/ncf/new?q=260014390")
         page.click("button:visible:has-text('Create NCF')")
         page.wait_for_url(re.compile(r"/ncf/\d+/edit"))
         url2 = page.url.replace("/edit", "")
         no2 = page.locator("text=/No\\. \\d+\\/[IVX]+\\/2026/").first.inner_text().replace("No. ", "")
         expect(page.get_by_text("Choose the PO in section A")).to_be_visible()
-        po_value = page.locator("#po_id option", has_text="4500012367").get_attribute("value")
+        po_value = page.locator("#po_id option", has_text="260010390").get_attribute("value")
         page.select_option("#po_id", value=po_value)
         page.click("button:visible:has-text('Set PO')")
         expect(page.get_by_text("PO set.")).to_be_visible()
@@ -199,17 +199,20 @@ def main():
         # 7. Anyone with the paper sees the summary; evidence needs login
         anon = browser.new_context().new_page()
         anon.goto(doc_href)
-        expect(anon.get_by_text("This is the current version")).to_be_visible()
-        expect(anon.get_by_text("open only for auditors")).to_be_visible()
+        expect(anon.get_by_text("Dokumen asli.")).to_be_visible()
+        for private in ["hash", "Versi", "version", "password", "Responded", "Closed"]:
+            assert anon.get_by_text(private).count() == 0, f"public page shows {private}"
         shot(anon, "08-verify-public")
         anon.goto(sig_hrefs[-1])
         expect(anon.get_by_text("Lina Wijaya").first).to_be_visible()
+        for private in ["hash", "Method", "password", "version"]:
+            assert anon.get_by_text(private).count() == 0, f"signature page shows {private}"
         shot(anon, "09-verify-signature")
 
         # 8. Auditor opens the full record from the QR
         login(page, "audit")
         page.goto(doc_href)
-        page.click("text=Open full record with evidence")
+        page.click("text=buka rekaman lengkap")
         expect(page.get_by_text("Closed").first).to_be_visible()
 
         # 9. Real SAP data: an MRReg from the export, with 2 POs

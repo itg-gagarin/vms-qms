@@ -4,7 +4,7 @@ import { ActionForm, Submit } from "@/components/action-form";
 import { EvidenceList, ItemTable } from "@/components/ncf-document";
 import { PhoneActionBar } from "@/components/phone-action-bar";
 import { ScrollToFlag } from "@/components/scroll-to-flag";
-import { Banner, Field, Section, Shell } from "@/components/ui";
+import { Banner, Field, FieldGrid, PageHead, Section, Shell } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { hasRole } from "@/lib/core";
 import { LIMITS } from "@/lib/files";
@@ -45,26 +45,23 @@ export default async function EditNcf({ params, searchParams }: { params: Promis
   return (
     <Shell>
       {flag && <ScrollToFlag />}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-sm"><Link href={`/ncf/${d.id}`}>← View NCF</Link></p>
-          <h1 className="mt-1 text-[30px] font-bold">Non Conformity Form</h1>
-          <p className="text-muted">Diisi QC Incoming saat pemeriksaan. Draft is saved per section.</p>
-        </div>
-        <span className="font-mono text-lg font-semibold">No. {d.ncf_no}</span>
-      </div>
+      <PageHead title={<>Non Conformity Form <span className="num ml-1 text-[18px] font-medium text-muted">No. {d.ncf_no}</span></>}
+        crumbs={[{ label: "NCF Management", href: "/ncf" }, { label: `NCF ${d.ncf_no}`, href: `/ncf/${d.id}` }, { label: "Edit draft" }]}
+        sub="Diisi QC Incoming saat pemeriksaan. Each section saves on its own; submitting signs the whole form.">
+        <Link href={`/ncf/${d.id}`} className="btn">View NCF</Link>
+      </PageHead>
 
       <Section {...mark("A")} title="A. Identifikasi masalah" aside="No. Komplain and SAP fields are filled automatically">
-        <div className="flex flex-wrap gap-x-6 gap-y-4">
-          <Field label="No. Komplain">{d.ncf_no}</Field>
+        <FieldGrid cols={4}>
+          <Field label="No. Komplain"><span className="num">{d.ncf_no}</span></Field>
           <Field label="Business Unit">{d.bu_name}</Field>
           <Field label="Nama Supplier">{d.supplier_name}</Field>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-4">
-          <Field label="No. SJ (dari MRReg)">{d.sj_no}</Field>
-          <Field label="Tanggal SJ">{fmtDate(d.sj_date)}</Field>
-          <Field label="Tanggal Masuk">{fmtDate(d.receipt_date)}</Field>
-        </div>
+          <Field label="Kode Vendor"><span className="num">{d.supplier_code}</span></Field>
+          <Field label="No. MRReg"><span className="num">{d.mrreg_no}</span></Field>
+          <Field label="No. SJ (dari MRReg)"><span className="num">{d.sj_no}</span></Field>
+          <Field label="Tanggal SJ"><span className="num">{fmtDate(d.sj_date)}</span></Field>
+          <Field label="Tanggal Masuk"><span className="num">{fmtDate(d.receipt_date)}</span></Field>
+        </FieldGrid>
         <ActionForm action={setPoAction} className="mt-4 flex flex-wrap items-end gap-3 border-t border-hairline pt-4">
           <input type="hidden" name="id" value={d.id} />
           <div className="min-w-[260px]">
@@ -100,7 +97,7 @@ export default async function EditNcf({ params, searchParams }: { params: Promis
               <select id="line_id" name="line_id" className="input" required>
                 {free.map((l) => (
                   <option key={l.id} value={l.id}>
-                    {l.item_code} · {l.item_name} · datang {l.qty_received} {l.uom}
+                    {l.item_code} · {l.item_name}{l.item_group ? ` · ${l.item_group}` : ""} · datang {l.qty_received} {l.uom === "-" ? "" : l.uom}
                   </option>
                 ))}
               </select>

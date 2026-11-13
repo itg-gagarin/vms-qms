@@ -8,11 +8,25 @@ const REQUIRED = [
   "No. MRReg", "Vendor Name", "Vendor Code", "PO No.", "Item No.", "Item Group", "Item Description",
   "Qty Reg", "Open Qty Reg", "Qty PO", "Open Qty PO", "Status", "No Surat Jalan Vendor", "Registration Date", "Tanggal Surat Jalan",
 ] as const;
+/** Read when present; older exports may lack them. */
+const OPTIONAL = ["Create Date", "Confirm Date", "Close Date", "Close Time"] as const;
 
-type Row = Record<(typeof REQUIRED)[number], unknown>;
+type Row = Record<(typeof REQUIRED)[number] | (typeof OPTIONAL)[number], unknown>;
 
 const ymd = (d: unknown) => (d instanceof Date ? d.toISOString().slice(0, 10) : null);
 const text = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim());
+/** Excel stores times as Dates on 1899-12-30, or as a fraction of a day. */
+const hms = (v: unknown) =>
+  v instanceof Date ? v.toISOString().slice(11, 19)
+    : typeof v === "number" ? new Date(Math.round(v * 86400) * 1000).toISOString().slice(11, 19)
+    : /^\d{1,2}:\d{2}/.test(text(v)) ? text(v) : null;
+/** SAP exports wall-clock WIB times; store them as instants. */
+const wibAt = (d: unknown, t: unknown = null) => {
+  const day = ymd(d);
+  if (!day) return null;
+  const time = hms(t) ?? (d instanceof Date ? d.toISOString().slice(11, 19) : "00:00:00");
+  return `${day}T${time}+07:00`;
+};
 const qty = (v: unknown) => (typeof v === "number" ? v : Number(text(v).replace(",", ".")) || 0);
 
 /** Excel turns some SJ numbers into dates or numbers. Keep what can be kept and flag the rest. */
@@ -42,7 +56,7 @@ async function main() {
   ws.eachRow((r, n) => {
     if (n === 1) return;
     const v = r.values as unknown[];
-    const row = Object.fromEntries(REQUIRED.map((h) => [h, v[col[h]] ?? null])) as Row;
+    const row = Object.fromEntries([...REQUIRED, ...OPTIONAL].map((h) => [h, col[h] === undefined ? null : v[col[h]] ?? null])) as Row;
     if (text(row["No. MRReg"])) rows.push(row);
   });
 
@@ -124,12 +138,14 @@ async function main() {
       const status = text(r["Status"]).toUpperCase();
       if (status === "CANCELED") stats.cancelled++;
       const id = (await c.query(
-        `insert into mrreg(mrreg_no, bu_id, supplier_id, sj_no, sj_raw, sj_date, receipt_date, sap_status, synced_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,now())
+        `insert into mrreg(mrreg_no, bu_id, supplier_id, sj_no, sj_raw, sj_date, receipt_date, sap_status, sap_created_at, confirmed_on, sap_closed_at, synced_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now())
          on conflict (mrreg_no) do update set supplier_id = excluded.supplier_id, sj_no = excluded.sj_no, sj_raw = excluded.sj_raw,
-           sj_date = excluded.sj_date, receipt_date = excluded.receipt_date, sap_status = excluded.sap_status, synced_at = now()
+           sj_date = excluded.sj_date, receipt_date = excluded.receipt_date, sap_status = excluded.sap_status,
+           sap_created_at = excluded.sap_created_at, confirmed_on = excluded.confirmed_on, sap_closed_at = excluded.sap_closed_at, synced_at = now()
          returning id`,
-        [mrNo, bu, sup, sj.sj, sj.raw, ymd(r["Tanggal Surat Jalan"]), ymd(r["Registration Date"]), status],
+        [mrNo, bu, sup, sj.sj, sj.raw, ymd(r["Tanggal Surat Jalan"]), ymd(r["Registration Date"]), status,
+          wibAt(r["Create Date"]), ymd(r["Confirm Date"]), wibAt(r["Close Date"], r["Close Time"])],
       )).rows[0].id;
       mrregId.set(mrNo, id);
       mrregLineNo.set(id, 0);

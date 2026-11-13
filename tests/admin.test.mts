@@ -58,7 +58,7 @@ describe("Super Admin settings", () => {
     await adm.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, null, at("2026-11-13 09:00"));
     await assert.rejects(adm.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, 400, at("2026-11-13 09:00")), /already used/);
     await adm.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, 500, at("2026-11-13 09:00"));
-    const mr = (await one<{ id: number }>(pool, "select id from mrreg where mrreg_no = 'MR-2026-11-0007'"))!.id;
+    const mr = (await one<{ id: number }>(pool, "select id from mrreg where mrreg_no = '260014212'"))!.id;
     const n = await ncf.createDraft(users.qc, mr, at("2026-11-13 09:30"));
     assert.equal((await ncf.getNcf(users.qc, n)).ncf_no, "NCF/BU-DEMO/2611/0500");
   });

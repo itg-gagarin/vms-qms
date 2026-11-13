@@ -36,7 +36,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
   return (
     <Shell>
-      <PageHead title="NCF Reports" sub="How fast suppliers reply, and how fast we approve and send. Response times count working days.">
+      <PageHead title="NCF Reports" crumbs={[{ label: "Analytics" }, { label: "NCF Reports" }]} sub="How fast suppliers reply, and how fast we approve and send. Response times count working days.">
         {canExport && <a href={`/api/ncf/export?${qs}`} className="btn"><Download size={16} aria-hidden="true" /> Export Excel</a>}
       </PageHead>
 
@@ -111,8 +111,8 @@ function Figures({ data, page, size, base }: { data: Awaited<ReturnType<typeof d
         </Section>
       </div>
 
-      <Section title="Supplier responsiveness" aside={`longest delay first, unanswered included · target ${target} working days`}>
-        <ul className="-mx-4 divide-y divide-hairline border-t border-hairline md:hidden">
+      <Section flush title="Supplier responsiveness" aside={`longest delay first, unanswered included · target ${target} working days`}>
+        <ul className="divide-y divide-hairline md:hidden">
           {data.suppliers.length === 0 && <li className="px-4 py-6 text-center text-muted">No NCFs in this period.</li>}
           {data.suppliers.slice((page - 1) * size, page * size).map((s) => (
             <li key={s.id} className="px-4 py-3">
@@ -132,7 +132,7 @@ function Figures({ data, page, size, base }: { data: Awaited<ReturnType<typeof d
             </li>
           ))}
         </ul>
-        <div className="-mx-4 -mb-4 max-h-[70vh] overflow-auto max-md:hidden">
+        <div className="max-h-[70vh] overflow-auto max-md:hidden">
           <table className="table w-full text-[14px]">
             <thead>
               <tr>
@@ -163,7 +163,7 @@ function Figures({ data, page, size, base }: { data: Awaited<ReturnType<typeof d
             </tbody>
           </table>
         </div>
-        <div className="-mx-4 -mb-4 mt-4"><Pager total={data.suppliers.length} page={page} size={size} base={base} /></div>
+        <div><Pager total={data.suppliers.length} page={page} size={size} base={base} /></div>
       </Section>
 
       <div className="grid gap-5 lg:grid-cols-2">

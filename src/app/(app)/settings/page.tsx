@@ -30,7 +30,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const tab = TABS.find((t) => t.key === sp.tab)?.key ?? "accounts";
   return (
     <Shell>
-      <PageHead title="Master Settings" sub="Every change here is written to the audit log with who made it and the old and new value." />
+      <PageHead title="Master Settings" crumbs={[{ label: "Administration" }, { label: "Master Settings" }]} sub="Every change here is written to the audit log with who made it and the old and new value." />
       <Tabs label="Settings" items={TABS.map((t) => ({ href: `/settings?tab=${t.key}`, label: t.label, active: t.key === tab }))} />
       {tab === "accounts" && <Accounts user={user} />}
       {tab === "chain" && <Chain />}
@@ -69,10 +69,10 @@ async function Accounts({ user }: { user: Actor }) {
         </ActionForm>
       </Section>
 
-      <Section title="Accounts" aside={`${users.filter((u) => u.active).length} active · ${users.length} total`}>
-        <ul className="-mx-4 -mb-4 flex flex-col">
+      <Section flush title="Accounts" aside={`${users.filter((u) => u.active).length} active · ${users.length} total`}>
+        <ul className="flex flex-col">
           {users.map((u) => (
-            <li key={u.id} className={`border-t border-hairline px-6 py-3 ${u.active ? "" : "bg-slate-50 text-slate-500"}`}>
+            <li key={u.id} className={`border-t border-hairline px-4 py-3 first:border-t-0 sm:px-5 ${u.active ? "" : "bg-slate-50 text-slate-500"}`}>
               <details>
                 <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2">
                   <span>

@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import Link from "next/link";
-import { Banner, Section, Shell } from "@/components/ui";
+import { Facts, VerifyShell } from "@/components/verify-shell";
 import { currentUser } from "@/lib/auth";
-import { STATUS_LABEL, type NcfStatus } from "@/lib/labels";
-import { AppError, fmtDate, fmtDateTime } from "@/lib/util";
+import { AppError, fmtDate } from "@/lib/util";
 import { verifyDocument } from "@/lib/verify";
 
 export const metadata: Metadata = { title: "Verifikasi NCF – Integra Group", robots: { index: false } };
 
-// Document QR (FD section 9): anyone holding the paper can compare it with the record.
-// Evidence opens only after login as Auditor or an internal role.
+// Document QR: anyone holding the paper can check it against the record. They see only what the paper shows.
 export default async function VerifyDoc({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   const viewer = await currentUser();
@@ -19,58 +16,50 @@ export default async function VerifyDoc({ params }: { params: Promise<{ code: st
   try {
     v = await verifyDocument(code, viewer, ip);
   } catch (e) {
-    if (e instanceof AppError) return <Shell><Banner kind="error">{e.message}</Banner></Shell>;
+    if (e instanceof AppError) return <VerifyShell kind="Verifikasi dokumen" tone="bad" verdict={<b>QR ini tidak cocok dengan dokumen NCF mana pun.</b>} />;
     throw e;
   }
+  const verdict = v.void
+    ? <><b>NCF {v.ncf_no} sudah dibatalkan (void).</b> Dokumen ini tidak berlaku.</>
+    : v.superseded
+      ? <><b>Salinan ini sudah tidak berlaku.</b> NCF {v.ncf_no} diubah setelah salinan ini dicetak. Minta salinan terbaru ke Integra.</>
+      : <><b>Dokumen asli.</b> NCF {v.ncf_no} sesuai dengan rekaman di sistem Integra Group.</>;
   return (
-    <Shell>
+    <VerifyShell kind="Verifikasi dokumen" tone={v.void || v.superseded ? "bad" : "ok"} verdict={verdict}
+      staffHref={v.canOpenFull ? `/ncf/${v.ncf_id}` : "/login"}>
       <div>
-        <p className="font-bold tracking-wide">INTEGRA GROUP · Verifikasi dokumen</p>
-        <h1 className="mt-1 text-[30px] font-bold">NCF {v.ncf_no}</h1>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">Non Conformity Form</div>
+        <h1 className="font-mono text-[26px] font-semibold leading-tight">{v.ncf_no}</h1>
       </div>
-      {v.status === "VOID" && <Banner kind="error">VOID. This NCF was cancelled.</Banner>}
-      {v.superseded ? (
-        <Banner kind="error">This paper shows version {v.version_no}, which was replaced by a later version. Do not rely on it.</Banner>
-      ) : (
-        <Banner kind="ok">This is the current version ({v.version_no}) of the record in the VMS.</Banner>
-      )}
-      <Section title="Record">
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-          {[
-            ["Status", STATUS_LABEL[v.status as NcfStatus]],
-            ["Supplier", v.supplier],
-            ["Business Unit", v.bu],
-            ["No. SJ", v.sj_no],
-            ["Tanggal Masuk", fmtDate(v.receipt_date)],
-            ["Version and content hash", `${v.version_no} · ${v.content_hash.slice(0, 16)}…`],
-          ].map(([k, val]) => (
-            <div key={k}><dt className="text-[13px] font-semibold text-muted">{k}</dt><dd>{val}</dd></div>
-          ))}
-        </dl>
-      </Section>
-      <Section title="Items">
-        <ul className="flex flex-col gap-1">
+      <Facts rows={[
+        ["Nama Supplier", v.supplier],
+        ["Business Unit", v.bu],
+        ["No. SJ", v.sj_no],
+        ["Tanggal Masuk", fmtDate(v.receipt_date)],
+      ]} />
+      <div>
+        <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">Barang</h2>
+        <ul className="divide-y divide-hairline rounded-sm border border-hairline">
           {v.items.map((i) => (
-            <li key={i.item_code}>{i.item_code} · {i.item_name}: datang {i.qty_received}, sample {i.qty_sample}, cacat {i.qty_defect}, retur {i.qty_return}</li>
-          ))}
-        </ul>
-      </Section>
-      <Section title="Signatures">
-        <ul className="flex flex-col gap-1">
-          {v.approvals.map((a) => (
-            <li key={a.step_no}>
-              {a.signer_name}, {a.signer_position}: {a.decision === "APPROVED" ? `signed ${fmtDateTime(a.decided_at)}` : a.decision ?? "waiting"}
+            <li key={i.item_code} className="px-3 py-2.5">
+              <div className="text-[14px] font-medium">{i.item_name}</div>
+              <div className="num text-[12px] text-muted">{i.item_code}</div>
+              <div className="num mt-1 text-[12px] text-slate-700">Datang {i.qty_received} · Sample {i.qty_sample} · Cacat {i.qty_defect} · Retur {i.qty_return}</div>
             </li>
           ))}
         </ul>
-      </Section>
-      {v.canOpenFull ? (
-        <Link href={`/ncf/${v.ncf_id}`} className="btn">Open full record with evidence</Link>
-      ) : (
-        <Banner kind="info">
-          Photos, videos and documents open only for auditors and Integra staff. <Link href="/login">Sign in</Link> to see them.
-        </Banner>
-      )}
-    </Shell>
+      </div>
+      <div>
+        <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">Tanda tangan</h2>
+        <ul className="flex flex-col gap-2">
+          {v.approvals.map((a) => (
+            <li key={a.step_no} className="flex flex-wrap items-baseline justify-between gap-x-3 text-[14px]">
+              <span><b className="font-semibold">{a.signer_name}</b> <span className="text-muted">· {a.signer_position}</span></span>
+              <span className="num text-[12px] text-muted">{fmtDate(a.decided_at)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </VerifyShell>
   );
 }

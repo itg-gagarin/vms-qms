@@ -16,7 +16,7 @@ export default async function SupplierOutbox({ searchParams }: { searchParams: P
   const [{ rows, total }, window] = await Promise.all([listDispatch(user, tab, page, size), reminderWindow()]);
   return (
     <Shell>
-      <PageHead title="Supplier Outbox"
+      <PageHead title="Supplier Outbox" crumbs={[{ label: "Purchasing" }, { label: "Supplier Outbox" }]}
         sub="Export the form, email it to the supplier yourself, mark it sent, and mark it returned when their reply arrives. The response clock runs from sent to returned, in working days." />
       <Tabs label="Outbox" items={DISPATCH_TABS.map((t) => ({ href: `/outbox?tab=${t.key}`, label: t.label, active: t.key === tab }))} />
 

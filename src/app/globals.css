@@ -93,16 +93,17 @@ h1, h2, h3, h4 {
     @apply border-status-red bg-status-red text-white hover:bg-red-700;
   }
   .card {
-    @apply rounded-md border border-hairline bg-white p-4;
+    @apply rounded-md border border-hairline bg-white p-4 sm:p-5;
   }
   .h2 {
-    @apply font-[family-name:var(--font-display)] text-[18px] font-semibold text-ink;
+    @apply font-[family-name:var(--font-display)] text-[15px] font-semibold leading-snug text-ink;
   }
+  /* Data tables: a quiet grey header that stays put, roomy rows, first and last cells inset to the card edge */
   .table th {
-    @apply sticky top-0 z-10 border-b border-hairline bg-white px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted;
+    @apply sticky top-0 z-10 whitespace-nowrap border-b border-hairline bg-slate-50 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted first:pl-4 last:pr-4 sm:first:pl-5 sm:last:pr-5;
   }
   .table td {
-    @apply border-b border-hairline px-2 py-2 align-top;
+    @apply border-b border-hairline px-3 py-3 align-middle first:pl-4 last:pr-4 sm:first:pl-5 sm:last:pr-5;
   }
   .table tbody tr:last-child td {
     @apply border-b-0;

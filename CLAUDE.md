@@ -11,6 +11,7 @@ See README.md for the full flow, stack and known gaps.
 
 ```bash
 npm run db:migrate && npm run db:seed   # dev DB from .env.local (copy .env.example first)
+npm run db:demo && npm run db:demo-sap  # optional demo NCFs: one per status, then 30 SAP-shaped cases (never on real data)
 npm run dev                             # http://localhost:3000, demo logins <role>@demo.local / demo1234
 npm test                                # node:test suites; DROPS and rebuilds TEST_DATABASE_URL every run
 npm run typecheck                       # runs `next typegen` first: LayoutProps/PageProps are generated globals
@@ -33,6 +34,9 @@ about. `scripts/reset.ts` drops the `public` schema.
 - Form fields and the printed form are Indonesian, matching the paper form (FR/IG/ALL/IN/QUAC/007); app chrome and
   status names are English. Shared labels live in `src/lib/labels.ts` (no database imports there; client code uses it).
 - Times are shown in WIB (UTC+7); supplier response time is counted in working days from `calendar_day`.
+- Receipts follow the SAP MRReg export (`scripts/import-mrreg.ts`): 9-digit MRReg and PO, vendor codes, item groups,
+  SAP status and its dates. Demo data uses the same shapes with made-up suppliers; never real export rows.
+- The public `/v` pages show only what is printed on the form: no hashes, versions, workflow status or signing method.
 
 ## Rules
 

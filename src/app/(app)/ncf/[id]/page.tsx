@@ -6,10 +6,11 @@ import { AuditTimeline } from "@/components/audit-timeline";
 import { EvidenceList, NcfPart1, NcfPart2 } from "@/components/ncf-document";
 import { PhoneActionBar } from "@/components/phone-action-bar";
 import { StageStepper } from "@/components/stage-stepper";
-import { Banner, Chip, Section, Shell, StatusBadge } from "@/components/ui";
+import { Avatar, Banner, Section, Shell, StatusBadge } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { hasRole, workingDaysBetween } from "@/lib/core";
 import { pool } from "@/lib/db";
+import { STATUS_LABEL } from "@/lib/labels";
 import { auditTrail, getNcf, type NcfDetail } from "@/lib/ncf";
 import { nowWibLocal } from "@/lib/purchasing";
 import { AppError, fmtDate, fmtDateTime } from "@/lib/util";
@@ -63,32 +64,47 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
 
   return (
     <Shell>
-      <p className="-mb-3 text-[13px]"><Link href="/ncf">← NCF list</Link></p>
-
-      <section className="card flex flex-col gap-4" aria-label="NCF summary">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-mono text-[26px] font-semibold leading-tight tracking-tight">NCF {d.ncf_no}</h1>
-              {d.po_no && <Chip>PO {d.po_no}</Chip>}
-              {d.version && <Chip>Versi {d.version.version_no}</Chip>}
-              <StatusBadge status={d.status} />
+      <section className="card overflow-hidden p-0" aria-label="NCF summary">
+        <div className="flex flex-col gap-4 px-4 pb-4 pt-4 sm:px-5 sm:pt-5">
+          <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 text-[13px] text-muted">
+            <Link href="/ncf" className="text-muted no-underline hover:text-ink">NCF Management</Link>
+            <span aria-hidden="true" className="text-slate-300">/</span>
+            <Link href={`/ncf?status=${d.status}`} className="text-muted no-underline hover:text-ink">{STATUS_LABEL[d.status]}</Link>
+          </nav>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="font-mono text-[24px] font-semibold leading-tight tracking-tight">NCF {d.ncf_no}</h1>
+                <StatusBadge status={d.status} />
+              </div>
+              <p className="mt-1 text-[14px] text-muted">
+                <span className="font-semibold text-ink">{d.supplier_name}</span> <span className="num text-[12px]">{d.supplier_code}</span>
+              </p>
             </div>
-            <p className="mt-1 text-muted">
-              <span className="font-semibold text-ink">{d.supplier_name}</span> · {d.bu_name}
-              {d.mrreg_no && <> · <span className="font-mono text-[13px]">{d.mrreg_no}</span></>} · created by {d.created_by_name} on {fmtDate(d.created_at)}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link href={`/print/${d.id}`} className="btn" target="_blank"><Printer size={16} aria-hidden="true" /> Print form</Link>
+              {/* A jump to the action panel; when the panel is on this page, its button is the one green action. */}
+              {primary && <Link href={primary.href} className={`max-md:hidden ${actor === "qc" ? "btn btn-advance" : "btn"}`}>{primary.label}</Link>}
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href={`/print/${d.id}`} className="btn" target="_blank"><Printer size={16} aria-hidden="true" /> Print form</Link>
-            {/* A jump to the action panel; when the panel is on this page, its button is the one green action. */}
-            {primary && <Link href={primary.href} className={`max-md:hidden ${actor === "qc" ? "btn btn-advance" : "btn"}`}>{primary.label}</Link>}
-          </div>
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-hairline pt-4 sm:grid-cols-3 lg:grid-cols-6">
+            {([
+              ["No. MRReg", d.mrreg_no ?? "–", true],
+              ["No. PO", d.po_no ?? "–", true],
+              ["Business Unit", d.bu_name, false],
+              ["Tanggal Masuk", fmtDate(d.receipt_date), true],
+              ["Dibuat oleh", `${d.created_by_name}`, false],
+              ["Dibuat", fmtDate(d.created_at), true],
+            ] as [string, string, boolean][]).map(([k, v, mono]) => (
+              <div key={k} className="min-w-0">
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">{k}</dt>
+                <dd className={`mt-0.5 truncate text-[14px] text-ink ${mono ? "num" : ""}`} title={v}>{v}</dd>
+              </div>
+            ))}
+          </dl>
+          <StatusStrip d={d} pending={pending} runningDays={runningDays} />
         </div>
-
-        <StatusStrip d={d} pending={pending} runningDays={runningDays} />
-
-        <div className="rounded-sm border border-hairline px-2 pb-3 pt-4">
+        <div className="border-t border-hairline bg-slate-50/60 px-3 pb-4 pt-5 sm:px-5">
           <StageStepper d={d} />
         </div>
       </section>
@@ -112,13 +128,15 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
         </div>
 
         <aside className="flex min-w-0 flex-col gap-6 xl:sticky xl:top-4" aria-label="Signatures and audit trail">
-          <Section title="Signatures" aside={d.version ? `Versi ${d.version.version_no}` : undefined}>
+          <Section title="Signatures" aside={d.version && d.version.version_no > 1 ? `Versi ${d.version.version_no}` : undefined}>
             {d.approvals.length === 0 ? (
               <p className="text-muted">Signatures start when QC submits.</p>
             ) : (
               <ol className="flex flex-col">
                 {d.approvals.map((a) => (
-                  <li key={a.id} className="border-t border-hairline py-2 first:border-t-0">
+                  <li key={a.id} className="flex gap-3 border-t border-hairline py-2.5 first:border-t-0 first:pt-0 last:pb-0">
+                    <Avatar name={a.signer_name} size={30} />
+                    <div className="min-w-0 flex-1">
                     <div className="flex justify-between gap-2">
                       <span className="font-semibold">{a.title}</span>
                       <span className={`text-[13px] font-medium ${a.decision === "APPROVED" ? "text-status-emerald" : a.decision ? "text-status-red" : "text-muted"}`}>
@@ -128,6 +146,7 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
                     </div>
                     <div className="text-[13px] text-slate-700">
                       {a.signer_name}{a.decided_at && <> · <span className="font-mono text-[12px]">{fmtDateTime(a.decided_at)}</span></>}
+                    </div>
                     </div>
                   </li>
                 ))}

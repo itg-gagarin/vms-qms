@@ -255,7 +255,7 @@ async function loadDetails(db: Db, n: NcfRow) {
 }
 
 /** The worklist filter: a tab, optionally one status, always the user's stages and Business Units. */
-function worklistWhere(actor: Actor, filter: string, status?: NcfStatus) {
+function worklistWhere(actor: Actor, filter: string, status?: NcfStatus, term = "") {
   const conds: string[] = [];
   const params: unknown[] = [];
   const add = (sql: string, v?: unknown) => {
@@ -287,6 +287,15 @@ function worklistWhere(actor: Actor, filter: string, status?: NcfStatus) {
       break;
   }
   if (status) add("n.status = $?", status);
+  // Search: No. Komplain, supplier name or vendor code, No. PO, No. MRReg.
+  if (term.trim()) {
+    params.push(term.trim());
+    const t = `$${params.length}`;
+    conds.push(`(n.ncf_no ilike '%' || ${t} || '%'
+      or exists (select 1 from supplier s2 where s2.id = n.supplier_id and (s2.name ilike '%' || ${t} || '%' or s2.sap_vendor_code ilike '%' || ${t} || '%'))
+      or exists (select 1 from purchase_order p2 where p2.id = n.po_id and p2.po_no ilike '%' || ${t} || '%')
+      or exists (select 1 from mrreg m2 where m2.id = n.mrreg_id and m2.mrreg_no ilike '%' || ${t} || '%'))`);
+  }
   // Each department sees only the stages it works with (core.STATUSES_BY_ROLE).
   add("n.status = any($?)", visibleStatuses(actor));
   // Business Unit scope for QC and approvers; Purchasing, PCH, Auditor and Admin see all.
@@ -298,8 +307,8 @@ function worklistWhere(actor: Actor, filter: string, status?: NcfStatus) {
 }
 
 /** Worklist rows, one page at a time. `filter` is a worklist tab; `status`, when given, narrows to one NCF status. */
-export async function listNcf(actor: Actor, filter: string, status?: NcfStatus, page = 1, size = 200) {
-  const { where, params } = worklistWhere(actor, filter, status);
+export async function listNcf(actor: Actor, filter: string, status?: NcfStatus, page = 1, size = 200, term = "") {
+  const { where, params } = worklistWhere(actor, filter, status, term);
   return q<{
     id: number;
     ncf_no: string;
@@ -324,34 +333,75 @@ export async function listNcf(actor: Actor, filter: string, status?: NcfStatus, 
   );
 }
 
-export async function countNcf(actor: Actor, filter: string, status?: NcfStatus) {
-  const { where, params } = worklistWhere(actor, filter, status);
+export async function countNcf(actor: Actor, filter: string, status?: NcfStatus, term = "") {
+  const { where, params } = worklistWhere(actor, filter, status, term);
   return (await one<{ n: number }>(pool, `select count(*)::int as n from ncf n ${where}`, params))!.n;
+}
+
+/** How many NCFs the user can see in each status (for the menu), and how many wait on the user's own signature. */
+export async function statusCounts(actor: Actor) {
+  const all = worklistWhere(actor, "all");
+  const mine = worklistWhere(actor, "approve");
+  const [rows, toSign] = await Promise.all([
+    q<{ status: NcfStatus; n: number }>(pool, `select n.status, count(*)::int as n from ncf n ${all.where} group by n.status`, all.params),
+    one<{ n: number }>(pool, `select count(*)::int as n from ncf n ${mine.where}`, mine.params),
+  ]);
+  return { byStatus: Object.fromEntries(rows.map((x) => [x.status, x.n])) as Partial<Record<NcfStatus, number>>, toSign: toSign?.n ?? 0 };
 }
 
 /** Open: no NCF yet. Archive: an NCF was raised on it (a void NCF does not count, so the receipt reopens). */
 export type ReceiptTab = "open" | "archive";
+/** SAP MRReg status, as in the export. */
+export const SAP_STATUSES = ["OPEN", "CONFIRMED", "CLOSED", "CANCELED"] as const;
+export type SapStatus = (typeof SAP_STATUSES)[number];
 
-function receiptWhere(actor: Actor, term: string, tab: ReceiptTab) {
+/**
+ * The receipt search: No. MRReg, vendor name or code, No. SJ, PO number, item code or description (any line),
+ * optionally one SAP status; always the user's Business Units.
+ */
+function receiptWhere(actor: Actor, term: string, tab: ReceiptTab, sapStatus?: SapStatus) {
   const bus = roleScopes(actor, "QC_INSPECTOR");
   return {
-    sql: `($1 = '' or m.mrreg_no ilike '%' || $1 || '%' or s.name ilike '%' || $1 || '%' or m.sj_no ilike '%' || $1 || '%')
+    sql: `($1 = '' or m.mrreg_no ilike '%' || $1 || '%' or s.name ilike '%' || $1 || '%' or s.sap_vendor_code ilike '%' || $1 || '%'
+            or m.sj_no ilike '%' || $1 || '%'
+            or exists (select 1 from mrreg_line l join item i on i.id = l.item_id
+                       join po_line pl on pl.id = l.po_line_id join purchase_order po on po.id = pl.po_id
+                       where l.mrreg_id = m.id and (po.po_no ilike '%' || $1 || '%' or i.sap_material_code ilike '%' || $1 || '%'
+                                                    or i.description ilike '%' || $1 || '%')))
           and ($2 or m.bu_id = any($3))
+          and ($4::text is null or m.sap_status = $4)
           and ${tab === "archive" ? "" : "not "}exists (select 1 from ncf x where x.mrreg_id = m.id and x.status <> 'VOID')`,
-    params: [term.trim(), bus.includes(null), bus.filter((b) => b !== null)] as unknown[],
+    params: [term.trim(), bus.includes(null), bus.filter((b) => b !== null), sapStatus ?? null] as unknown[],
   };
 }
 
-export async function searchMrreg(actor: Actor, term: string, page = 1, size = 20, tab: ReceiptTab = "open") {
-  const w = receiptWhere(actor, term, tab);
+export type ReceiptLine = {
+  item_code: string; item_name: string; item_group: string | null; po_no: string; uom: string;
+  qty_reg: number; qty_open: number | null; qty_po: number | null; open_qty_po: number | null;
+};
+
+export async function searchMrreg(actor: Actor, term: string, page = 1, size = 20, tab: ReceiptTab = "open", sapStatus?: SapStatus) {
+  const w = receiptWhere(actor, term, tab, sapStatus);
   return q<{
-    id: number; bu_id: number; mrreg_no: string; supplier_name: string; sj_no: string; receipt_date: string; lines: number; sap_status: string | null;
+    id: number; bu_id: number; mrreg_no: string; supplier_name: string; vendor_code: string; sj_no: string; sj_date: string | null;
+    receipt_date: string; sap_status: string | null; sap_created_at: Date | null; confirmed_on: string | null; sap_closed_at: Date | null;
+    lines: number; qty_reg: number;
+    items: ReceiptLine[];
     pos: { id: number; po_no: string; lines: number }[];
     ncfs: { id: number; ncf_no: string; status: NcfStatus; po_no: string | null }[];
   }>(
     pool,
-    `select m.id, m.bu_id, m.mrreg_no, s.name as supplier_name, m.sj_no, m.receipt_date, m.sap_status,
+    `select m.id, m.bu_id, m.mrreg_no, s.name as supplier_name, s.sap_vendor_code as vendor_code, m.sj_no, m.sj_date, m.receipt_date,
+            m.sap_status, m.sap_created_at, m.confirmed_on, m.sap_closed_at,
             (select count(*)::int from mrreg_line l where l.mrreg_id = m.id) as lines,
+            (select coalesce(sum(l.qty_received), 0)::float from mrreg_line l where l.mrreg_id = m.id) as qty_reg,
+            coalesce((select json_agg(json_build_object(
+                        'item_code', i.sap_material_code, 'item_name', i.description, 'item_group', i.item_group, 'po_no', po.po_no, 'uom', l.uom,
+                        'qty_reg', l.qty_received::float, 'qty_open', l.qty_open::float, 'qty_po', pl.qty::float, 'open_qty_po', pl.open_qty::float)
+                        order by l.line_no)
+                      from mrreg_line l join item i on i.id = l.item_id
+                      join po_line pl on pl.id = l.po_line_id join purchase_order po on po.id = pl.po_id
+                      where l.mrreg_id = m.id), '[]') as items,
             coalesce((select json_agg(json_build_object('id', x.id, 'po_no', x.po_no, 'lines', x.lines) order by x.po_no)
                       from (select po.id, po.po_no, count(*)::int as lines from mrreg_line l
                             join po_line pl on pl.id = l.po_line_id join purchase_order po on po.id = pl.po_id
@@ -366,15 +416,15 @@ export async function searchMrreg(actor: Actor, term: string, page = 1, size = 2
   );
 }
 
-export async function countMrreg(actor: Actor, term: string, tab: ReceiptTab = "open") {
-  const w = receiptWhere(actor, term, tab);
+export async function countMrreg(actor: Actor, term: string, tab: ReceiptTab = "open", sapStatus?: SapStatus) {
+  const w = receiptWhere(actor, term, tab, sapStatus);
   return (await one<{ n: number }>(pool, `select count(*)::int as n from mrreg m join supplier s on s.id = m.supplier_id where ${w.sql}`, w.params))!.n;
 }
 
 export async function mrregLines(ncfId: number, db: Db = pool) {
-  return q<{ id: number; line_no: number; item_code: string; item_name: string; uom: string; qty_received: number; po_no: string; used: boolean }>(
+  return q<{ id: number; line_no: number; item_code: string; item_name: string; item_group: string | null; uom: string; qty_received: number; po_no: string; used: boolean }>(
     db,
-    `select l.id, l.line_no, i.sap_material_code as item_code, i.description as item_name, l.uom, l.qty_received, po.po_no,
+    `select l.id, l.line_no, i.sap_material_code as item_code, i.description as item_name, i.item_group, l.uom, l.qty_received, po.po_no,
             exists (select 1 from ncf_item ni where ni.ncf_id = n.id and ni.mrreg_line_id = l.id) as used
      from ncf n join mrreg_line l on l.mrreg_id = n.mrreg_id
      join item i on i.id = l.item_id join po_line pl on pl.id = l.po_line_id join purchase_order po on po.id = pl.po_id

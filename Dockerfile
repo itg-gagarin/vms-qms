@@ -17,5 +17,6 @@ ENV STORAGE_DIR=/data/storage
 
 EXPOSE 3000
 # Migrations skip files already applied; seed does nothing once data exists.
-# DEMO_DATA=1 (test servers only) adds one NCF per status, once; a failure there does not stop the app.
-CMD ["sh", "-c", "npx tsx scripts/migrate.ts && npx tsx scripts/seed.ts && { [ \"$DEMO_DATA\" != 1 ] || npx tsx scripts/demo-data.ts || echo 'demo data failed'; } && exec npx next start -H 0.0.0.0 -p ${PORT:-3000}"]
+# DEMO_DATA=1 (test servers only) adds one NCF per status, then the larger SAP-shaped set (30 NCFs), each once;
+# a failure there does not stop the app.
+CMD ["sh", "-c", "npx tsx scripts/migrate.ts && npx tsx scripts/seed.ts && { [ \"$DEMO_DATA\" != 1 ] || { npx tsx scripts/demo-data.ts || echo 'demo data failed'; npx tsx scripts/demo-sap.ts || echo 'demo-sap data failed'; }; } && exec npx next start -H 0.0.0.0 -p ${PORT:-3000}"]

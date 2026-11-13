@@ -225,7 +225,7 @@ function Head({ ctx, part }: { ctx: SheetCtx; part: string }) {
       <div className={`flex w-[180px] items-center justify-center border-r ${B} text-[17px] font-bold tracking-wide`}>INTEGRA GROUP</div>
       <div className="flex flex-1 flex-col items-center justify-center">
         <h1 className="text-[24px] font-bold tracking-wide" style={{ fontFamily: "'Times New Roman', serif" }}>NON CONFORMITY FORM</h1>
-        <span className="text-[12px] text-slate-700">No. {ctx.ncfNo} · Versi {ctx.version ?? "–"} · {part}</span>
+        <span className="text-[12px] text-slate-700">No. {ctx.ncfNo}{!ctx.meta.external && <> · Versi {ctx.version ?? "–"}</>} · {part}</span>
       </div>
       <div className={`flex w-[150px] items-center gap-2 border-l ${B} px-2.5`}>
         {ctx.docQr ? (

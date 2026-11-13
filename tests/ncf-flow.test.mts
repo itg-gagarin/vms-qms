@@ -259,6 +259,21 @@ describe("Access rules", () => {
     assert.ok(qcDrafts.every((d) => qcAll.some((r) => r.id === d.id)));
   });
 
+  test("an MRReg with several POs needs the PO first; items come only from that PO", async () => {
+    const mr = await mrreg("MR-2026-11-0009");
+    await assert.rejects(ncf.createDraft(users.qc, mr, at("2026-11-13 08:00")), /several POs/);
+    const po = (await one<{ id: number }>(pool, "select id from purchase_order where po_no = '4500012367'"))!.id;
+    const other = (await one<{ id: number }>(pool, "select id from purchase_order where po_no = '4500012399'"))!.id;
+    await assert.rejects(ncf.createDraft(users.qc, mr, at("2026-11-13 08:00"), other), /not on the MRReg/);
+    const id = await ncf.createDraft(users.qc, mr, at("2026-11-13 08:05"), po);
+    const ls = await lines(id);
+    assert.deepEqual(ls.map((l) => l.po_no), ["4500012367"]);
+    const blackLine = (await one<{ id: number }>(pool,
+      "select l.id from mrreg_line l join po_line pl on pl.id = l.po_line_id where l.mrreg_id = $1 and pl.po_id <> $2", [mr, po]))!.id;
+    await assert.rejects(ncf.addItem(users.qc, id, blackLine, 5, 1, 0), /this MRReg and PO/);
+    assert.equal((await ncf.getNcf(users.qc, id)).po_no, "4500012367");
+  });
+
   test("each department sees only its stages; drafts stay with QC", async () => {
     const draft = await ncf.createDraft(users.qc, await mrreg("MR-2026-11-0007"), at("2026-11-13 08:00"));
     for (const who of ["qcm", "gm", "pur", "pch"]) {

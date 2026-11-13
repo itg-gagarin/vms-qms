@@ -33,6 +33,8 @@ type NcfRow = {
   supplier_code: string;
   mrreg_id: number | null;
   mrreg_no: string | null;
+  po_id: number | null;
+  po_no: string | null;
   status: NcfStatus;
   current_version: number;
   sj_no: string | null;
@@ -58,7 +60,7 @@ type NcfRow = {
 
 const NCF_SELECT = `
   select n.id, n.ncf_no, n.bu_id, b.name as bu_name, n.supplier_id, s.name as supplier_name, s.sap_vendor_code as supplier_code,
-         n.mrreg_id, m.mrreg_no, n.status, n.current_version,
+         n.mrreg_id, m.mrreg_no, n.po_id, po.po_no, n.status, n.current_version,
          coalesce(n.sj_no, m.sj_no) as sj_no, coalesce(n.sj_date, m.sj_date) as sj_date,
          coalesce(n.receipt_date, m.receipt_date) as receipt_date,
          n.inspect_date, to_char(n.inspect_time, 'HH24:MI') as inspect_time, n.goods_status, n.hold_note,
@@ -69,6 +71,7 @@ const NCF_SELECT = `
   join business_unit b on b.id = n.bu_id
   join supplier s on s.id = n.supplier_id
   left join mrreg m on m.id = n.mrreg_id
+  left join purchase_order po on po.id = n.po_id
   left join problem_category pc on pc.id = n.problem_category_id
   left join app_user u on u.id = n.created_by
   left join app_user cu on cu.id = n.closed_by`;
@@ -295,10 +298,17 @@ export async function listNcf(actor: Actor, filter: string, status?: NcfStatus) 
 export async function searchMrreg(actor: Actor, term: string) {
   const bus = roleScopes(actor, "QC_INSPECTOR");
   const all = bus.includes(null);
-  return q<{ id: number; mrreg_no: string; supplier_name: string; sj_no: string; receipt_date: string; lines: number; sap_status: string | null }>(
+  return q<{
+    id: number; mrreg_no: string; supplier_name: string; sj_no: string; receipt_date: string; lines: number; sap_status: string | null;
+    pos: { id: number; po_no: string; lines: number }[];
+  }>(
     pool,
     `select m.id, m.mrreg_no, s.name as supplier_name, m.sj_no, m.receipt_date, m.sap_status,
-            (select count(*)::int from mrreg_line l where l.mrreg_id = m.id) as lines
+            (select count(*)::int from mrreg_line l where l.mrreg_id = m.id) as lines,
+            coalesce((select json_agg(json_build_object('id', x.id, 'po_no', x.po_no, 'lines', x.lines) order by x.po_no)
+                      from (select po.id, po.po_no, count(*)::int as lines from mrreg_line l
+                            join po_line pl on pl.id = l.po_line_id join purchase_order po on po.id = pl.po_id
+                            where l.mrreg_id = m.id group by po.id, po.po_no) x), '[]') as pos
      from mrreg m join supplier s on s.id = m.supplier_id
      where ($1 = '' or m.mrreg_no ilike '%' || $1 || '%' or s.name ilike '%' || $1 || '%' or m.sj_no ilike '%' || $1 || '%')
        and ($2 or m.bu_id = any($3))
@@ -314,7 +324,7 @@ export async function mrregLines(ncfId: number, db: Db = pool) {
             exists (select 1 from ncf_item ni where ni.ncf_id = n.id and ni.mrreg_line_id = l.id) as used
      from ncf n join mrreg_line l on l.mrreg_id = n.mrreg_id
      join item i on i.id = l.item_id join po_line pl on pl.id = l.po_line_id join purchase_order po on po.id = pl.po_id
-     where n.id = $1 order by l.line_no`,
+     where n.id = $1 and (n.po_id is null or pl.po_id = n.po_id) order by l.line_no`,
     [ncfId],
   );
 }
@@ -325,7 +335,8 @@ export async function problemCategories() {
 
 // ---------- Draft (Part 1) ----------
 
-export async function createDraft(actor: Actor, mrregId: number, now = new Date()) {
+/** A new draft for one PO of the MRReg. `poId` may be left out when the MRReg holds a single PO. */
+export async function createDraft(actor: Actor, mrregId: number, now = new Date(), poId?: number) {
   return tx(async (c) => {
     const m = await one<{ id: number; bu_id: number; supplier_id: number; sj_no: string; sj_date: string; receipt_date: string; sap_status: string | null }>(
       c,
@@ -335,13 +346,21 @@ export async function createDraft(actor: Actor, mrregId: number, now = new Date(
     if (!m) throw new AppError("MRReg not found.", 404);
     if (m.sap_status === "CANCELED") throw new AppError("This MRReg is cancelled in SAP. An NCF cannot be created for it.", 409);
     requireRole(actor, "QC_INSPECTOR", m.bu_id);
+    const pos = await q<{ id: number }>(
+      c,
+      "select distinct pl.po_id as id from mrreg_line l join po_line pl on pl.id = l.po_line_id where l.mrreg_id = $1",
+      [m.id],
+    );
+    const po = poId ?? (pos.length === 1 ? pos[0].id : undefined);
+    if (pos.length > 1 && po === undefined) throw new AppError("This MRReg holds several POs. Choose the PO first.");
+    if (po !== undefined && !pos.some((p) => p.id === po)) throw new AppError("This PO is not on the MRReg.");
     const no = await nextNcfNo(c, now);
     const t = wib(now);
     const row = await one<{ id: number }>(
       c,
-      `insert into ncf(ncf_no, bu_id, supplier_id, mrreg_id, sj_no, sj_date, receipt_date, inspect_date, inspect_time, created_by, created_at)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id`,
-      [no, m.bu_id, m.supplier_id, m.id, m.sj_no, m.sj_date, m.receipt_date, t.date, t.time, actor.id, now],
+      `insert into ncf(ncf_no, bu_id, supplier_id, mrreg_id, po_id, sj_no, sj_date, receipt_date, inspect_date, inspect_time, created_by, created_at)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning id`,
+      [no, m.bu_id, m.supplier_id, m.id, po ?? null, m.sj_no, m.sj_date, m.receipt_date, t.date, t.time, actor.id, now],
     );
     await audit(c, { entity: "ncf", entityId: row!.id, action: "CREATE", newValue: no, actorType: "USER", actorId: actor.id });
     return row!.id;
@@ -399,10 +418,11 @@ export async function addItem(actor: Actor, id: number, lineId: number, sample: 
     const n = await draftForEdit(c, actor, id);
     const line = await one<{ id: number; item_id: number; qty_received: number }>(
       c,
-      "select id, item_id, qty_received from mrreg_line where id = $1 and mrreg_id = $2",
-      [lineId, n.mrreg_id],
+      `select l.id, l.item_id, l.qty_received from mrreg_line l join po_line pl on pl.id = l.po_line_id
+       where l.id = $1 and l.mrreg_id = $2 and ($3::bigint is null or pl.po_id = $3)`,
+      [lineId, n.mrreg_id, n.po_id],
     );
-    if (!line) throw new AppError("Choose an item from this MRReg.");
+    if (!line) throw new AppError("Choose an item from this MRReg and PO.");
     const s = num(sample), d = num(defect), r = ret === "" || ret === undefined ? 0 : num(ret);
     if (!(s > 0 && s <= line.qty_received)) throw new AppError(`Jumlah Sample must be between 1 and ${line.qty_received}.`);
     if (!(d >= 1 && d <= s)) throw new AppError("Jumlah Cacat must be at least 1 and not more than Jumlah Sample.");
@@ -494,6 +514,7 @@ export async function submit(actor: Actor, id: number, password: string, now = n
       bu: n.bu_name,
       supplier: { code: n.supplier_code, name: n.supplier_name },
       mrreg_no: n.mrreg_no,
+      po_no: n.po_no,
       sj_no: m!.sj_no,
       sj_date: m!.sj_date,
       receipt_date: m!.receipt_date,

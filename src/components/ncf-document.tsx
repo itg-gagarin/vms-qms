@@ -10,7 +10,7 @@ export function NcfPart1({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: num
     { r: 0, s: 0, c: 0, x: 0 },
   );
   const files = d.evidence.filter((e) => e.capa_response_id === null);
-  const poNos = [...new Set(d.items.map((i) => i.po_no).filter(Boolean))].join(", ");
+  const poNos = d.po_no ?? [...new Set(d.items.map((i) => i.po_no).filter(Boolean))].join(", ");
   return (
     <>
       <Section title="A. Identifikasi masalah">

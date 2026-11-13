@@ -26,7 +26,7 @@ export async function createDraftAction(_: ActionState, d: FormData): Promise<Ac
   const user = await requireUser();
   let newId = 0;
   try {
-    newId = await ncf.createDraft(user, Number(d.get("mrreg_id")));
+    newId = await ncf.createDraft(user, Number(d.get("mrreg_id")), new Date(), d.get("po_id") ? Number(d.get("po_id")) : undefined);
   } catch (e) {
     if (e instanceof AppError) return { error: e.message };
     throw e;

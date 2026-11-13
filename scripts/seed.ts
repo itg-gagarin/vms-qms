@@ -110,6 +110,12 @@ async function main() {
   await mrLine(mr1, 2, pl2, iWhite, 65);
   const mr2 = await mr("MR-2026-11-0007", noEmail, "SJ-SK-1102", "2026-11-04", "2026-11-05");
   await mrLine(mr2, 1, pl3, iLeg, 200);
+  // One receipt, two POs of the same supplier: QC picks the PO before the items.
+  const po3 = await po("4500012367", premier, "2026-10-20");
+  const pl4 = await poLine(po3, 10, iWhite, 50, 185000, "2026-11-10");
+  const mr3 = await mr("MR-2026-11-0009", premier, "SJ-PRM-1109", "2026-11-09", "2026-11-10");
+  await mrLine(mr3, 1, pl1, iBlack, 40);
+  await mrLine(mr3, 2, pl4, iWhite, 50);
 
   for (const name of ["Printing / finishing", "Dimension", "Damaged", "Wrong item", "Quantity short", "Other"]) {
     await c.query("insert into problem_category(name) values ($1)", [name]);

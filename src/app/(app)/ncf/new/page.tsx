@@ -17,7 +17,7 @@ export default async function NewNcf({ searchParams }: { searchParams: Promise<{
       <div>
         <h1 className="text-3xl font-bold">New NCF</h1>
         <p className="text-slate-600">
-          Choose the goods receipt (MRReg). Supplier, No. SJ, Tanggal SJ, Tanggal Masuk and the items come from SAP.
+          Choose the goods receipt (MRReg), then its PO: one MRReg can hold several POs of the same supplier. Supplier, No. SJ, Tanggal SJ, Tanggal Masuk and the items come from SAP.
         </p>
       </div>
       <form className="card flex flex-wrap items-end gap-3" role="search">
@@ -35,13 +35,14 @@ export default async function NewNcf({ searchParams }: { searchParams: Promise<{
               <th scope="col">Supplier</th>
               <th scope="col">No. SJ</th>
               <th scope="col">Tanggal Masuk</th>
+              <th scope="col">PO</th>
               <th scope="col" className="text-right">Lines</th>
               <th scope="col"><span className="sr-only">Action</span></th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={6} className="py-8 text-center text-slate-600">No MRReg found.</td></tr>
+              <tr><td colSpan={7} className="py-8 text-center text-slate-600">No MRReg found.</td></tr>
             )}
             {rows.map((r) => (
               <tr key={r.id}>
@@ -53,12 +54,21 @@ export default async function NewNcf({ searchParams }: { searchParams: Promise<{
                   ) : r.sj_no}
                 </td>
                 <td>{fmtDate(r.receipt_date)}</td>
+                <td>{r.pos.map((p) => p.po_no).join(", ") || "–"}</td>
                 <td className="text-right">{r.lines}</td>
                 <td className="text-right">
                   {r.sap_status === "CANCELED" ? <span className="text-sm text-slate-600">Cancelled in SAP</span> : (
                   <ActionForm action={createDraftAction}>
                     <input type="hidden" name="mrreg_id" value={r.id} />
-                    <Submit className="btn h-10">Create NCF</Submit>
+                    <div className="flex items-center justify-end gap-2">
+                      {r.pos.length > 1 ? (
+                        <select name="po_id" required defaultValue="" aria-label={`PO for ${r.mrreg_no}`} className="input h-10 w-auto">
+                          <option value="" disabled>Choose PO…</option>
+                          {r.pos.map((p) => <option key={p.id} value={p.id}>{p.po_no} · {p.lines} line{p.lines > 1 ? "s" : ""}</option>)}
+                        </select>
+                      ) : r.pos[0] && <input type="hidden" name="po_id" value={r.pos[0].id} />}
+                      <Submit className="btn h-10">Create NCF</Submit>
+                    </div>
                   </ActionForm>)}
                 </td>
               </tr>

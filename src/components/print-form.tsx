@@ -32,7 +32,7 @@ export async function PrintForm({ d, meta, pages }: { d: NcfDetail; meta: PrintM
   );
   const files = d.evidence.filter((e) => e.capa_response_id === null && e.file_id);
   const kinds = new Set(d.evidence.filter((e) => e.capa_response_id === null).map((e) => e.kind));
-  const poNos = [...new Set(d.items.map((i) => i.po_no).filter(Boolean))].join(", ");
+  const poNos = d.po_no ?? [...new Set(d.items.map((i) => i.po_no).filter(Boolean))].join(", ");
   const rows = Math.max(5, d.items.length);
   const stamp = meta.kind === "COPY" ? null : meta.kind;
 

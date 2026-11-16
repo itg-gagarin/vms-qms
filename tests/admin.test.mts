@@ -88,6 +88,14 @@ describe("Super Admin settings", () => {
     const edited = (await adm.getUser(users.admin, nu)).roles.find((r) => r.id === demoRole.id)!;
     assert.equal(edited.bu, null);
     assert.match(String(edited.valid_to), /^2027-06-30/);
+    // The role itself can change too; a role that covers all units drops the unit
+    await assert.rejects(adm.updateRole(users.admin, two.id, demo, null, "AUDITOR"), /already has/);
+    await adm.updateRole(users.admin, two.id, demo, null, "PURCHASING");
+    const changed = (await adm.getUser(users.admin, nu)).roles.find((r) => r.id === two.id)!;
+    assert.equal(changed.role, "PURCHASING");
+    assert.equal(changed.bu, null);
+    const adminRole = (await adm.getUser(users.admin, users.admin.id)).roles.find((r) => r.role === "SUPER_ADMIN")!;
+    await assert.rejects(adm.updateRole(users.admin, adminRole.id, null, null, "AUDITOR"), /at least one active Super Admin/);
     const pid = await adm.savePosition(users.admin, null, "QC Supervisor", true);
     await adm.updateUser(users.admin, nu, { name: "Sari", position: "QC Supervisor", email: "sari@demo.local" });
     await adm.savePosition(users.admin, pid, "QC Lead", true);

@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { EmptyState, Shell, StatusBadge } from "@/components/ui";
 import { countNcf, listDispatch, listNcf, reminderWindow } from "@/modules/ncf";
 import { dashboard, REPORT_ROLES } from "@/modules/ncf/reports";
-import { visibleStatuses } from "@/modules/ncf/visibility";
 import { hasRole, primaryRole } from "@/platform/access";
 import { requireUser } from "@/platform/auth";
 import { selectedBu } from "@/platform/business-units";
@@ -44,20 +43,20 @@ function Card({ title, action, children }: { title: string; action?: ReactNode; 
 export default async function HomePage() {
   const user = await requireUser();
   const role = primaryRole(user);
-  const seen = visibleStatuses(user);
   const bu = await selectedBu(user);
-  const may = (tab: string, statuses: string[]) => statuses.some((s) => seen.includes(s as never)) ? tab : null;
+  // Approvers and Auditors may see later stages, but only Purchasing and PCH Div. Head send and close: their work only.
+  const sends = hasRole(user, ["PURCHASING", "PCH_DIV_HEAD"]);
 
   const [mine, toSign, toSend, waiting, toVerify, signQueue, myQueue, sendQueue, chase, window, notes] = await Promise.all([
-    may("mine", ["DRAFT"]) && hasRole(user, "QC_INSPECTOR") ? countNcf(user, "mine", undefined, "", bu) : 0,
+    hasRole(user, "QC_INSPECTOR") ? countNcf(user, "mine", undefined, "", bu) : 0,
     hasRole(user, "NCF_APPROVER") ? countNcf(user, "approve", undefined, "", bu) : 0,
-    may("send", ["APPROVED"]) ? countNcf(user, "send", undefined, "", bu) : 0,
-    may("waiting", ["SENT"]) ? countNcf(user, "waiting", undefined, "", bu) : 0,
-    may("verify", ["RESPONDED"]) ? countNcf(user, "verify", undefined, "", bu) : 0,
+    sends ? countNcf(user, "send", undefined, "", bu) : 0,
+    sends ? countNcf(user, "waiting", undefined, "", bu) : 0,
+    sends ? countNcf(user, "verify", undefined, "", bu) : 0,
     hasRole(user, "NCF_APPROVER") ? listNcf(user, "approve", undefined, 1, 6, "", bu) : [],
     hasRole(user, "QC_INSPECTOR") ? listNcf(user, "mine", undefined, 1, 6, "", bu) : [],
-    hasRole(user, ["PURCHASING", "PCH_DIV_HEAD"]) ? listDispatch(user, "send", 1, 6, bu) : { rows: [], total: 0 },
-    hasRole(user, ["PURCHASING", "PCH_DIV_HEAD"]) ? listDispatch(user, "waiting", 1, 50, bu) : { rows: [], total: 0 },
+    sends ? listDispatch(user, "send", 1, 6, bu) : { rows: [], total: 0 },
+    sends ? listDispatch(user, "waiting", 1, 50, bu) : { rows: [], total: 0 },
     reminderWindow(),
     inbox(user, 6),
   ]);
@@ -85,15 +84,16 @@ export default async function HomePage() {
           <h1 className="mt-0.5 font-[family-name:var(--font-display)] text-[22px] font-semibold tracking-[-0.01em]">{greeting}, {first}</h1>
           <p className="text-[13px] text-muted">{user.position ?? ""}{user.position ? " · " : ""}here is what needs you today.</p>
         </div>
-        {main && <Link href={main.href} className="btn btn-advance"><main.icon size={16} aria-hidden="true" /> {main.label}</Link>}
+        {/* On phones the bottom bar's centre button is this action. */}
+        {main && <Link href={main.href} className="btn btn-advance hidden md:inline-flex"><main.icon size={16} aria-hidden="true" /> {main.label}</Link>}
       </div>
 
       <section aria-label="Needs your attention" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         {hasRole(user, "QC_INSPECTOR") && <Tile label="My drafts and pending" value={mine} sub="drafts and waiting approval" href="/ncf?tab=mine" />}
         {hasRole(user, "NCF_APPROVER") && <Tile label="Waiting for my signature" value={toSign} sub={toSign ? "oldest first" : "nothing to sign"} href="/ncf?tab=approve" tone={toSign ? "warn" : "default"} />}
-        {seen.includes("APPROVED") && <Tile label="Approved, to send" value={toSend} sub="export and email the form" href="/ncf?tab=send" />}
-        {seen.includes("SENT") && <Tile label="Waiting for supplier" value={waiting} sub={overdue.length ? `${overdue.length} over ${window} working days` : "within the window"} href="/outbox?tab=waiting" tone={overdue.length ? "warn" : "default"} />}
-        {seen.includes("RESPONDED") && <Tile label="Replied, to verify" value={toVerify} sub="check the reply and close" href="/ncf?tab=verify" />}
+        {sends && <Tile label="Approved, to send" value={toSend} sub="export and email the form" href="/ncf?tab=send" />}
+        {sends && <Tile label="Waiting for supplier" value={waiting} sub={overdue.length ? `${overdue.length} over ${window} working days` : "within the window"} href="/outbox?tab=waiting" tone={overdue.length ? "warn" : "default"} />}
+        {sends && <Tile label="Replied, to verify" value={toVerify} sub="check the reply and close" href="/ncf?tab=verify" />}
         {figures && <Tile label="Median supplier reply" value={figures.kpi.median_wd === null ? "–" : `${figures.kpi.median_wd} wd`} sub={`${figures.kpi.responded} replies in ${year}`} href="/reports" />}
         {figures && <Tile label="Open NCFs" value={figures.kpi.open} sub={`${figures.kpi.raised} raised in ${year}`} href="/ncf?tab=all" />}
       </section>

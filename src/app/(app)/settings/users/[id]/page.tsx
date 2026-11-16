@@ -6,9 +6,8 @@ import { Modal } from "@/components/ui/modal";
 import { ModalForm } from "@/components/ui/modal-form";
 import { Avatar, Banner, EmptyState, PageHead, Section, Shell, StatePill } from "@/components/ui";
 import * as adm from "@/modules/admin";
-import { ROLES } from "@/platform/access";
+import { hasRole, ROLES } from "@/platform/access";
 import { requireUser } from "@/platform/auth";
-import { hasRole } from "@/platform/access";
 import { AppError, fmtDate } from "@/platform/util";
 import { addRolesAction, removeRoleAction, resetPasswordAction, setActiveAction, updateRoleAction, updateUserAction } from "../../actions";
 
@@ -101,17 +100,20 @@ export default async function UserPage({ params, searchParams }: { params: Promi
                     <td>
                       <div className="flex justify-end gap-1.5">
                         <Modal label="Edit" title={`Edit role: ${roleLabel[r.role]}`} icon={<Pencil size={14} aria-hidden="true" />} buttonClassName="btn h-7 px-2.5 md:h-7"
-                          description={adm.ROLE_SCOPED[r.role] ? "Where this role applies and until when." : "This role covers all units; set until when it applies."}>
+                          description="Which role, where it applies and until when.">
                           <ModalForm action={updateRoleAction} className="flex flex-col gap-4">
                             <input type="hidden" name="role_id" value={r.id} />
-                            {adm.ROLE_SCOPED[r.role] && (
-                              <Field id={`er-bu-${r.id}`} label="Business unit">
-                                <select id={`er-bu-${r.id}`} name="bu" defaultValue={r.bu_id ? String(r.bu_id) : "all"} className="input">
-                                  <option value="all">All units, now and future</option>
-                                  {units.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
-                                </select>
-                              </Field>
-                            )}
+                            <Field id={`er-role-${r.id}`} label="Role">
+                              <select id={`er-role-${r.id}`} name="role" defaultValue={r.role} className="input">
+                                {ROLES.map((x) => <option key={x.role} value={x.role}>{x.label}{x.scoped ? "" : " (all units)"}</option>)}
+                              </select>
+                            </Field>
+                            <Field id={`er-bu-${r.id}`} label="Business unit" hint="Applies to QC Inspector and NCF Approver; other roles always cover all units.">
+                              <select id={`er-bu-${r.id}`} name="bu" defaultValue={r.bu_id ? String(r.bu_id) : "all"} className="input">
+                                <option value="all">All units, now and future</option>
+                                {units.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
+                              </select>
+                            </Field>
                             <Field id={`er-until-${r.id}`} label="Until (optional)" hint="Leave empty for no end date.">
                               <input id={`er-until-${r.id}`} name="valid_to" type="date" defaultValue={r.valid_to ? String(r.valid_to).slice(0, 10) : ""} className="input" />
                             </Field>

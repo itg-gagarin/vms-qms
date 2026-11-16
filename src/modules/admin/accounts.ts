@@ -201,26 +201,28 @@ export async function savePosition(actor: Actor, id: number | null, name: string
 }
 
 /** Changes where a role applies (its Business Unit) and until when. Unscoped roles always cover all units. */
-export async function updateRole(actor: Actor, roleId: number, buId: number | null, validTo: string | null) {
+/** Changes a role: which role it is, the Business Unit it applies in (scoped roles only) and until when. */
+export async function updateRole(actor: Actor, roleId: number, buId: number | null, validTo: string | null, newRole?: Role) {
   admin(actor);
   if (validTo && !/^\d{4}-\d{2}-\d{2}$/.test(validTo)) throw new AppError("End date is not a valid date.");
   return tx(async (c) => {
     const r = await one<{ user_id: number; role: Role; bu_id: number | null; valid_to: string | null }>(
       c, "select user_id, role, bu_id, to_char(valid_to, 'YYYY-MM-DD') as valid_to from user_role where id = $1 for update", [roleId]);
     if (!r) throw new AppError("Role not found.", 404);
-    const def = ROLES.find((x) => x.role === r.role);
-    const bu = def?.scoped ? buId : null;
+    const role = newRole ?? r.role;
+    const def = ROLES.find((x) => x.role === role);
+    if (!def) throw new AppError("Unknown role.");
+    const bu = def.scoped ? buId : null;
     if (await one(c, "select 1 from user_role where user_id = $1 and role = $2 and coalesce(bu_id, 0) = coalesce($3::bigint, 0) and id <> $4",
-      [r.user_id, r.role, bu, roleId])) {
+      [r.user_id, role, bu, roleId])) {
       throw new AppError("This person already has that role there.");
     }
-    if (r.role === "SUPER_ADMIN" && validTo && validTo < new Date().toISOString().slice(0, 10) && (await superAdmins(c, undefined, roleId))!.n === 0) {
-      throw new AppError("Keep at least one active Super Admin.");
-    }
-    await c.query("update user_role set bu_id = $2, valid_to = $3 where id = $1", [roleId, bu, validTo]);
+    const endsAdmin = r.role === "SUPER_ADMIN" && (role !== "SUPER_ADMIN" || (validTo && validTo < new Date().toISOString().slice(0, 10)));
+    if (endsAdmin && (await superAdmins(c, undefined, roleId))!.n === 0) throw new AppError("Keep at least one active Super Admin.");
+    await c.query("update user_role set role = $2, bu_id = $3, valid_to = $4 where id = $1", [roleId, role, bu, validTo]);
     await log(c, actor, "app_user", r.user_id, "EDIT_ROLE", "role",
       `${r.role}${r.bu_id ? ` @${r.bu_id}` : ""}${r.valid_to ? ` until ${r.valid_to}` : ""}`,
-      `${r.role}${bu ? ` @${bu}` : ""}${validTo ? ` until ${validTo}` : ""}`);
+      `${role}${bu ? ` @${bu}` : ""}${validTo ? ` until ${validTo}` : ""}`);
   });
 }
 
@@ -235,5 +237,3 @@ export async function removeRole(actor: Actor, roleId: number) {
   });
 }
 
-/** Which roles are given per Business Unit (QC, approvers); the rest cover all units. */
-export const ROLE_SCOPED: Record<Role, boolean> = Object.fromEntries(ROLES.map((r) => [r.role, r.scoped])) as Record<Role, boolean>;

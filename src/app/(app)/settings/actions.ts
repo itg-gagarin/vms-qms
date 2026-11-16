@@ -72,7 +72,8 @@ export const setActiveAction = async (_: ActionState, d: FormData) =>
     adm.setActive(u, Number(d.get("id")), s(d, "active") === "1"));
 
 export const updateRoleAction = async (_: ActionState, d: FormData) =>
-  run("Role updated.", (u) => adm.updateRole(u, Number(d.get("role_id")), s(d, "bu") === "all" ? null : n(d, "bu"), s(d, "valid_to") || null));
+  run("Role updated.", (u) => adm.updateRole(u, Number(d.get("role_id")), s(d, "bu") === "all" ? null : n(d, "bu"), s(d, "valid_to") || null,
+    (s(d, "role") || undefined) as Role | undefined));
 
 export const removeRoleAction = async (_: ActionState, d: FormData) =>
   run("Role removed.", (u) => adm.removeRole(u, Number(d.get("role_id"))));

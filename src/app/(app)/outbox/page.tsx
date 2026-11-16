@@ -33,7 +33,7 @@ export default async function SupplierOutbox({ searchParams }: { searchParams: P
                   <Link href={`/ncf/${r.id}`} className="num font-semibold">{r.ncf_no}</Link>
                   <StatusBadge status={r.status} />
                 </div>
-                <div className="text-[14px] font-medium">{r.supplier} <span className="num text-[12px] font-normal text-muted">{r.supplier_code}{r.po_no && ` · PO ${r.po_no}`}</span></div>
+                <div className="text-[13px] font-medium">{r.supplier} <span className="num text-[12px] font-normal text-muted">{r.supplier_code}{r.po_no && ` · PO ${r.po_no}`}</span></div>
                 <div className="text-[13px]">
                   {r.contacts.length === 0 && <span className="text-status-amber">No contact on file</span>}
                   {r.contacts.map((c, i) => (

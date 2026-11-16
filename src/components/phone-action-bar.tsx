@@ -23,7 +23,7 @@ export function PhoneActionBar({ href, label }: { href: string; label: string })
       <div aria-hidden="true" className="h-16 md:hidden" />
       <div className={`fixed inset-x-0 bottom-0 z-30 border-t border-hairline bg-white/95 px-4 pt-3 backdrop-blur transition-transform duration-200 md:hidden ${hidden ? "translate-y-full" : ""}`}
         style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
-        <Link href={href} className="btn btn-advance h-12 w-full justify-center text-[15px]" tabIndex={hidden ? -1 : undefined}>{label}</Link>
+        <Link href={href} className="btn btn-advance h-12 w-full justify-center text-[14px]" tabIndex={hidden ? -1 : undefined}>{label}</Link>
       </div>
     </>
   );

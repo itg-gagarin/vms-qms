@@ -137,9 +137,9 @@ export function Submit({ children, className = "btn btn-commit", name, value }: 
 function LinkBox({ link }: { link: string }) {
   return (
     <div className="mt-3 rounded-md border border-brand/40 bg-brand-soft p-3">
-      <p className="text-sm font-semibold text-slate-800">Link for the supplier. Copy it now: it is shown only once.</p>
+      <p className="text-sm font-semibold text-slate-800">Copy it now: it is shown only once and cannot be read back.</p>
       <div className="mt-2 flex flex-wrap gap-2">
-        <input readOnly value={link} className="input font-mono text-sm" aria-label="Supplier link" onFocus={(e) => e.target.select()} />
+        <input readOnly value={link} className="input font-mono text-sm" aria-label="Value to copy" onFocus={(e) => e.target.select()} />
         <button type="button" className="btn" onClick={() => navigator.clipboard.writeText(link)}>
           Copy
         </button>

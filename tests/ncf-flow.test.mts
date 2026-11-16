@@ -43,14 +43,14 @@ const lines = async (id: number) => ncf.mrregLines(id);
 describe("NCF end to end: Premier, form sent by email", () => {
   let id = 0;
 
-  test("QC creates a draft from the MRReg; number continues the paper register; the receipt leaves the open list", async () => {
+  test("QC creates a draft from the MRReg; numbers start at 1; the receipt leaves the open list", async () => {
     const open = async () => (await ncf.searchMrreg(users.qc, "260012841")).length;
     assert.equal(await open(), 1, "no NCF yet: the receipt is open");
     id = await ncf.createDraft(users.qc, await mrreg("260012841"), at("2026-11-12 10:00"));
     assert.equal(await open(), 0, "once an NCF is made it leaves the open list");
     assert.equal(await ncf.countMrreg(users.qc, "260012841"), 0);
     const d = await ncf.getNcf(users.qc, id);
-    assert.equal(d.ncf_no, "424/XI/2026");
+    assert.equal(d.ncf_no, "1/XI/2026");
     assert.equal(d.status, "DRAFT");
     assert.equal(d.sj_no, "0410/PRM/X/26");
     assert.equal(d.supplier_name, "Premier");
@@ -167,7 +167,7 @@ describe("NCF end to end: Premier, form sent by email", () => {
   test("QR codes open the record", async () => {
     const d = await ncf.getNcf(users.audit, id);
     const doc = await ver.verifyDocument(d.version!.verify_code, null, "1.2.3.4");
-    assert.equal(doc.ncf_no, "424/XI/2026");
+    assert.equal(doc.ncf_no, "1/XI/2026");
     assert.equal(doc.canOpenFull, false); // not logged in: summary only
     const gm = d.approvals.find((a) => a.step_no === 3)!;
     const sig = await ver.verifySignature(gm.verify_code!, users.audit, null);
@@ -194,13 +194,13 @@ describe("Supplier without email: form sent another way", () => {
     await ncf.addEvidence(users.qc, id, [photo("kaki.png", "d")], "");
     await ncf.submit(users.qc, id, PW, at("2026-11-12 11:00"));
     for (const u of ["qcm", "whs", "gm"]) await ncf.decide(users[u], id, "APPROVED", PW, "", at("2026-11-12 14:00"));
-    assert.equal((await ncf.getNcf(users.pur, id)).ncf_no, "425/XI/2026");
+    assert.equal((await ncf.getNcf(users.pur, id)).ncf_no, "2/XI/2026");
   });
 
   test("PCH marks it sent (e.g. by WhatsApp); the reminder goes to Purchasing", async () => {
     await ncf.markSent(users.pch, id, at("2026-11-12 15:00"));
     const r = await runReminders(at("2026-11-16 09:00"));
-    assert.ok(r.some((x) => x.ncf_no === "425/XI/2026"));
+    assert.ok(r.some((x) => x.ncf_no === "2/XI/2026"));
     const toSupplier = await q(pool, "select 1 from notification_outbox where event='REMINDER' and recipient_email is not null");
     assert.equal(toSupplier.length, 0);
   });

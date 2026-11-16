@@ -19,7 +19,7 @@ export function ErrorView({ error, retry }: { error: unknown; retry: () => void 
         <h1 className="mt-4 font-[family-name:var(--font-display)] text-[18px] font-semibold text-ink">
           {stale ? "The system was just updated" : "This page could not load"}
         </h1>
-        <p className="mt-1 text-[14px] text-muted">
+        <p className="mt-1 text-[13px] text-muted">
           {stale ? "Reload to continue with the new version. Nothing you saved is lost." : "Try again. If it keeps happening, tell the PMO administrator."}
         </p>
         <div className="mt-5 flex justify-center gap-2">

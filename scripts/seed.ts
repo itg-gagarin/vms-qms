@@ -125,11 +125,12 @@ async function main() {
     await c.query("insert into problem_category(name) values ($1)", [name]);
   }
 
-  // Working-day calendar: weekends off. Public holidays still have to be loaded (open point).
+  // Working-day calendar: weekends off; Indonesian national holidays and cuti bersama come from migration 012.
   await c.query(`
     insert into calendar_day(day,is_working)
     select d::date, extract(isodow from d) < 6
-    from generate_series('2026-01-01'::date, '2027-12-31'::date, interval '1 day') d`);
+    from generate_series('2026-01-01'::date, '2027-12-31'::date, interval '1 day') d
+    on conflict (day) do nothing`);  // migration 012 already holds 2026-2027 with the Indonesian holidays
 
   const setting = (key: string, value: unknown) =>
     c.query("insert into setting(key,value,changed_by,valid_from) values ($1,$2,$3,'2026-01-01')", [
@@ -141,8 +142,7 @@ async function main() {
   await setting("reminder_max", 3);
   await setting("token_valid_days", 30);
 
-  // Continue the paper register: the last paper NCF was 423/X/2026.
-  await c.query("insert into doc_counter(key,last) values ('NCF-2026',423)");
+  // NCF numbers start at 1 in each period (the counter row is created by the first NCF).
 
   await c.query("commit");
   await c.end();

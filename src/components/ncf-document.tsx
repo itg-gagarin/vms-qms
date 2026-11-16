@@ -47,7 +47,7 @@ export function NcfPart1({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: num
         <EvidenceList items={files} fileHref={fileHref} />
       </Section>
       <Section title="F. Tindak lanjut dari Integra">
-        <p className="whitespace-pre-line text-[14px]">{d.follow_up || <span className="text-slate-500">–</span>}</p>
+        <p className="whitespace-pre-line text-[13px]">{d.follow_up || <span className="text-slate-500">–</span>}</p>
       </Section>
     </>
   );
@@ -60,9 +60,11 @@ export function ItemTable({ d, totals, children }: { d: NcfDetail; totals?: { r:
   );
   const pct = (c: number, s: number) => (s ? Math.round((c / s) * 100) : 0);
   return (
-    <div className="rounded-sm border border-hairline">
-      {/* Phones: one card per item, the four quantities side by side. No sideways scrolling. */}
-      <ol className="divide-y divide-hairline md:hidden">
+    // The layout follows the width of the card it sits in (container query), not the screen: next to the
+    // signatures column the card is narrow even on a laptop, so items show as cards until the card is 1024px wide.
+    <div className="@container rounded-sm border border-hairline">
+      {/* Narrow: one card per item, the four quantities side by side. No sideways scrolling. */}
+      <ol className="divide-y divide-hairline @5xl:hidden">
         {d.items.length === 0 && <li className="px-3 py-6 text-center text-muted">No items yet.</li>}
         {d.items.map((i, k) => (
           <li key={i.id} className="px-3 py-3">
@@ -83,8 +85,8 @@ export function ItemTable({ d, totals, children }: { d: NcfDetail; totals?: { r:
           </li>
         )}
       </ol>
-      {/* Tablets and desktop: the form's table */}
-      <table className="table w-full text-[14px] max-md:hidden [&_td]:px-2 [&_th]:px-2">
+      {/* Wide enough: the form's table */}
+      <div className="overflow-x-auto @max-5xl:hidden"><table className="table w-full [&_td]:px-2 [&_th]:px-2">
         <thead>
           <tr>
             <th scope="col">No</th>
@@ -129,7 +131,7 @@ export function ItemTable({ d, totals, children }: { d: NcfDetail; totals?: { r:
             </tr>
           )}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 }
@@ -140,7 +142,7 @@ function Qty({ r, s, c, x, p }: { r: number; s: number; c: number; x: number; p:
       {([["Datang", r], ["Sample", s], ["Cacat", `${c} · ${p}%`], ["Retur", x]] as const).map(([k, v]) => (
         <div key={k} className="rounded-xs bg-slate-50 px-1 py-1.5">
           <dt className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted">{k}</dt>
-          <dd className="num text-[14px] font-semibold">{v}</dd>
+          <dd className="num text-[13px] font-semibold">{v}</dd>
         </div>
       ))}
     </dl>

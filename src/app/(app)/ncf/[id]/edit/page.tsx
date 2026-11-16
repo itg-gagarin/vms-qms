@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ActionForm, Submit } from "@/components/action-form";
 import { EvidenceList, ItemTable } from "@/components/ncf-document";
+import { EvidencePicker } from "@/components/evidence-picker";
 import { PhoneActionBar } from "@/components/phone-action-bar";
 import { ScrollToFlag } from "@/components/scroll-to-flag";
 import { Banner, Field, FieldGrid, PageHead, Section, Shell } from "@/components/ui";
@@ -186,11 +187,11 @@ export default async function EditNcf({ params, searchParams }: { params: Promis
             </ActionForm>
           )}
         </EvidenceList>
-        <ActionForm action={addEvidenceAction} resetOnOk className="mt-4 flex flex-col gap-3 rounded-lg border-2 border-dashed border-slate-400 bg-slate-50 p-4">
+        <ActionForm action={addEvidenceAction} resetOnOk className="mt-4 flex flex-col gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
           <input type="hidden" name="id" value={d.id} />
           <div>
-            <label htmlFor="files" className="label">Files (or take a photo with the camera)</label>
-            <input id="files" name="files" type="file" multiple accept="image/*,video/mp4,video/quicktime,application/pdf,.docx,.xlsx" className="block w-full text-sm" />
+            <div className="label">Add evidence</div>
+            <EvidencePicker />
           </div>
           <div>
             <label htmlFor="note" className="label">Catatan bukti</label>

@@ -1,10 +1,12 @@
-import { Sidebar, type NavGroup, type NavItem } from "@/components/sidebar";
+import { cookies } from "next/headers";
+import { AppShell, type NavGroup, type NavItem } from "@/components/sidebar";
 import { ROLES } from "@/lib/admin";
 import { requireUser } from "@/lib/auth";
 import { selectedBu, unitsFor } from "@/lib/bu";
 import { hasRole, visibleStatuses } from "@/lib/core";
 import type { NcfStatus } from "@/lib/labels";
 import { statusCounts } from "@/lib/ncf";
+import { inbox } from "@/lib/notifications";
 import { SUPPLIER_ROLES } from "@/lib/suppliers";
 import { REPORT_ROLES } from "@/lib/reports";
 
@@ -24,7 +26,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const seen = visibleStatuses(user);
   const units = await unitsFor(user);
   const bu = await selectedBu(user, units);
-  const counts = seen.length ? await statusCounts(user, bu) : { byStatus: {} as Partial<Record<NcfStatus, number>>, toSign: 0 };
+  const [counts, notes, jar] = await Promise.all([
+    seen.length ? statusCounts(user, bu) : { byStatus: {} as Partial<Record<NcfStatus, number>>, toSign: 0 },
+    inbox(user),
+    cookies(),
+  ]);
 
   // One item per QMS module. A new module adds an entry here with the roles that may open it;
   // items the user has no role for are left out, and a group with nothing left is hidden.
@@ -54,10 +60,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .filter((g) => g.items.length > 0);
 
   return (
-    <>
-      <Sidebar groups={groups} search={seen.length > 0} units={units} bu={bu}
-        user={{ name: user.name, position: user.position, roles: [...new Set(user.roles.map((r) => ROLES.find((x) => x.role === r.role)?.label ?? r.role))] }} />
-      <div className="lg:pl-64">{children}</div>
-    </>
+    <AppShell groups={groups} search={seen.length > 0} units={units} bu={bu} collapsed={jar.get("vms_nav")?.value === "collapsed"}
+      notes={notes.items.map((n) => ({ id: n.id, title: n.title, at: new Date(n.at).toISOString(), read: n.read, todo: n.todo }))} unread={notes.unread}
+      user={{ name: user.name, position: user.position, roles: [...new Set(user.roles.map((r) => ROLES.find((x) => x.role === r.role)?.label ?? r.role))] }}>
+      {children}
+    </AppShell>
   );
 }

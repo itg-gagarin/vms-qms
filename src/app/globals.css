@@ -66,7 +66,7 @@ h1, h2, h3, h4 {
 @layer components {
   .input {
     /* 16px on phones: iOS zooms the page into any field below 16px. 44px high for a thumb. */
-    @apply h-11 w-full rounded-sm border border-hairline bg-transparent px-3 text-[16px] text-ink md:h-10 md:text-[14px] outline-none placeholder:text-slate-400 focus:border-advance focus:ring-1 focus:ring-advance disabled:cursor-not-allowed disabled:opacity-50;
+    @apply h-11 w-full rounded-sm border border-hairline bg-transparent px-3 text-[16px] text-ink md:h-9 md:text-[13px] outline-none placeholder:text-slate-400 focus:border-advance focus:ring-1 focus:ring-advance disabled:cursor-not-allowed disabled:opacity-50;
   }
   textarea.input {
     @apply h-auto py-2;
@@ -79,7 +79,7 @@ h1, h2, h3, h4 {
   }
   /* Outline: the workhorse for every secondary action */
   .btn {
-    @apply inline-flex h-11 items-center justify-center gap-2 rounded-sm md:h-9 border border-hairline bg-white px-4 text-[14px] font-medium text-ink no-underline hover:bg-row-hover hover:no-underline disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-sm md:h-8 border border-hairline bg-white px-3.5 text-[14px] font-medium md:text-[13px] text-ink no-underline hover:bg-row-hover hover:no-underline disabled:pointer-events-none disabled:opacity-50;
   }
   /* Advance: the one lifecycle action on a screen (submit, approve, send, close) */
   .btn-advance, .btn-primary {
@@ -93,17 +93,17 @@ h1, h2, h3, h4 {
     @apply border-status-red bg-status-red text-white hover:bg-red-700;
   }
   .card {
-    @apply rounded-md border border-hairline bg-white p-4 sm:p-5;
+    @apply rounded-md border border-hairline bg-white p-4;
   }
   .h2 {
-    @apply font-[family-name:var(--font-display)] text-[15px] font-semibold leading-snug text-ink;
+    @apply font-[family-name:var(--font-display)] text-[14px] font-semibold leading-snug text-ink;
   }
   /* Data tables: a quiet grey header that stays put, roomy rows, first and last cells inset to the card edge */
   .table th {
-    @apply sticky top-0 z-10 whitespace-nowrap border-b border-hairline bg-slate-50 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted first:pl-4 last:pr-4 sm:first:pl-5 sm:last:pr-5;
+    @apply sticky top-0 z-10 whitespace-nowrap border-b border-hairline bg-slate-50 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted first:pl-4 last:pr-4;
   }
   .table td {
-    @apply border-b border-hairline px-3 py-3 align-middle first:pl-4 last:pr-4 sm:first:pl-5 sm:last:pr-5;
+    @apply border-b border-hairline px-3 py-2.5 align-middle text-[13px] first:pl-4 last:pr-4;
   }
   .table tbody tr:last-child td {
     @apply border-b-0;

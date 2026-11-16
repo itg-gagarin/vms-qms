@@ -2,24 +2,31 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { ActionForm, Submit } from "@/components/action-form";
-import { PageHead, Section, Shell, Tabs } from "@/components/ui";
+import { Plus, Search } from "lucide-react";
+import { ClickableRow } from "@/components/clickable-row";
+import { Modal } from "@/components/modal";
+import { ModalForm } from "@/components/modal-form";
+import { Avatar, EmptyState, PageHead, Section, Shell, StatePill, TableCard, Tabs } from "@/components/ui";
 import * as adm from "@/lib/admin";
+import { listApiKeys } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { hasRole, type Actor } from "@/lib/core";
 import { fmtDate, wib } from "@/lib/util";
 import {
-  addRoleAction, createUserAction, extendCalendarAction, removeRoleAction, resetPasswordAction, saveCategoryAction, saveChainAction,
-  saveNumberingAction, saveUnitAction, saveWorkflowAction, setActiveAction, setHolidayAction, updateUserAction,
+  createApiKeyAction, createUserAction, extendCalendarAction, revokeApiKeyAction, saveCategoryAction, saveChainAction, saveNumberingAction, savePositionAction, saveUnitAction,
+  saveWorkflowAction, setHolidayAction,
 } from "./actions";
 
 const TABS = [
   { key: "accounts", label: "Accounts & roles" },
+  { key: "positions", label: "Positions" },
   { key: "chain", label: "Approval chain" },
   { key: "numbering", label: "Numbering" },
   { key: "workflow", label: "Reminders & targets" },
   { key: "categories", label: "Problem categories" },
   { key: "calendar", label: "Working calendar" },
   { key: "units", label: "Business units" },
+  { key: "api", label: "API keys" },
 ] as const;
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -31,13 +38,15 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     <Shell>
       <PageHead title="Master Settings" crumbs={[{ label: "Administration" }, { label: "Master Settings" }]} sub="Every change here is written to the audit log with who made it and the old and new value." />
       <Tabs label="Settings" items={TABS.map((t) => ({ href: `/settings?tab=${t.key}`, label: t.label, active: t.key === tab }))} />
-      {tab === "accounts" && <Accounts user={user} />}
+      {tab === "accounts" && <Accounts user={user} term={sp.q ?? ""} />}
+      {tab === "positions" && <Positions />}
       {tab === "chain" && <Chain />}
       {tab === "numbering" && <Numbering />}
       {tab === "workflow" && <Workflow />}
       {tab === "categories" && <Categories />}
       {tab === "calendar" && <Calendar year={Number(sp.year) || Number(wib(new Date()).date.slice(0, 4))} />}
       {tab === "units" && <Units />}
+      {tab === "api" && <ApiKeys user={user} />}
     </Shell>
   );
 }
@@ -52,95 +61,110 @@ function Field({ id, label, children, className = "" }: { id: string; label: str
 
 // ---------- Accounts ----------
 
-async function Accounts({ user }: { user: Actor }) {
-  const [users, units] = await Promise.all([adm.listUsers(user), adm.listUnits()]);
+/** Accounts as a table; each row opens the person's own page. New accounts are created in a dialog. */
+async function Accounts({ user, term }: { user: Actor; term: string }) {
+  const [all, positions] = await Promise.all([adm.listUsers(user), adm.listPositions(true)]);
   const roleLabel = Object.fromEntries(adm.ROLES.map((r) => [r.role, r.label]));
+  const t = term.trim().toLowerCase();
+  const users = t ? all.filter((u) => `${u.name} ${u.email} ${u.position ?? ""}`.toLowerCase().includes(t)) : all;
   return (
-    <>
-      <Section title="New account">
-        <ActionForm action={createUserAction} resetOnOk className="grid gap-3 md:grid-cols-4">
-          <Field id="nu-name" label="Name"><input id="nu-name" name="name" required className="input" /></Field>
-          <Field id="nu-pos" label="Position (printed under signatures)"><input id="nu-pos" name="position" className="input" placeholder="QC Manager" /></Field>
-          <Field id="nu-email" label="Email (sign-in)"><input id="nu-email" name="email" type="email" required className="input" /></Field>
-          <Field id="nu-pw" label="First password (8+ characters)"><input id="nu-pw" name="password" type="text" minLength={8} required className="input font-mono" autoComplete="off" /></Field>
-          <div className="md:col-span-4"><Submit>Create account</Submit> <span className="ml-2 text-xs text-slate-500">Add roles after creating it.</span></div>
-        </ActionForm>
-      </Section>
-
-      <Section flush title="Accounts" aside={`${users.filter((u) => u.active).length} active · ${users.length} total`}>
-        <ul className="flex flex-col">
-          {users.map((u) => (
-            <li key={u.id} className={`border-t border-hairline px-4 py-3 first:border-t-0 sm:px-5 ${u.active ? "" : "bg-slate-50 text-slate-500"}`}>
-              <details>
-                <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2">
-                  <span>
-                    <span className="font-semibold text-slate-900">{u.name}</span>
-                    <span className="text-sm"> · {u.position ?? "no position"} · {u.email}</span>
-                    {!u.active && <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs font-semibold">Inactive</span>}
-                  </span>
-                  <span className="flex flex-wrap gap-1">
-                    {u.roles.length === 0 && <span className="text-xs text-amber-800">No role: cannot do anything yet</span>}
+    <TableCard
+      toolbar={
+        <div className="flex w-full flex-wrap items-center gap-2">
+          <form className="relative min-w-0 flex-[1_1_240px] sm:max-w-sm" role="search">
+            <Hidden name="tab" value="accounts" />
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <label htmlFor="uq" className="sr-only">Search accounts</label>
+            <input id="uq" name="q" defaultValue={term} placeholder="Name, email or position" className="input h-9 pl-9 md:h-9" />
+          </form>
+          <span className="text-[12px] text-muted"><span className="num text-ink">{all.filter((u) => u.active).length}</span> active · {all.length} total</span>
+          <div className="ml-auto">
+            <Modal label="New account" title="New account" icon={<Plus size={15} aria-hidden="true" />} buttonClassName="btn btn-commit"
+              description="Roles and business units are given on the account page that opens next.">
+              <ModalForm action={createUserAction} className="flex flex-col gap-4">
+                <Field id="nu-name" label="Name"><input id="nu-name" name="name" required className="input" /></Field>
+                <Field id="nu-pos" label="Position (printed under signatures)">
+                  <select id="nu-pos" name="position" defaultValue="" className="input">
+                    <option value="">No position</option>
+                    {positions.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
+                  </select>
+                </Field>
+                <Field id="nu-email" label="Email (sign-in)"><input id="nu-email" name="email" type="email" required className="input" autoComplete="off" /></Field>
+                <Field id="nu-pw" label="First password (8+ characters)"><input id="nu-pw" name="password" type="text" minLength={8} required className="input font-mono" autoComplete="off" /></Field>
+                <div className="flex justify-end"><Submit className="btn btn-commit">Create account</Submit></div>
+              </ModalForm>
+            </Modal>
+          </div>
+        </div>
+      }>
+      {users.length === 0 && <EmptyState title="No account matches" />}
+      {users.length > 0 && (
+        <table className="table w-full">
+          <thead>
+            <tr>
+              <th scope="col">Person</th>
+              <th scope="col" className="max-md:hidden">Position</th>
+              <th scope="col">Roles and business units</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <ClickableRow key={u.id} href={`/settings/users/${u.id}`}>
+                <td>
+                  <div className="flex items-center gap-2.5">
+                    <Avatar name={u.name} size={28} />
+                    <div className="min-w-0">
+                      <Link href={`/settings/users/${u.id}`} className="block font-medium">{u.name}</Link>
+                      <div className="truncate text-[12px] text-muted">{u.email}</div>
+                    </div>
+                  </div>
+                </td>
+                <td className="max-md:hidden">{u.position ?? <span className="text-muted">–</span>}</td>
+                <td>
+                  <div className="flex flex-wrap gap-1">
+                    {u.roles.length === 0 && <span className="text-[12px] text-status-amber">No role yet</span>}
                     {u.roles.map((r) => (
-                      <span key={r.id} className="rounded-md border border-slate-300 bg-white px-2 py-0.5 text-xs font-medium text-slate-700">
-                        {roleLabel[r.role]}{r.bu ? ` · ${r.bu}` : ""}{r.valid_to ? ` · until ${fmtDate(r.valid_to)}` : ""}
+                      <span key={r.id} className="rounded-xs border border-hairline bg-slate-50 px-1.5 py-0.5 text-[11px] text-slate-700">
+                        {roleLabel[r.role]}{r.bu ? ` · ${r.bu}` : ""}
                       </span>
                     ))}
-                  </span>
-                </summary>
-                <div className="mt-4 grid gap-5 lg:grid-cols-3">
-                  <ActionForm action={updateUserAction} className="flex flex-col gap-3">
-                    <Hidden name="id" value={u.id} />
-                    <Field id={`n${u.id}`} label="Name"><input id={`n${u.id}`} name="name" defaultValue={u.name} className="input" /></Field>
-                    <Field id={`p${u.id}`} label="Position"><input id={`p${u.id}`} name="position" defaultValue={u.position ?? ""} className="input" /></Field>
-                    <Field id={`e${u.id}`} label="Email"><input id={`e${u.id}`} name="email" type="email" defaultValue={u.email} className="input" /></Field>
-                    <div><Submit className="btn btn-commit">Save details</Submit></div>
-                  </ActionForm>
-                  <div className="flex flex-col gap-3">
-                    <div className="label mb-0">Roles</div>
-                    {u.roles.map((r) => (
-                      <ActionForm key={r.id} action={removeRoleAction} className="flex items-center justify-between gap-2 text-sm">
-                        <Hidden name="role_id" value={r.id} />
-                        <span>{roleLabel[r.role]} · {r.bu ?? "all units"}{r.valid_to ? ` · until ${fmtDate(r.valid_to)}` : ""}</span>
-                        <Submit className="btn btn-danger h-8 px-2 text-xs">Remove</Submit>
-                      </ActionForm>
-                    ))}
-                    <ActionForm action={addRoleAction} className="grid grid-cols-2 gap-2">
-                      <Hidden name="id" value={u.id} />
-                      <select name="role" aria-label="Role" className="input h-10" required defaultValue="">
-                        <option value="" disabled>Role…</option>
-                        {adm.ROLES.map((r) => <option key={r.role} value={r.role}>{r.label}</option>)}
-                      </select>
-                      <select name="bu_id" aria-label="Business unit" className="input h-10" defaultValue="">
-                        <option value="">All units</option>
-                        {units.map((b) => <option key={b.id} value={b.id}>{b.code}</option>)}
-                      </select>
-                      <input name="valid_to" type="date" aria-label="Until (optional)" className="input h-10" />
-                      <Submit className="btn btn-commit">Add role</Submit>
-                      <p className="col-span-2 text-xs text-slate-500">Unit applies to QC and approvers; other roles cover all units. &ldquo;Until&rdquo; ends the role, e.g. for an external auditor.</p>
-                    </ActionForm>
                   </div>
-                  <div className="flex flex-col gap-3">
-                    <ActionForm action={resetPasswordAction} resetOnOk className="flex flex-col gap-2">
-                      <Hidden name="id" value={u.id} />
-                      <Field id={`pw${u.id}`} label="New password"><input id={`pw${u.id}`} name="password" type="text" minLength={8} required className="input font-mono" autoComplete="off" /></Field>
-                      <div><Submit className="btn btn-commit">Set password</Submit></div>
-                    </ActionForm>
-                    {u.id !== user.id && (
-                      <ActionForm action={setActiveAction}>
-                        <Hidden name="id" value={u.id} />
-                        <Hidden name="active" value={u.active ? "0" : "1"} />
-                        <Submit className={u.active ? "btn btn-danger h-10" : "btn h-10"}>{u.active ? "Deactivate account" : "Activate account"}</Submit>
-                      </ActionForm>
-                    )}
-                    <p className="text-xs text-slate-500">Accounts are deactivated, never deleted: their signatures and records stay attributed to them.</p>
-                  </div>
-                </div>
-              </details>
-            </li>
-          ))}
-        </ul>
-      </Section>
-    </>
+                </td>
+                <td>{u.active ? <StatePill tone="emerald">Active</StatePill> : <StatePill tone="slate">Inactive</StatePill>}</td>
+              </ClickableRow>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </TableCard>
+  );
+}
+
+// ---------- Positions ----------
+
+async function Positions() {
+  const list = await adm.listPositions();
+  return (
+    <Section flush title="Positions" description="The list behind the Position field. The position is printed under each signature; renaming one updates the accounts, not signatures already given.">
+      <ul className="divide-y divide-hairline">
+        {list.map((p) => (
+          <li key={p.id} className="px-4 py-2.5">
+            <ActionForm action={savePositionAction} className="flex flex-wrap items-center gap-3">
+              <Hidden name="id" value={p.id} />
+              <input name="name" defaultValue={p.name} aria-label="Position name" required className="input max-w-xs" />
+              <label className="flex items-center gap-1.5 text-[13px]"><input type="checkbox" name="active" defaultChecked={p.active} /> In the list</label>
+              <span className="text-[12px] text-muted">{p.users} account{p.users === 1 ? "" : "s"}</span>
+              <Submit className="btn">Save</Submit>
+            </ActionForm>
+          </li>
+        ))}
+      </ul>
+      <ActionForm action={savePositionAction} resetOnOk className="flex flex-wrap items-center gap-3 border-t border-hairline px-4 py-3">
+        <input name="name" required placeholder="New position, e.g. QC Supervisor" aria-label="New position" className="input max-w-xs" />
+        <Submit className="btn btn-commit">Add position</Submit>
+      </ActionForm>
+    </Section>
   );
 }
 
@@ -198,15 +222,16 @@ async function Numbering() {
               <option value="never">Never</option>
             </select>
           </Field>
-          <Field id="next" label={`Next running number (now ${st.last + 1})`}>
-            <input id="next" name="next" type="number" min={st.last + 1} placeholder={String(st.last + 1)} className="input" />
+          <Field id="next" label="Set the next number (optional)">
+            <input id="next" name="next" type="number" min={1} placeholder={`next is ${st.next}`} className="input" />
           </Field>
         </div>
         <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">
           Parts: <code>{"{SEQ}"}</code> running number, <code>{"{SEQ:3}"}</code>/<code>{"{SEQ:4}"}</code> padded (007),{" "}
           <code>{"{ROMAN}"}</code> month in Roman (XI), <code>{"{MM}"}</code> month (11), <code>{"{YYYY}"}</code>/<code>{"{YY}"}</code> year,{" "}
           <code>{"{BU}"}</code> business-unit code. The paper register uses <code>{"{SEQ}/{ROMAN}/{YYYY}"}</code>, restarting every year.
-          A number never repeats: the next number can only move forward.
+          Numbering starts at 1 in each period. You can set the next number to any value, also lower: a number
+          already on an NCF is skipped, so no number is ever used twice.
         </div>
         <div><Submit>Save numbering</Submit></div>
       </ActionForm>
@@ -278,26 +303,35 @@ async function Calendar({ year }: { year: number }) {
             <Submit className="btn h-10">Add {year}</Submit>
           </ActionForm>
         ) : (
-          <div className="grid gap-5 md:grid-cols-2">
-            <div>
-              <div className="label">Holidays (not working days)</div>
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="min-w-0">
+              <div className="label">Days off in {year}</div>
               {cal.holidays.length === 0 && <p className="text-sm text-amber-800">No public holidays entered for {year}: response times count them as working days.</p>}
               <ul className="flex flex-col">
                 {cal.holidays.map((h) => (
                   <li key={h.day}>
-                    <ActionForm action={setHolidayAction} className="flex items-center justify-between gap-2 border-t border-hairline py-1.5 text-sm first:border-t-0">
+                    <ActionForm action={setHolidayAction} className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline py-1.5 text-[13px] first:border-t-0">
                       <Hidden name="day" value={h.day} /><Hidden name="name" value={h.name ?? ""} /><Hidden name="holiday" value="0" />
-                      <span><span className="font-medium tabular-nums">{fmtDate(h.day)}</span> · {h.name}</span>
-                      <Submit className="btn h-8 px-2 text-xs">Make working day</Submit>
+                      <span className="flex min-w-0 flex-wrap items-center gap-2">
+                        <span className="num w-[82px] shrink-0">{fmtDate(h.day)}</span>
+                        <span className="min-w-0">{(h.name ?? "").replace(/^Cuti bersama · /, "")}</span>
+                        {h.kind === "NATIONAL" && <StatePill tone="red">Libur nasional</StatePill>}
+                        {h.kind === "CUTI_BERSAMA" && <StatePill tone="amber">Cuti bersama</StatePill>}
+                        {h.kind === "COMPANY" && <StatePill tone="indigo">Company</StatePill>}
+                        {h.weekend && <span className="text-[12px] text-muted">weekend</span>}
+                      </span>
+                      {!h.weekend && <Submit className="btn h-7 px-2 text-xs md:h-7">Make working day</Submit>}
                     </ActionForm>
                   </li>
                 ))}
               </ul>
             </div>
-            <ActionForm action={setHolidayAction} resetOnOk className="flex flex-col gap-3">
+            <ActionForm action={setHolidayAction} resetOnOk className="flex flex-col gap-3 self-start rounded-md border border-hairline p-4">
+              <div className="h2">Add a holiday</div>
+              <p className="text-[12px] text-muted">Indonesian national holidays and cuti bersama for 2026 and 2027 are loaded from the SKB 3 Menteri. Add company days off here.</p>
               <Hidden name="holiday" value="1" />
               <Field id="hday" label="Date"><input id="hday" name="day" type="date" min={`${year}-01-01`} max={`${year}-12-31`} required className="input" /></Field>
-              <Field id="hname" label="Holiday name"><input id="hname" name="name" required className="input" placeholder="e.g. Hari Raya Idul Fitri, cuti bersama" /></Field>
+              <Field id="hname" label="Holiday name"><input id="hname" name="name" required className="input" placeholder="e.g. Ulang tahun perusahaan" /></Field>
               <div><Submit>Add holiday</Submit></div>
             </ActionForm>
           </div>
@@ -330,5 +364,57 @@ async function Units() {
         </ActionForm>
       </div>
     </Section>
+  );
+}
+
+// ---------- API keys ----------
+
+/** Keys for other Integra systems (the VMS) to read NCF rows and responsiveness. */
+async function ApiKeys({ user }: { user: Actor }) {
+  const keys = await listApiKeys(user);
+  const base = process.env.APP_URL ?? "";
+  return (
+    <>
+      <Section flush title="API keys" description="Read-only access for other Integra systems, such as the VMS. A key is shown once when it is made; only a hash is kept.">
+        {keys.length === 0 ? <EmptyState title="No key yet">Make one for each system that reads NCF data, so each can be revoked on its own.</EmptyState> : (
+          <table className="table w-full">
+            <thead><tr><th scope="col">Name</th><th scope="col">Key starts</th><th scope="col">Made</th><th scope="col">Last used</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Revoke</span></th></tr></thead>
+            <tbody>
+              {keys.map((k) => (
+                <tr key={k.id}>
+                  <td className="font-medium">{k.name}</td>
+                  <td className="num">vms_{k.prefix}_…</td>
+                  <td className="num">{fmtDate(k.created_at)} <span className="font-sans text-muted">· {k.created_by}</span></td>
+                  <td className="num">{k.last_used_at ? fmtDate(k.last_used_at) : <span className="font-sans text-muted">never</span>}</td>
+                  <td>{k.revoked_at ? <StatePill tone="slate">Revoked</StatePill> : <StatePill tone="emerald">Active</StatePill>}</td>
+                  <td className="text-right">
+                    {!k.revoked_at && (
+                      <ActionForm action={revokeApiKeyAction}>
+                        <Hidden name="id" value={k.id} />
+                        <Submit className="btn h-7 px-2.5 text-red-700 hover:bg-red-50 md:h-7">Revoke</Submit>
+                      </ActionForm>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <ActionForm action={createApiKeyAction} className="border-t border-hairline px-4 py-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <input name="name" required minLength={2} placeholder="Used by, e.g. VMS reports" aria-label="Key name" className="input max-w-xs" />
+            <Submit className="btn btn-commit">Make key</Submit>
+          </div>
+        </ActionForm>
+      </Section>
+      <Section title="How the VMS reads the data">
+        <div className="flex flex-col gap-3 text-[13px]">
+          <p>Send the key in the <code>Authorization: Bearer</code> header (or <code>X-API-Key</code>). Dates are the day the NCF was raised (WIB). Drafts are not included.</p>
+          <pre className="overflow-x-auto rounded-sm bg-slate-50 p-3 font-mono text-[12px] leading-relaxed">{`GET ${base}/api/v1/ncfs?from=2026-01-01&to=2026-12-31&status=CLOSED&supplier=VLP00412&bu=BU-DEMO&page=1&size=100
+GET ${base}/api/v1/responsiveness?from=2026-01-01&to=2026-12-31&bu=BU-DEMO`}</pre>
+          <p className="text-muted"><code>/ncfs</code> returns rows with items and every timestamp (raised, submitted, approved, sent, reply received, closed) and the working-day figures. <code>/responsiveness</code> returns the Reports page figures: summary, per supplier, per month, per status and per category.</p>
+        </div>
+      </Section>
+    </>
   );
 }

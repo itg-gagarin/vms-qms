@@ -21,6 +21,13 @@ partial index, migration 011). Supplier Master (`/suppliers`, Purchasing and PCH
 supplier's reply times. Users who work in several Business Units pick one in the top bar; it narrows lists, receipts,
 the outbox and reports. Saving the form as PDF proposes "No. Komplain_ddmmyyyy_Supplier - Integra Group".
 
+**Round 4:** notifications in the top bar (the next approver, Purchasing, and QC on return, reject, reply and close);
+collapsible sidebar holding the Business Unit and the account; Accounts as a table with a page per person, roles
+given for one or several units at once, positions from a list; NCF numbers start at 1 (numbers already used are
+skipped); Indonesian national holidays and cuti bersama 2026–2027 loaded by default (SKB 3 Menteri, setneg.go.id);
+camera capture for evidence on phones; read-only API for the VMS (`/api/v1/ncfs`, `/api/v1/responsiveness`, keys in
+Master Settings, API keys).
+
 **Design:** the INTEC design system (github.com/itg-gagarin/intec-design-system): tokens in `src/app/globals.css`, fonts in
 `src/app/layout.tsx`, shared pieces in `src/components/ui.tsx`. One green button per screen for the action that advances the
 NCF; indigo for saving inside a card; pills only for states; Lucide icons; tables with a frozen header and 10/20/50 paging.
@@ -73,7 +80,9 @@ npm run typecheck && npx eslint src scripts tests
 | `src/lib/admin.ts` | Master Settings: accounts, roles, approval chain, numbering, calendar, categories, contacts |
 | `src/lib/verify.ts` | QR verification, print log |
 | `src/lib/suppliers.ts` | Supplier Master: suppliers, contacts, reply figures |
-| `src/lib/bu.ts` | The Business Unit chosen in the top bar |
+| `src/lib/bu.ts` | The Business Unit chosen in the sidebar |
+| `src/lib/notifications.ts` | In-app notifications (read marks on notification_outbox) |
+| `src/lib/api.ts` | API keys and the read-only VMS API |
 | `src/app/(app)` | Internal screens (login required) |
 | `src/app/v` | QR verification pages (read-only) |
 | `scripts/import-mrreg.ts` | Importer for the SAP MRReg xlsx export |

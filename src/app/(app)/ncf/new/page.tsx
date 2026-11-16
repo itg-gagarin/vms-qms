@@ -53,7 +53,7 @@ export default async function NewNcf({ searchParams }: { searchParams: Promise<{
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="num font-semibold">{r.mrreg_no}</div>
-                    <div className="truncate text-[14px]">{r.supplier_name} <span className="num text-[12px] text-muted">{r.vendor_code}</span></div>
+                    <div className="truncate text-[13px]">{r.supplier_name} <span className="num text-[12px] text-muted">{r.vendor_code}</span></div>
                   </div>
                   <span className="num shrink-0 text-[12px] text-muted">{fmtDate(r.receipt_date)}</span>
                 </div>

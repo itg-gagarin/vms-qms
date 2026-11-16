@@ -7,9 +7,9 @@ export default function LoginPage() {
     <main className="flex min-h-dvh items-center justify-center bg-page px-4 py-10">
       <div className="w-full max-w-[380px]">
         <div className="mb-6 flex items-center justify-center gap-2.5">
-          <span className="flex size-9 items-center justify-center rounded-sm bg-advance font-[family-name:var(--font-display)] text-[14px] font-bold text-advance-ink" aria-hidden="true">IG</span>
+          <span className="flex size-9 items-center justify-center rounded-sm bg-advance font-[family-name:var(--font-display)] text-[13px] font-bold text-advance-ink" aria-hidden="true">IG</span>
           <span className="flex flex-col leading-tight">
-            <span className="font-[family-name:var(--font-display)] text-[15px] font-bold tracking-wide text-ink">INTEGRA GROUP</span>
+            <span className="font-[family-name:var(--font-display)] text-[14px] font-bold tracking-wide text-ink">INTEGRA GROUP</span>
             <span className="text-[12px] text-muted">Vendor Management System</span>
           </span>
         </div>

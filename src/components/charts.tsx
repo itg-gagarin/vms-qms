@@ -82,7 +82,7 @@ export function StatTile({ label, value, sub, tone = "default" }: { label: strin
   return (
     <div className={`flex flex-col gap-1 rounded-md border border-hairline border-t-[3px] bg-white p-4 ${tone === "warn" ? "border-t-status-red" : "border-t-advance"}`}>
       <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">{label}</div>
-      <div className="font-[family-name:var(--font-display)] text-[26px] font-semibold leading-tight text-ink">{value}</div>
+      <div className="font-[family-name:var(--font-display)] text-[22px] font-semibold leading-tight text-ink">{value}</div>
       {sub && <div className="text-[12px] text-muted">{sub}</div>}
     </div>
   );

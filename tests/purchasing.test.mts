@@ -137,3 +137,35 @@ describe("Supplier Master", () => {
     assert.ok(hist.ncfs.length > 0 && hist.ncfs.every((n) => !["DRAFT", "WAITING_APPROVAL"].includes(n.status)));
   });
 });
+
+describe("API for the VMS", () => {
+  test("only Super Admin makes keys; requests need a valid, unrevoked key; drafts are left out", async () => {
+    const api = await import("../src/lib/api.ts");
+    const ncfsRoute = await import("../src/app/api/v1/ncfs/route.ts");
+    const respRoute = await import("../src/app/api/v1/responsiveness/route.ts");
+    await assert.rejects(api.createApiKey(users.pur, "VMS"), /role/);
+    const key = await api.createApiKey(users.admin, "VMS reports");
+    assert.match(key, /^vms_[0-9a-f]{8}_/);
+    const call = (route: { GET: (r: Request) => Promise<Response> }, path: string, k?: string) =>
+      route.GET(new Request(`http://local${path}`, { headers: k ? { authorization: `Bearer ${k}` } : {} }));
+
+    assert.equal((await call(ncfsRoute, "/api/v1/ncfs")).status, 401);
+    assert.equal((await call(ncfsRoute, "/api/v1/ncfs", key.slice(0, -2) + "xx")).status, 401);
+    const res = await call(ncfsRoute, "/api/v1/ncfs?from=2026-01-01&to=2026-12-31&size=500", key);
+    assert.equal(res.status, 200);
+    const body = await res.json() as { data: { status: string; items: unknown[]; supplier_code: string }[]; total: number };
+    assert.ok(body.total > 0 && body.data.every((r) => r.status !== "DRAFT"));
+    assert.ok(body.data.some((r) => r.items.length > 0 && r.supplier_code));
+    assert.equal((await call(ncfsRoute, "/api/v1/ncfs?status=NOPE", key)).status, 400);
+
+    const rr = await call(respRoute, "/api/v1/responsiveness?from=2026-01-01&to=2026-12-31", key);
+    const resp = await rr.json() as { summary: { responded: number }; suppliers: unknown[] };
+    assert.equal(rr.status, 200);
+    assert.ok(resp.suppliers.length > 0 && resp.summary.responded >= 1);
+
+    const [k] = (await api.listApiKeys(users.admin)).filter((x) => x.name === "VMS reports");
+    assert.ok(k.last_used_at, "use is recorded");
+    await api.revokeApiKey(users.admin, k.id);
+    assert.equal((await call(ncfsRoute, "/api/v1/ncfs", key)).status, 401);
+  });
+});

@@ -73,7 +73,7 @@ export function Section({ title, aside, description, actions, children, id, miss
   return (
     <section className={`card scroll-mt-20 overflow-hidden p-0 ${loud ? "border-red-400 ring-2 ring-red-200" : ""}`} aria-label={title} id={id}
       data-missing={loud ? "flag" : todo ? "todo" : undefined}>
-      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-hairline px-4 py-3 sm:px-5">
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-hairline px-4 py-2.5">
         <div className="min-w-0">
           <h2 className="h2">{title}</h2>
           {description && <p className="mt-0.5 text-[13px] text-muted">{description}</p>}
@@ -87,9 +87,9 @@ export function Section({ title, aside, description, actions, children, id, miss
           {actions}
         </div>
       </header>
-      <div className={flush ? "" : "px-4 py-4 sm:px-5"}>
+      <div className={flush ? "" : "p-4"}>
         {loud && (
-          <div role="alert" className={`mb-4 flex gap-2 rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800 ${flush ? "mx-4 mt-4 sm:mx-5" : ""}`}>
+          <div role="alert" className={`mb-4 flex gap-2 rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800 ${flush ? "mx-4 mt-4" : ""}`}>
             <CircleAlert size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
             <span><b>Fill in before submitting:</b> {missing.join(" ")}</span>
           </div>
@@ -104,7 +104,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   return (
     <div className="min-w-[140px] flex-1 sm:min-w-[180px]">
       <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">{label}</div>
-      <div className="mt-1 whitespace-pre-line text-[14px] text-ink">{children || <span className="text-muted">–</span>}</div>
+      <div className="mt-1 whitespace-pre-line text-[13px] text-ink">{children || <span className="text-muted">–</span>}</div>
     </div>
   );
 }
@@ -123,7 +123,7 @@ export function Banner({ kind = "info", children }: { kind?: "info" | "error" | 
     warn: ["border-amber-200 bg-amber-50 text-amber-900", TriangleAlert],
   }[kind] as [string, typeof Info];
   return (
-    <div role={kind === "error" ? "alert" : "status"} className={`flex gap-2.5 rounded-sm border px-3 py-2.5 text-[14px] ${style}`}>
+    <div role={kind === "error" ? "alert" : "status"} className={`flex gap-2.5 rounded-sm border px-3 py-2.5 text-[13px] ${style}`}>
       <Icon size={17} className="mt-0.5 shrink-0" aria-hidden="true" />
       <div className="min-w-0 flex-1">{children}</div>
     </div>
@@ -131,7 +131,7 @@ export function Banner({ kind = "info", children }: { kind?: "info" | "error" | 
 }
 
 export function Shell({ children }: { children: ReactNode }) {
-  return <main className="mx-auto flex w-full max-w-[1400px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">{children}</main>;
+  return <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-4 px-4 py-4 sm:px-6 lg:py-6">{children}</main>;
 }
 
 export type Crumb = { label: string; href?: string };
@@ -152,8 +152,8 @@ export function PageHead({ title, sub, crumbs, children }: { title: ReactNode; s
       )}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="font-[family-name:var(--font-display)] text-[22px] font-semibold leading-tight tracking-[-0.01em] sm:text-[24px]">{title}</h1>
-          {sub && <p className="mt-1 max-w-3xl text-[14px] text-muted">{sub}</p>}
+          <h1 className="font-[family-name:var(--font-display)] text-[20px] font-semibold leading-tight tracking-[-0.01em]">{title}</h1>
+          {sub && <p className="mt-0.5 max-w-3xl text-[13px] text-muted">{sub}</p>}
         </div>
         {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
       </div>
@@ -166,7 +166,7 @@ export function EmptyState({ icon: Icon = Inbox, title, children }: { icon?: typ
   return (
     <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
       <span className="flex size-10 items-center justify-center rounded-full bg-slate-100 text-slate-500"><Icon size={20} aria-hidden="true" /></span>
-      <div className="text-[14px] font-semibold text-ink">{title}</div>
+      <div className="text-[13px] font-semibold text-ink">{title}</div>
       {children && <div className="max-w-md text-[13px] text-muted">{children}</div>}
     </div>
   );
@@ -178,7 +178,7 @@ export function Tabs({ items, label }: { items: { href: string; label: string; a
     <nav aria-label={label} className="flex gap-x-5 overflow-x-auto border-b border-hairline [scrollbar-width:none]">
       {items.map((t) => (
         <Link key={t.href} href={t.href} aria-current={t.active ? "page" : undefined}
-          className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 py-2.5 text-[14px] no-underline hover:no-underline ${
+          className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 py-2.5 text-[13px] no-underline hover:no-underline ${
             t.active ? "border-advance font-semibold text-ink" : "border-transparent text-muted hover:border-slate-300 hover:text-ink"
           }`}>
           {t.label}

@@ -161,7 +161,7 @@ function ContactForm({ supplierId, contact }: { supplierId: number; contact?: Co
           <input id={`${k}-phone`} name="phone" defaultValue={contact?.phone ?? ""} className="input num" inputMode="tel" />
         </div>
       </div>
-      <div className="flex flex-wrap gap-x-6 gap-y-2 text-[14px]">
+      <div className="flex flex-wrap gap-x-6 gap-y-2 text-[13px]">
         <label className="flex items-center gap-2"><input type="checkbox" name="ncf" defaultChecked={contact ? contact.ncf : true} className="size-4" /> Receives NCFs</label>
         {contact && <label className="flex items-center gap-2"><input type="checkbox" name="active" defaultChecked={contact.active} className="size-4" /> Active</label>}
       </div>

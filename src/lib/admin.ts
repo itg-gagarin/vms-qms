@@ -37,6 +37,23 @@ export async function listUsers(actor: Actor) {
   );
 }
 
+export type UserRow = Awaited<ReturnType<typeof listUsers>>[number];
+
+/** One account with its roles, for the account page. */
+export async function getUser(actor: Actor, id: number) {
+  const u = (await listUsers(actor)).find((x) => x.id === id);
+  if (!u) throw new AppError("Account not found.", 404);
+  return u;
+}
+
+/** The position must come from the list (Master Settings, Positions); empty is allowed. */
+async function checkPosition(c: PoolClient, position: string | null, current?: string | null) {
+  if (!position || position === current) return;
+  if (!(await one(c, "select 1 from job_position where name = $1 and active", [position]))) {
+    throw new AppError("Choose a position from the list. New positions are added in Master Settings, Positions.");
+  }
+}
+
 function checkPassword(pw: string) {
   if (pw.length < 8) throw new AppError("The password needs at least 8 characters.");
 }
@@ -48,6 +65,7 @@ export async function createUser(actor: Actor, f: { name: string; position: stri
   if (!EMAIL.test(email)) throw new AppError("Email is not valid.");
   checkPassword(f.password);
   return tx(async (c) => {
+    await checkPosition(c, f.position.trim() || null);
     if (await one(c, "select 1 from app_user where lower(email) = $1", [email])) throw new AppError("An account with this email exists.");
     const u = await one<{ id: number }>(
       c, "insert into app_user(name, position, email, password_hash) values ($1,$2,$3,$4) returning id",
@@ -66,6 +84,7 @@ export async function updateUser(actor: Actor, id: number, f: { name: string; po
   return tx(async (c) => {
     const cur = await one<{ name: string; position: string | null; email: string }>(c, "select name, position, email from app_user where id = $1 for update", [id]);
     if (!cur) throw new AppError("Account not found.", 404);
+    await checkPosition(c, position, cur.position);
     if (email !== cur.email && (await one(c, "select 1 from app_user where lower(email) = $1 and id <> $2", [email, id]))) {
       throw new AppError("Another account uses this email.");
     }
@@ -133,6 +152,66 @@ export async function addRole(actor: Actor, userId: number, role: Role, buId: nu
     }
     await c.query("insert into user_role(user_id, role, bu_id, valid_to) values ($1,$2,$3,$4)", [userId, role, buId, validTo]);
     await log(c, actor, "app_user", userId, "ADD_ROLE", "role", null, `${role}${buId ? ` @${buId}` : ""}${validTo ? ` until ${validTo}` : ""}`);
+  });
+}
+
+/**
+ * Gives a role in one or several Business Units at once (e.g. a QC inspector who works for two units); null in
+ * buIds means all units. Roles that are not unit-scoped always cover all units.
+ */
+export async function addRoles(actor: Actor, userId: number, role: Role, buIds: (number | null)[], validTo: string | null) {
+  admin(actor);
+  const def = ROLES.find((r) => r.role === role);
+  if (!def) throw new AppError("Choose a role.");
+  const targets = !def.scoped ? [null] : buIds.includes(null) ? [null] : [...new Set(buIds)];
+  if (targets.length === 0) throw new AppError("Choose at least one business unit, or All units.");
+  let added = 0;
+  for (const bu of targets) {
+    try {
+      await addRole(actor, userId, role, bu, validTo);
+      added++;
+    } catch (e) {
+      if (!(e instanceof AppError && /already has/.test(e.message))) throw e;
+    }
+  }
+  if (!added) throw new AppError("This person already has that role in the chosen units.");
+  return added;
+}
+
+// ---------- Job positions ----------
+
+export async function listPositions(activeOnly = false) {
+  return q<{ id: number; name: string; active: boolean; users: number }>(
+    pool,
+    `select p.id, p.name, p.active, (select count(*)::int from app_user u where u.position = p.name and u.active) as users
+     from job_position p where not $1 or p.active order by p.active desc, p.name`,
+    [activeOnly],
+  );
+}
+
+/** Adds or renames a position. Renaming also updates the accounts that hold it; signatures already given keep the old text. */
+export async function savePosition(actor: Actor, id: number | null, name: string, active: boolean) {
+  admin(actor);
+  const v = name.trim();
+  if (v.length < 2) throw new AppError("Position name is required.");
+  return tx(async (c) => {
+    if (await one(c, "select 1 from job_position where lower(name) = lower($1) and id <> coalesce($2::bigint, 0)", [v, id])) {
+      throw new AppError("That position exists already.");
+    }
+    if (!id) {
+      const r = await one<{ id: number }>(c, "insert into job_position(name) values ($1) returning id", [v]);
+      await log(c, actor, "job_position", r!.id, "CREATE", "name", null, v);
+      return r!.id;
+    }
+    const cur = await one<{ name: string; active: boolean }>(c, "select name, active from job_position where id = $1 for update", [id]);
+    if (!cur) throw new AppError("Position not found.", 404);
+    await c.query("update job_position set name = $2, active = $3 where id = $1", [id, v, active]);
+    if (cur.name !== v) {
+      await c.query("update app_user set position = $2 where position = $1", [cur.name, v]);
+      await log(c, actor, "job_position", id, "RENAME", "name", cur.name, v);
+    }
+    if (cur.active !== active) await log(c, actor, "job_position", id, active ? "ACTIVATE" : "DEACTIVATE", "active", String(cur.active), String(active));
+    return id;
   });
 }
 
@@ -265,24 +344,40 @@ function checkNumbering(n: Numbering) {
 }
 
 /** Next NCF number. The counter row is locked, so numbers never repeat. */
+/** The next NCF number. Counting starts at 1 in each period; a number already on an NCF is skipped, so the counter
+ * can be set back (Master Settings) without ever producing a duplicate. */
 export async function nextNumber(c: PoolClient, now: Date, buCode: string) {
   const n = await getNumbering(c);
-  const row = await one<{ last: number }>(
-    c,
-    `insert into doc_counter(key, last) values ($1, 1) on conflict (key) do update set last = doc_counter.last + 1 returning last`,
-    [counterKey(n, now)],
-  );
-  return formatNumber(n, row!.last, now, buCode);
+  for (let tries = 0; tries < 100_000; tries++) {
+    const row = await one<{ last: number }>(
+      c,
+      `insert into doc_counter(key, last) values ($1, 1) on conflict (key) do update set last = doc_counter.last + 1 returning last`,
+      [counterKey(n, now)],
+    );
+    const no = formatNumber(n, row!.last, now, buCode);
+    if (!(await one(c, "select 1 from ncf where ncf_no = $1", [no]))) return no;
+  }
+  throw new AppError("No free NCF number in this period. Check the numbering format.", 409);
+}
+
+/** From `from` upwards, the first sequence number whose formatted NCF number is not used yet. */
+async function firstFree(n: Numbering, from: number, now: Date, buCode: string) {
+  let seq = from;
+  while (seq < from + 100_000 && (await one(pool, "select 1 from ncf where ncf_no = $1", [formatNumber(n, seq, now, buCode)]))) seq++;
+  return seq;
 }
 
 export async function numberingState(now = new Date()) {
   const n = await getNumbering();
   const key = counterKey(n, now);
   const last = (await one<{ last: number }>(pool, "select last from doc_counter where key = $1", [key]))?.last ?? 0;
-  return { ...n, key, last, preview: formatNumber(n, last + 1, now, "BU-DEMO") };
+  const bu = (await one<{ code: string }>(pool, "select code from business_unit order by id limit 1"))?.code ?? "BU";
+  const next = await firstFree(n, last + 1, now, bu);
+  return { ...n, key, last, next, preview: formatNumber(n, next, now, bu) };
 }
 
-/** Changes the format and restart rule, and optionally where the counter continues from (never below a number already used). */
+/** Changes the format and restart rule, and optionally the next number. It may go back (e.g. to 1): numbers already
+ * on an NCF are skipped when NCFs are created, so nothing is ever numbered twice. */
 export async function saveNumbering(actor: Actor, n: Numbering, nextSeq: number | null, now = new Date()) {
   admin(actor);
   checkNumbering(n);
@@ -296,7 +391,6 @@ export async function saveNumbering(actor: Actor, n: Numbering, nextSeq: number 
       if (!Number.isInteger(nextSeq) || nextSeq < 1) throw new AppError("The next number must be a whole number from 1.");
       const key = counterKey(n, now);
       const last = (await one<{ last: number }>(c, "select last from doc_counter where key = $1 for update", [key]))?.last ?? 0;
-      if (nextSeq <= last) throw new AppError(`Numbers up to ${last} are already used in this period; the next can be ${last + 1} or higher.`);
       await c.query("insert into doc_counter(key, last) values ($1,$2) on conflict (key) do update set last = $2", [key, nextSeq - 1]);
       await log(c, actor, "setting", 0, "CHANGE", `counter ${key}`, String(last), String(nextSeq - 1));
     }
@@ -367,9 +461,12 @@ export async function saveCategory(actor: Actor, id: number | null, name: string
 export async function calendarYear(year: number) {
   return {
     days: (await one<{ n: number }>(pool, "select count(*)::int as n from calendar_day where extract(year from day) = $1", [year]))!.n,
-    holidays: await q<{ day: string; name: string | null }>(
+    // Named days off: Indonesian national holidays and cuti bersama (migration 012) and company holidays, weekends included
+    // when a holiday falls on one, so the list reads like the official calendar.
+    holidays: await q<{ day: string; name: string | null; kind: "NATIONAL" | "CUTI_BERSAMA" | "COMPANY" | null; weekend: boolean }>(
       pool,
-      "select day, name from calendar_day where extract(year from day) = $1 and not is_working and extract(isodow from day) < 6 order by day",
+      `select to_char(day, 'YYYY-MM-DD') as day, name, kind, extract(isodow from day) >= 6 as weekend from calendar_day
+       where extract(year from day) = $1 and not is_working and (name is not null or extract(isodow from day) < 6) order by day`,
       [year],
     ),
   };
@@ -384,9 +481,9 @@ export async function setHoliday(actor: Actor, day: string, name: string, holida
   if (holiday && !name.trim()) throw new AppError("Name the holiday.");
   return tx(async (c) => {
     await c.query(
-      `insert into calendar_day(day, is_working, name) values ($1, $2, $3)
-       on conflict (day) do update set is_working = $2, name = $3`,
-      [day, !holiday, holiday ? name.trim() : null],
+      `insert into calendar_day(day, is_working, name, kind) values ($1, $2, $3, $4)
+       on conflict (day) do update set is_working = $2, name = $3, kind = $4`,
+      [day, !holiday, holiday ? name.trim() : null, holiday ? "COMPANY" : null],
     );
     await log(c, actor, "calendar_day", Number(day.replaceAll("-", "")), holiday ? "ADD_HOLIDAY" : "REMOVE_HOLIDAY", "day", null, `${day} ${name.trim()}`);
   });

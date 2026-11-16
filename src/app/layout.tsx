@@ -18,7 +18,7 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, view
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="id" className={`h-full antialiased ${display.variable} ${body.variable} ${mono.variable}`}>
-      <body className="min-h-full bg-page text-ink">{children}</body>
+      <body className="min-h-full bg-page text-[13px] text-ink md:text-[13px]">{children}</body>
     </html>
   );
 }

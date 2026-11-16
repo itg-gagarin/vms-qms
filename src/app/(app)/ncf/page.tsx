@@ -82,7 +82,7 @@ export default async function NcfList({ searchParams }: { searchParams: Promise<
                     <span className="num font-semibold text-tint-ink">{r.ncf_no}</span>
                     <StatusBadge status={r.status} />
                   </span>
-                  <span className="mt-0.5 block truncate text-[14px]">{r.supplier_name}</span>
+                  <span className="mt-0.5 block truncate text-[13px]">{r.supplier_name}</span>
                   <span className="num mt-0.5 block text-[12px] text-muted">
                     {[r.po_no && `PO ${r.po_no}`, fmtDate(r.receipt_date), `${r.items} item${r.items === 1 ? "" : "s"}`, `${r.defects} cacat`].filter(Boolean).join(" · ")}
                   </span>

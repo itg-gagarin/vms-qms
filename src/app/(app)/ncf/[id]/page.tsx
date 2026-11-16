@@ -74,10 +74,10 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="font-mono text-[24px] font-semibold leading-tight tracking-tight">NCF {d.ncf_no}</h1>
+                <h1 className="font-mono text-[20px] font-semibold leading-tight tracking-tight">NCF {d.ncf_no}</h1>
                 <StatusBadge status={d.status} />
               </div>
-              <p className="mt-1 text-[14px] text-muted">
+              <p className="mt-1 text-[13px] text-muted">
                 <span className="font-semibold text-ink">{d.supplier_name}</span> <span className="num text-[12px]">{d.supplier_code}</span>
               </p>
             </div>
@@ -98,7 +98,7 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
             ] as [string, string, boolean][]).map(([k, v, mono]) => (
               <div key={k} className="min-w-0">
                 <dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">{k}</dt>
-                <dd className={`mt-0.5 truncate text-[14px] text-ink ${mono ? "num" : ""}`} title={v}>{v}</dd>
+                <dd className={`mt-0.5 truncate text-[13px] text-ink ${mono ? "num" : ""}`} title={v}>{v}</dd>
               </div>
             ))}
           </dl>

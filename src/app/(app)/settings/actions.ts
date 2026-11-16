@@ -1,8 +1,10 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/action-form";
 import * as adm from "@/lib/admin";
+import { createApiKey, revokeApiKey } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import type { Role } from "@/lib/core";
 import { AppError } from "@/lib/util";
@@ -22,9 +24,41 @@ async function run(ok: string, fn: (user: Awaited<ReturnType<typeof requireUser>
   return { ok };
 }
 
-export const createUserAction = async (_: ActionState, d: FormData) =>
-  run("Account created. Give the person their password and ask them to keep it private.", (u) =>
-    adm.createUser(u, { name: s(d, "name"), position: s(d, "position"), email: s(d, "email"), password: s(d, "password") }));
+/** Creates the account and opens its page, where roles and business units are given. */
+export async function createUserAction(_: ActionState, d: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  let id: number;
+  try {
+    id = await adm.createUser(user, { name: s(d, "name"), position: s(d, "position"), email: s(d, "email"), password: s(d, "password") });
+  } catch (e) {
+    if (e instanceof AppError) return { error: e.message };
+    throw e;
+  }
+  redirect(`/settings/users/${id}?msg=created`);
+}
+
+export const addRolesAction = async (_: ActionState, d: FormData) =>
+  run("Role added.", (u) => adm.addRoles(u, Number(d.get("id")), s(d, "role") as Role,
+    d.getAll("bu").map((v) => (v === "all" ? null : Number(v))), s(d, "valid_to") || null));
+
+/** The new key comes back once, in the copy box. */
+export async function createApiKeyAction(_: ActionState, d: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  try {
+    const key = await createApiKey(user, s(d, "name"));
+    refresh();
+    return { link: key };
+  } catch (e) {
+    if (e instanceof AppError) return { error: e.message };
+    throw e;
+  }
+}
+
+export const revokeApiKeyAction = async (_: ActionState, d: FormData) =>
+  run("Key revoked. Systems using it are refused from now on.", (u) => revokeApiKey(u, Number(d.get("id"))));
+
+export const savePositionAction = async (_: ActionState, d: FormData) =>
+  run("Saved.", (u) => adm.savePosition(u, n(d, "id"), s(d, "name"), d.get("id") ? s(d, "active") === "on" : true));
 
 export const updateUserAction = async (_: ActionState, d: FormData) =>
   run("Saved.", (u) => adm.updateUser(u, Number(d.get("id")), { name: s(d, "name"), position: s(d, "position"), email: s(d, "email") }));

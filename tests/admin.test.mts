@@ -51,24 +51,49 @@ describe("Super Admin settings", () => {
     await adm.setActive(users.admin, users.whs.id, false); // no longer on the chain
   });
 
-  test("numbering: format is checked, the counter only moves forward, new NCFs follow it", async () => {
+  test("numbering: format is checked; the counter can be set back, and numbers already used are skipped", async () => {
     await assert.rejects(adm.saveNumbering(users.admin, { format: "NCF-{ROMAN}", reset: "yearly" }, null), /\{SEQ\}/);
     await assert.rejects(adm.saveNumbering(users.admin, { format: "NCF-{SEQ:4}", reset: "yearly" }, null), /year/);
     await assert.rejects(adm.saveNumbering(users.admin, { format: "{SEQ}/{FOO}/{YYYY}", reset: "yearly" }, null), /Unknown part/);
     await adm.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, null, at("2026-11-13 09:00"));
-    await assert.rejects(adm.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, 400, at("2026-11-13 09:00")), /already used/);
+    await assert.rejects(adm.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, 0, at("2026-11-13 09:00")), /from 1/);
     await adm.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, 500, at("2026-11-13 09:00"));
     const mr = (await one<{ id: number }>(pool, "select id from mrreg where mrreg_no = '260014212'"))!.id;
     const n = await ncf.createDraft(users.qc, mr, at("2026-11-13 09:30"));
     assert.equal((await ncf.getNcf(users.qc, n)).ncf_no, "NCF/BU-DEMO/2611/0500");
+    // Back to 500: it is taken, so the next NCF gets 0501 instead of a duplicate.
+    await adm.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, 500, at("2026-11-13 10:00"));
+    const n2 = await ncf.createDraft(users.qc, mr, at("2026-11-13 10:30"));
+    assert.equal((await ncf.getNcf(users.qc, n2)).ncf_no, "NCF/BU-DEMO/2611/0501");
   });
 
-  test("a public holiday stops counting as a working day", async () => {
-    const before = await workingDaysBetween(pool, at("2026-12-23 09:00"), at("2026-12-28 09:00"));
-    await adm.setHoliday(users.admin, "2026-12-25", "Hari Raya Natal", true);
-    assert.equal(await workingDaysBetween(pool, at("2026-12-23 09:00"), at("2026-12-28 09:00")), before - 1);
+  test("a role can be given in several business units at once; positions come from the list", async () => {
+    const u2 = (await one<{ id: number }>(pool, "insert into business_unit(code, name) values ('BU-TWO', 'Second Unit') returning id"))!.id;
+    const nu = await adm.createUser(users.admin, { name: "Sari", position: "QC Incoming", email: "sari@demo.local", password: "firstpass1" });
+    await assert.rejects(adm.createUser(users.admin, { name: "X", position: "Astronaut", email: "x2@demo.local", password: "firstpass1" }), /from the list/);
+    const demo = (await one<{ id: number }>(pool, "select id from business_unit where code = 'BU-DEMO'"))!.id;
+    assert.equal(await adm.addRoles(users.admin, nu, "QC_INSPECTOR", [demo, u2], null), 2);
+    await assert.rejects(adm.addRoles(users.admin, nu, "QC_INSPECTOR", [demo], null), /already has/);
+    await assert.rejects(adm.addRoles(users.admin, nu, "QC_INSPECTOR", [], null), /at least one/);
+    assert.equal(await adm.addRoles(users.admin, nu, "AUDITOR", [demo, u2], null), 1, "unscoped roles cover all units once");
+    const got = await adm.getUser(users.admin, nu);
+    assert.deepEqual(got.roles.filter((r) => r.role === "QC_INSPECTOR").map((r) => r.bu).sort(), ["BU-DEMO", "BU-TWO"]);
+    const pid = await adm.savePosition(users.admin, null, "QC Supervisor", true);
+    await adm.updateUser(users.admin, nu, { name: "Sari", position: "QC Supervisor", email: "sari@demo.local" });
+    await adm.savePosition(users.admin, pid, "QC Lead", true);
+    assert.equal((await adm.getUser(users.admin, nu)).position, "QC Lead", "renaming a position updates its accounts");
+  });
+
+  test("Indonesian holidays are loaded by default; a company holiday stops counting as a working day", async () => {
+    // SKB 3 Menteri 2026: 24 Dec cuti bersama, 25 Dec Natal. Wed 23 Dec 09:00 to Mon 28 Dec 09:00 is 1 working day.
+    assert.equal(await workingDaysBetween(pool, at("2026-12-23 09:00"), at("2026-12-28 09:00")), 1);
+    const y = await adm.calendarYear(2026);
+    assert.ok(y.holidays.some((h) => String(h.day).includes("2026-08-17") || h.name === "Proklamasi Kemerdekaan"));
+    const before = await workingDaysBetween(pool, at("2026-11-17 09:00"), at("2026-11-20 09:00"));
+    await adm.setHoliday(users.admin, "2026-11-18", "Ulang tahun perusahaan", true);
+    assert.equal(await workingDaysBetween(pool, at("2026-11-17 09:00"), at("2026-11-20 09:00")), before - 1);
     await assert.rejects(adm.setHoliday(users.admin, "2026-12-26", "Sabtu", true), /Weekends/);
-    await adm.setHoliday(users.admin, "2026-12-25", "", false);
-    assert.equal(await workingDaysBetween(pool, at("2026-12-23 09:00"), at("2026-12-28 09:00")), before);
+    await adm.setHoliday(users.admin, "2026-11-18", "", false);
+    assert.equal(await workingDaysBetween(pool, at("2026-11-17 09:00"), at("2026-11-20 09:00")), before);
   });
 });

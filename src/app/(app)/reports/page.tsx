@@ -80,7 +80,7 @@ function Figures({ data, page, size, base }: { data: Awaited<ReturnType<typeof d
       <section className="grid gap-4 md:grid-cols-[1.2fr_2fr]" aria-label="Supplier responsiveness">
         <div className="flex flex-col justify-between gap-3 rounded-md border border-hairline border-t-[3px] border-t-advance bg-white p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">Median supplier response</div>
-          <div className="font-[family-name:var(--font-display)] text-[48px] font-semibold leading-none text-ink">
+          <div className="font-[family-name:var(--font-display)] text-[36px] font-semibold leading-none text-ink">
             {kpi.median_wd ?? "–"}<span className="ml-1 text-[18px] font-medium text-muted">working days</span>
           </div>
           <div className="text-[13px] text-muted">
@@ -135,7 +135,7 @@ function Figures({ data, page, size, base }: { data: Awaited<ReturnType<typeof d
           ))}
         </ul>
         <div className="max-h-[70vh] overflow-auto max-md:hidden">
-          <table className="table w-full text-[14px]">
+          <table className="table w-full text-[13px]">
             <thead>
               <tr>
                 <th scope="col">Supplier</th>

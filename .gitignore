@@ -46,3 +46,6 @@ next-env.d.ts
 /tests/screens
 *.xlsx
 .env.local
+
+# Written by the Docker build (next.config.ts deploymentId)
+.deployment-id

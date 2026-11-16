@@ -4,7 +4,7 @@ import { after, before, test } from "node:test";
 import ExcelJS from "exceljs";
 import { TEST_DB, rebuildDb } from "./helpers.mts";
 
-const { pool, q, one } = await import("../src/lib/db.ts");
+const { pool, q, one } = await import("../src/platform/db.ts");
 const FILE = "/tmp/vms-import-fixture.xlsx";
 
 const HEAD = [
@@ -71,8 +71,8 @@ test("running it again changes nothing", async () => {
 });
 
 test("a cancelled MRReg cannot get an NCF", async () => {
-  const { loadActor } = await import("../src/lib/core.ts");
-  const { createDraft } = await import("../src/lib/ncf.ts");
+  const { loadActor } = await import("../src/platform/access.ts");
+  const { createDraft } = await import("../src/modules/ncf/index.ts");
   const qc = await loadActor(pool, (await one<{ id: number }>(pool, "select id from app_user where email = 'qc@demo.local'"))!.id);
   const mr = await one<{ id: number }>(pool, "select id from mrreg where mrreg_no = '260000003'");
   await assert.rejects(createDraft(qc!, mr!.id), /cancelled/);

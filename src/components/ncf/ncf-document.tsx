@@ -1,7 +1,7 @@
-import type { NcfDetail } from "@/lib/ncf";
-import { GOODS_STATUS } from "@/lib/labels";
-import { fmtDate, fmtDateTime } from "@/lib/util";
-import { Field, FieldGrid, Section } from "./ui";
+import type { NcfDetail } from "@/modules/ncf";
+import { GOODS_STATUS } from "@/modules/ncf/labels";
+import { fmtDate, fmtDateTime } from "@/platform/util";
+import { Field, FieldGrid, Section } from "@/components/ui";
 
 /** Part 1 (sections A to F), read-only. Used on the internal page and the supplier page, so both look the same. */
 export function NcfPart1({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: number) => string }) {

@@ -1,14 +1,15 @@
 import { cookies } from "next/headers";
-import { AppShell, type NavGroup, type NavItem } from "@/components/sidebar";
-import { ROLES } from "@/lib/admin";
-import { requireUser } from "@/lib/auth";
-import { selectedBu, unitsFor } from "@/lib/bu";
-import { hasRole, visibleStatuses } from "@/lib/core";
-import type { NcfStatus } from "@/lib/labels";
-import { statusCounts } from "@/lib/ncf";
-import { inbox } from "@/lib/notifications";
-import { SUPPLIER_ROLES } from "@/lib/suppliers";
-import { REPORT_ROLES } from "@/lib/reports";
+import { AppShell, type NavGroup, type NavItem } from "@/components/shell/app-shell";
+import { ROLES } from "@/platform/access";
+import { requireUser } from "@/platform/auth";
+import { selectedBu, unitsFor } from "@/platform/business-units";
+import { hasRole } from "@/platform/access";
+import { visibleStatuses } from "@/modules/ncf/visibility";
+import type { NcfStatus } from "@/modules/ncf/labels";
+import { statusCounts } from "@/modules/ncf";
+import { inbox } from "@/platform/notifications";
+import { SUPPLIER_ROLES } from "@/modules/suppliers";
+import { REPORT_ROLES } from "@/modules/ncf/reports";
 
 // Sidebar names for the NCF statuses, in workflow order. Every status is listed, so no NCF falls between links.
 const NCF_STATUS_NAV: [NcfStatus, string][] = [

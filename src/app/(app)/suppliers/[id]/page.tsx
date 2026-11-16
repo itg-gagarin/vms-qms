@@ -1,15 +1,15 @@
 import { Pencil, Plus, UserRound } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Submit } from "@/components/action-form";
-import { ClickableRow } from "@/components/clickable-row";
-import { Modal } from "@/components/modal";
-import { ModalForm } from "@/components/modal-form";
+import { Submit } from "@/components/ui/action-form";
+import { ClickableRow } from "@/components/ui/clickable-row";
+import { Modal } from "@/components/ui/modal";
+import { ModalForm } from "@/components/ui/modal-form";
 import { EmptyState, PageHead, Section, Shell, StatePill, StatusBadge } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
-import { hasRole } from "@/lib/core";
-import { getSupplier, SUPPLIER_ROLES } from "@/lib/suppliers";
-import { AppError, fmtDate } from "@/lib/util";
+import { requireUser } from "@/platform/auth";
+import { hasRole } from "@/platform/access";
+import { getSupplier, SUPPLIER_ROLES } from "@/modules/suppliers";
+import { AppError, fmtDate } from "@/platform/util";
 import { renameSupplierAction, saveContactAction } from "../actions";
 
 type Contact = Awaited<ReturnType<typeof getSupplier>>["contacts"][number];

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
-import { PrintForm } from "@/components/print-form";
-import { requireUser } from "@/lib/auth";
-import { getNcf } from "@/lib/ncf";
-import { AppError, wib } from "@/lib/util";
-import { logPrint } from "@/lib/verify";
+import { PrintForm } from "@/components/ncf/print-form";
+import { requireUser } from "@/platform/auth";
+import { getNcf } from "@/modules/ncf";
+import { AppError, wib } from "@/platform/util";
+import { logPrint } from "@/modules/ncf/verify";
 import { PrintBar } from "./print-bar";
 
 // One read per request, shared by the title and the page.

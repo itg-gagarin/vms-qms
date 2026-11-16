@@ -1,5 +1,6 @@
-import { checkApiKey, parseFilter, type ApiFilter } from "@/lib/api";
-import { AppError } from "@/lib/util";
+import { checkApiKey } from "@/platform/api-keys";
+import { parseFilter, type ApiFilter } from "@/modules/ncf/api";
+import { AppError } from "@/platform/util";
 
 /** Shared by the /api/v1 routes: key check, filter parsing, JSON errors, no caching. */
 export async function respond(req: Request, fn: (f: ApiFilter) => Promise<unknown>) {

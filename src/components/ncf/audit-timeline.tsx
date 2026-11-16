@@ -1,4 +1,4 @@
-import { fmtDateTime } from "@/lib/util";
+import { fmtDateTime } from "@/platform/util";
 
 type Event = { at: Date; action: string; field: string | null; new_value: string | null; actor_type: string; actor_name: string | null };
 

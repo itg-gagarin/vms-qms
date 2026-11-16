@@ -1,17 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { ActionForm, Submit } from "@/components/action-form";
+import { ActionForm, Submit } from "@/components/ui/action-form";
 import { Plus, Search } from "lucide-react";
-import { ClickableRow } from "@/components/clickable-row";
-import { Modal } from "@/components/modal";
-import { ModalForm } from "@/components/modal-form";
+import { ClickableRow } from "@/components/ui/clickable-row";
+import { Modal } from "@/components/ui/modal";
+import { ModalForm } from "@/components/ui/modal-form";
 import { Avatar, EmptyState, PageHead, Section, Shell, StatePill, TableCard, Tabs } from "@/components/ui";
-import * as adm from "@/lib/admin";
-import { listApiKeys } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
-import { hasRole, type Actor } from "@/lib/core";
-import { fmtDate, wib } from "@/lib/util";
+import * as adm from "@/modules/admin";
+import * as numbering from "@/modules/ncf/numbering";
+import { ROLES } from "@/platform/access";
+import { listApiKeys } from "@/platform/api-keys";
+import { requireUser } from "@/platform/auth";
+import { hasRole, type Actor } from "@/platform/access";
+import { fmtDate, wib } from "@/platform/util";
 import {
   createApiKeyAction, createUserAction, extendCalendarAction, revokeApiKeyAction, saveCategoryAction, saveChainAction, saveNumberingAction, savePositionAction, saveUnitAction,
   saveWorkflowAction, setHolidayAction,
@@ -64,7 +66,7 @@ function Field({ id, label, children, className = "" }: { id: string; label: str
 /** Accounts as a table; each row opens the person's own page. New accounts are created in a dialog. */
 async function Accounts({ user, term }: { user: Actor; term: string }) {
   const [all, positions] = await Promise.all([adm.listUsers(user), adm.listPositions(true)]);
-  const roleLabel = Object.fromEntries(adm.ROLES.map((r) => [r.role, r.label]));
+  const roleLabel = Object.fromEntries(ROLES.map((r) => [r.role, r.label]));
   const t = term.trim().toLowerCase();
   const users = t ? all.filter((u) => `${u.name} ${u.email} ${u.position ?? ""}`.toLowerCase().includes(t)) : all;
   return (
@@ -209,7 +211,7 @@ async function Chain() {
 // ---------- Numbering ----------
 
 async function Numbering() {
-  const st = await adm.numberingState();
+  const st = await numbering.numberingState();
   return (
     <Section title="NCF number (No. Komplain)" aside={`Next: ${st.preview}`}>
       <ActionForm action={saveNumberingAction} className="flex flex-col gap-4">

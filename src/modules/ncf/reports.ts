@@ -1,11 +1,11 @@
 // Dashboard figures and the bulk Excel export. The main aim besides digitizing the NCF is to measure responsiveness:
 // how fast suppliers answer, and how fast Integra approves and sends.
 import ExcelJS from "exceljs";
-import type { Actor, Role } from "./core";
-import { hasRole, requireRole } from "./core";
-import { one, pool, q } from "./db";
+import type { Actor, Role } from "@/platform/access";
+import { hasRole, requireRole } from "@/platform/access";
+import { one, pool, q } from "@/platform/db";
 import { STATUS_LABEL, type NcfStatus } from "./labels";
-import { AppError } from "./util";
+import { AppError } from "@/platform/util";
 
 export const REPORT_ROLES: Role[] = ["QC_INSPECTOR", "NCF_APPROVER", "PURCHASING", "PCH_DIV_HEAD", "AUDITOR"];
 export const EXPORT_ROLES: Role[] = ["QC_INSPECTOR", "NCF_APPROVER", "AUDITOR"];

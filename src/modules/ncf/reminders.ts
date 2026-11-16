@@ -1,8 +1,11 @@
 // The daily reminder job (FD section 14). Nothing goes to the supplier from the system: Purchasing is reminded to
 // follow up with the supplier themselves.
-import { audit, enqueue, getSetting, usersWithRole, workingDaysBetween } from "./core";
-import { one, pool, q, tx } from "./db";
-import { appUrl } from "./util";
+import { audit } from "@/platform/audit";
+import { enqueue, usersWithRole } from "@/platform/outbox";
+import { getSetting } from "@/platform/settings";
+import { workingDaysBetween } from "@/platform/calendar";
+import { one, pool, q, tx } from "@/platform/db";
+import { appUrl } from "@/platform/util";
 
 /**
  * A reminder is due when the window (working days, Settings) has passed since the form was sent, or since the last

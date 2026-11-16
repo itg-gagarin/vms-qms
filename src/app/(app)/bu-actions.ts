@@ -2,8 +2,8 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { requireUser } from "@/lib/auth";
-import { BU_COOKIE, unitsFor } from "@/lib/bu";
+import { requireUser } from "@/platform/auth";
+import { BU_COOKIE, unitsFor } from "@/platform/business-units";
 
 /** Switch the Business Unit shown in lists and reports; "all" clears it. Stays on the same page. */
 export async function setBuAction(data: FormData) {

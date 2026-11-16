@@ -1,12 +1,12 @@
 import { ClipboardCheck, Search } from "lucide-react";
 import { redirect } from "next/navigation";
-import { ActionForm, Submit } from "@/components/action-form";
+import { ActionForm, Submit } from "@/components/ui/action-form";
 import { EmptyState, PageHead, Pager, paging, Shell, TableCard } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
-import { selectedBu } from "@/lib/bu";
-import { hasRole } from "@/lib/core";
-import { countMrreg, searchMrreg } from "@/lib/ncf";
-import { fmtDate } from "@/lib/util";
+import { requireUser } from "@/platform/auth";
+import { selectedBu } from "@/platform/business-units";
+import { hasRole } from "@/platform/access";
+import { countMrreg, searchMrreg } from "@/modules/ncf";
+import { fmtDate } from "@/platform/util";
 import { createDraftAction } from "../actions";
 
 type Row = Awaited<ReturnType<typeof searchMrreg>>[number];

@@ -1,17 +1,17 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ActionForm, Submit } from "@/components/action-form";
-import { EvidenceList, ItemTable } from "@/components/ncf-document";
-import { EvidencePicker } from "@/components/evidence-picker";
-import { PhoneActionBar } from "@/components/phone-action-bar";
-import { ScrollToFlag } from "@/components/scroll-to-flag";
+import { ActionForm, Submit } from "@/components/ui/action-form";
+import { EvidenceList, ItemTable } from "@/components/ncf/ncf-document";
+import { EvidencePicker } from "@/components/ncf/evidence-picker";
+import { PhoneActionBar } from "@/components/ui/phone-action-bar";
+import { ScrollToFlag } from "@/components/ui/scroll-to-flag";
 import { Banner, Field, FieldGrid, PageHead, Section, Shell } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
-import { hasRole } from "@/lib/core";
-import { LIMITS } from "@/lib/files";
-import { GOODS_STATUS } from "@/lib/labels";
-import { getNcf, missingParts, mrregLines, type DraftPart, mrregPos, problemCategories } from "@/lib/ncf";
-import { AppError, fmtDate } from "@/lib/util";
+import { requireUser } from "@/platform/auth";
+import { hasRole } from "@/platform/access";
+import { LIMITS } from "@/platform/files";
+import { GOODS_STATUS } from "@/modules/ncf/labels";
+import { getNcf, missingParts, mrregLines, type DraftPart, mrregPos, problemCategories } from "@/modules/ncf";
+import { AppError, fmtDate } from "@/platform/util";
 import {
   addEvidenceAction,
   addItemAction,

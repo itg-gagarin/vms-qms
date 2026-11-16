@@ -1,8 +1,8 @@
-import { currentUser } from "@/lib/auth";
-import { canRead } from "@/lib/core";
-import { one, pool } from "@/lib/db";
-import { readStoredFile } from "@/lib/files";
-import type { NcfStatus } from "@/lib/labels";
+import { currentUser } from "@/platform/auth";
+import { canRead } from "@/modules/ncf/visibility";
+import { one, pool } from "@/platform/db";
+import { readStoredFile } from "@/platform/files";
+import type { NcfStatus } from "@/modules/ncf/labels";
 
 // Internal users open evidence of NCFs they may read.
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {

@@ -2,12 +2,13 @@
 
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ActionState } from "@/components/action-form";
-import * as adm from "@/lib/admin";
-import { createApiKey, revokeApiKey } from "@/lib/api";
-import { requireUser } from "@/lib/auth";
-import type { Role } from "@/lib/core";
-import { AppError } from "@/lib/util";
+import type { ActionState } from "@/components/ui/action-form";
+import * as adm from "@/modules/admin";
+import * as numbering from "@/modules/ncf/numbering";
+import { createApiKey, revokeApiKey } from "@/platform/api-keys";
+import { requireUser } from "@/platform/auth";
+import type { Role } from "@/platform/access";
+import { AppError } from "@/platform/util";
 
 const s = (d: FormData, k: string) => String(d.get(k) ?? "");
 const n = (d: FormData, k: string) => (d.get(k) ? Number(d.get(k)) : null);
@@ -85,7 +86,7 @@ export const saveChainAction = async (_: ActionState, d: FormData) =>
 
 export const saveNumberingAction = async (_: ActionState, d: FormData) =>
   run("Numbering saved.", (u) =>
-    adm.saveNumbering(u, { format: s(d, "format").trim(), reset: s(d, "reset") as adm.Numbering["reset"] }, n(d, "next")));
+    numbering.saveNumbering(u, { format: s(d, "format").trim(), reset: s(d, "reset") as numbering.Numbering["reset"] }, n(d, "next")));
 
 export const saveWorkflowAction = async (_: ActionState, d: FormData) =>
   run("Saved. New values apply from now on.", (u) => adm.saveWorkflow(u, Object.fromEntries(adm.WORKFLOW_KEYS.map((k) => [k.key, s(d, k.key)]))));

@@ -1,6 +1,6 @@
 "use client";
 
-import { ErrorView } from "@/components/error-view";
+import { ErrorView } from "@/components/ui/error-view";
 import "./globals.css";
 
 // Replaces the root layout when even that fails; it brings its own html and body.

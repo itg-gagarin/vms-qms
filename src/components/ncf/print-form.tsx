@@ -1,7 +1,7 @@
 import QRCode from "qrcode";
-import type { NcfDetail } from "@/lib/ncf";
-import { GOODS_STATUS } from "@/lib/labels";
-import { appUrl, fmtDate, fmtDateTime } from "@/lib/util";
+import type { NcfDetail } from "@/modules/ncf";
+import { GOODS_STATUS } from "@/modules/ncf/labels";
+import { appUrl, fmtDate, fmtDateTime } from "@/platform/util";
 
 const B = "border-slate-900";
 

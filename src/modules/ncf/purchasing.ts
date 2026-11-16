@@ -1,12 +1,15 @@
 // Purchasing's side of the supplier exchange: the Supplier Outbox table, and recording that the supplier's reply came
 // back by email ("Returned"), which stops the response clock. The CAPA itself stays in the supplier's reply file:
 // the system keeps the file and the times, and does not re-type or interpret what the supplier wrote.
-import type { Actor } from "./core";
-import { audit, enqueue, requireRole, workingDaysBetween } from "./core";
-import { one, pool, q, tx } from "./db";
-import { LIMITS, saveFile } from "./files";
+import type { Actor } from "@/platform/access";
+import { audit } from "@/platform/audit";
+import { enqueue } from "@/platform/outbox";
+import { requireRole } from "@/platform/access";
+import { workingDaysBetween } from "@/platform/calendar";
+import { one, pool, q, tx } from "@/platform/db";
+import { LIMITS, saveFile } from "@/platform/files";
 import type { NcfStatus } from "./labels";
-import { AppError, appUrl, wib } from "./util";
+import { AppError, appUrl, wib } from "@/platform/util";
 
 const PURCHASING = ["PURCHASING", "PCH_DIV_HEAD"] as const;
 

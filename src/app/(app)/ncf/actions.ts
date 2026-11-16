@@ -2,11 +2,11 @@
 
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ActionState } from "@/components/action-form";
-import { requireUser } from "@/lib/auth";
-import * as ncf from "@/lib/ncf";
-import * as pur from "@/lib/purchasing";
-import { AppError } from "@/lib/util";
+import type { ActionState } from "@/components/ui/action-form";
+import { requireUser } from "@/platform/auth";
+import * as ncf from "@/modules/ncf";
+import * as pur from "@/modules/ncf/purchasing";
+import { AppError } from "@/platform/util";
 
 const id = (d: FormData) => Number(d.get("id"));
 const s = (d: FormData, k: string) => String(d.get(k) ?? "");

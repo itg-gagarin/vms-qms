@@ -9,10 +9,10 @@
 //        DEMO_DATA=1 at container start (see Dockerfile)
 // Safe to run again: it stops if its first receipt already exists. Never run it on a database with real records.
 import type { PoolClient } from "pg";
-import { one, pool, tx } from "../src/lib/db.ts";
-import * as ncf from "../src/lib/ncf.ts";
-import * as pur from "../src/lib/purchasing.ts";
-import { runReminders } from "../src/lib/reminders.ts";
+import { one, pool, tx } from "../src/platform/db.ts";
+import * as ncf from "../src/modules/ncf/index.ts";
+import * as pur from "../src/modules/ncf/purchasing.ts";
+import { runReminders } from "../src/modules/ncf/reminders.ts";
 import { at, GROUP, loadActor, photo, PW, reply, runOnce } from "./demo-lib.ts";
 
 const FIRST_MRREG = 260014601;

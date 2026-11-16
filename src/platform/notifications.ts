@@ -1,6 +1,6 @@
 // In-app notifications: the internal messages the workflow already queues for a person (notification_outbox rows
 // with a recipient user), shown in the top bar. "To do" means the person still has to act on it.
-import type { Actor } from "./core";
+import type { Actor } from "./access";
 import { one, pool, q } from "./db";
 import { AppError } from "./util";
 

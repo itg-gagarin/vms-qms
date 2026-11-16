@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { at, photo, rebuildDb } from "./helpers.mts";
 
-const { pool, one, q } = await import("../src/lib/db.ts");
-const { loadActor } = await import("../src/lib/core.ts");
-const ncf = await import("../src/lib/ncf.ts");
-const pur = await import("../src/lib/purchasing.ts");
+const { pool, one, q } = await import("../src/platform/db.ts");
+const { loadActor } = await import("../src/platform/access.ts");
+const ncf = await import("../src/modules/ncf/index.ts");
+const pur = await import("../src/modules/ncf/purchasing.ts");
 
 type Actor = NonNullable<Awaited<ReturnType<typeof loadActor>>>;
 const users: Record<string, Actor> = {};
@@ -86,7 +86,7 @@ describe("Purchasing records the supplier's emailed reply (Returned)", () => {
 
 describe("Reports and export", () => {
   test("dashboard counts replies and waits; export has an NCF sheet and an Items sheet; roles are enforced", async () => {
-    const rep = await import("../src/lib/reports.ts");
+    const rep = await import("../src/modules/ncf/reports.ts");
     const period = { from: "2026-01-01", to: "2026-12-31" };
     const d = await rep.dashboard(users.qcm, period);
     const sent = await q<{ n: number }>(pool, "select count(*)::int as n from ncf where status = 'SENT'");
@@ -110,7 +110,7 @@ describe("Reports and export", () => {
 
 describe("Supplier Master", () => {
   test("Purchasing, PCH and Super Admin manage suppliers and contacts; QC cannot; every change is audited", async () => {
-    const sup = await import("../src/lib/suppliers.ts");
+    const sup = await import("../src/modules/suppliers/index.ts");
     await assert.rejects(sup.listSuppliers(users.qc, ""), /role/);
     await assert.rejects(sup.createSupplier(users.qc, { code: "VLP09999", name: "Uji Coba, PT" }), /role/);
     const { rows, total } = await sup.listSuppliers(users.pur, "VLP", 1, 10);
@@ -140,7 +140,7 @@ describe("Supplier Master", () => {
 
 describe("API for the VMS", () => {
   test("only Super Admin makes keys; requests need a valid, unrevoked key; drafts are left out", async () => {
-    const api = await import("../src/lib/api.ts");
+    const api = await import("../src/platform/api-keys.ts");
     const ncfsRoute = await import("../src/app/api/v1/ncfs/route.ts");
     const respRoute = await import("../src/app/api/v1/responsiveness/route.ts");
     await assert.rejects(api.createApiKey(users.pur, "VMS"), /role/);

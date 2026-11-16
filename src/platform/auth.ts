@@ -4,7 +4,7 @@ import { jwtVerify, SignJWT } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
-import { loadActor, type Actor } from "./core";
+import { loadActor, type Actor } from "./access";
 import { one, pool } from "./db";
 
 const COOKIE = "vms_session";

@@ -1,8 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import type { ActionState } from "@/components/action-form";
-import { login, logout } from "@/lib/auth";
+import type { ActionState } from "@/components/ui/action-form";
+import { login, logout } from "@/platform/auth";
 
 export async function loginAction(_: ActionState, data: FormData): Promise<ActionState> {
   const ok = await login(String(data.get("email") ?? ""), String(data.get("password") ?? ""));

@@ -1,6 +1,6 @@
 import { Check, X } from "lucide-react";
-import type { NcfDetail } from "@/lib/ncf";
-import { fmtDate } from "@/lib/util";
+import type { NcfDetail } from "@/modules/ncf";
+import { fmtDate } from "@/platform/util";
 
 type Step = { label: string; sub?: string; date?: Date | null };
 

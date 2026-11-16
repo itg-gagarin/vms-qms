@@ -1,4 +1,4 @@
-import { runReminders } from "@/lib/reminders";
+import { runReminders } from "@/modules/ncf/reminders";
 
 // Called once a day by a scheduler (cron, Windows Task Scheduler) with the job secret.
 export async function POST(req: Request) {

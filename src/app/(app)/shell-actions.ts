@@ -3,8 +3,8 @@
 import { cookies } from "next/headers";
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireUser } from "@/lib/auth";
-import { markAllRead, openNote } from "@/lib/notifications";
+import { requireUser } from "@/platform/auth";
+import { markAllRead, openNote } from "@/platform/notifications";
 
 /** Open a notification: mark it read and go to its NCF. */
 export async function openNoteAction(data: FormData) {

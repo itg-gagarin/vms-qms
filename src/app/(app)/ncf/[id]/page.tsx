@@ -1,19 +1,20 @@
 import { Clock, FileDown, Printer } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ActionForm, Submit } from "@/components/action-form";
-import { AuditTimeline } from "@/components/audit-timeline";
-import { EvidenceList, NcfPart1, NcfPart2 } from "@/components/ncf-document";
-import { PhoneActionBar } from "@/components/phone-action-bar";
-import { StageStepper } from "@/components/stage-stepper";
+import { ActionForm, Submit } from "@/components/ui/action-form";
+import { AuditTimeline } from "@/components/ncf/audit-timeline";
+import { EvidenceList, NcfPart1, NcfPart2 } from "@/components/ncf/ncf-document";
+import { PhoneActionBar } from "@/components/ui/phone-action-bar";
+import { StageStepper } from "@/components/ncf/stage-stepper";
 import { Avatar, Banner, Section, Shell, StatusBadge } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
-import { hasRole, workingDaysBetween } from "@/lib/core";
-import { pool } from "@/lib/db";
-import { STATUS_LABEL } from "@/lib/labels";
-import { auditTrail, getNcf, type NcfDetail } from "@/lib/ncf";
-import { nowWibLocal } from "@/lib/purchasing";
-import { AppError, fmtDate, fmtDateTime } from "@/lib/util";
+import { requireUser } from "@/platform/auth";
+import { hasRole } from "@/platform/access";
+import { workingDaysBetween } from "@/platform/calendar";
+import { pool } from "@/platform/db";
+import { STATUS_LABEL } from "@/modules/ncf/labels";
+import { auditTrail, getNcf, type NcfDetail } from "@/modules/ncf";
+import { nowWibLocal } from "@/modules/ncf/purchasing";
+import { AppError, fmtDate, fmtDateTime } from "@/platform/util";
 import { closeAction, decideAction, markReturnedAction, markSentAction } from "../actions";
 
 const MESSAGES: Record<string, string> = {

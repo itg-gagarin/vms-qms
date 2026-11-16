@@ -1,13 +1,14 @@
 import { FileWarning, Plus, Search, X } from "lucide-react";
 import Link from "next/link";
-import { ClickableRow } from "@/components/clickable-row";
+import { ClickableRow } from "@/components/ui/clickable-row";
 import { EmptyState, PageHead, Pager, paging, Shell, StatusBadge, TableCard, Tabs } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
-import { selectedBu } from "@/lib/bu";
-import { hasRole, visibleStatuses, type Role } from "@/lib/core";
-import { isNcfStatus, STATUS_LABEL, type NcfStatus } from "@/lib/labels";
-import { countNcf, listNcf } from "@/lib/ncf";
-import { fmtDate } from "@/lib/util";
+import { requireUser } from "@/platform/auth";
+import { selectedBu } from "@/platform/business-units";
+import { hasRole, type Role } from "@/platform/access";
+import { visibleStatuses } from "@/modules/ncf/visibility";
+import { isNcfStatus, STATUS_LABEL, type NcfStatus } from "@/modules/ncf/labels";
+import { countNcf, listNcf } from "@/modules/ncf";
+import { fmtDate } from "@/platform/util";
 
 // Worklist tabs. A tab shows only if the user may see at least one of its statuses (core.STATUSES_BY_ROLE).
 const TABS: { key: string; label: string; role: Role[] | null; statuses: NcfStatus[] | null }[] = [

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
-import { Facts, VerifyShell } from "@/components/verify-shell";
-import { currentUser } from "@/lib/auth";
-import { AppError, fmtDateTime } from "@/lib/util";
-import { verifySignature } from "@/lib/verify";
+import { Facts, VerifyShell } from "@/components/verify/verify-shell";
+import { currentUser } from "@/platform/auth";
+import { AppError, fmtDateTime } from "@/platform/util";
+import { verifySignature } from "@/modules/ncf/verify";
 
 export const metadata: Metadata = { title: "Verifikasi tanda tangan – Integra Group", robots: { index: false } };
 

@@ -1,4 +1,4 @@
-import { apiResponsiveness } from "@/lib/api";
+import { apiResponsiveness } from "@/modules/ncf/api";
 import { respond } from "../_respond";
 
 // GET /api/v1/responsiveness?from=YYYY-MM-DD&to=YYYY-MM-DD&supplier=<vendor code>&bu=<unit code>

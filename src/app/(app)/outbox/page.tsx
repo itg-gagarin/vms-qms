@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ClickableRow } from "@/components/clickable-row";
+import { ClickableRow } from "@/components/ui/clickable-row";
 import { PageHead, Pager, paging, Shell, StatusBadge, TableCard, Tabs } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
-import { selectedBu } from "@/lib/bu";
-import { hasRole } from "@/lib/core";
-import { DISPATCH_TABS, listDispatch, reminderWindow, type DispatchTab } from "@/lib/purchasing";
-import { fmtDateTime } from "@/lib/util";
+import { requireUser } from "@/platform/auth";
+import { selectedBu } from "@/platform/business-units";
+import { hasRole } from "@/platform/access";
+import { DISPATCH_TABS, listDispatch, reminderWindow, type DispatchTab } from "@/modules/ncf/purchasing";
+import { fmtDateTime } from "@/platform/util";
 
 export default async function SupplierOutbox({ searchParams }: { searchParams: Promise<{ tab?: string; page?: string; size?: string }> }) {
   const user = await requireUser();

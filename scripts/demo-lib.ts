@@ -1,7 +1,7 @@
 // Shared by the demo loaders (demo-data.ts, demo-sap.ts). Demo data is made through the real business rules.
 import { deflateSync, crc32 } from "node:zlib";
-import { loadActor as loadById } from "../src/lib/core.ts";
-import { one, pool } from "../src/lib/db.ts";
+import { loadActor as loadById } from "../src/platform/access.ts";
+import { one, pool } from "../src/platform/db.ts";
 
 export const PW = process.env.SEED_PASSWORD ?? "demo1234";
 

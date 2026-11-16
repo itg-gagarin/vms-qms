@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Facts, VerifyShell } from "@/components/verify-shell";
-import { currentUser } from "@/lib/auth";
-import { AppError, fmtDate } from "@/lib/util";
-import { verifyDocument } from "@/lib/verify";
+import { Facts, VerifyShell } from "@/components/verify/verify-shell";
+import { currentUser } from "@/platform/auth";
+import { AppError, fmtDate } from "@/platform/util";
+import { verifyDocument } from "@/modules/ncf/verify";
 
 export const metadata: Metadata = { title: "Verifikasi NCF – Integra Group", robots: { index: false } };
 

@@ -1,15 +1,15 @@
 import { Building, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ClickableRow } from "@/components/clickable-row";
-import { Modal } from "@/components/modal";
-import { ModalForm } from "@/components/modal-form";
-import { Submit } from "@/components/action-form";
+import { ClickableRow } from "@/components/ui/clickable-row";
+import { Modal } from "@/components/ui/modal";
+import { ModalForm } from "@/components/ui/modal-form";
+import { Submit } from "@/components/ui/action-form";
 import { EmptyState, PageHead, Pager, paging, Shell, TableCard } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
-import { hasRole } from "@/lib/core";
-import { listSuppliers, SUPPLIER_ROLES } from "@/lib/suppliers";
-import { fmtDate } from "@/lib/util";
+import { requireUser } from "@/platform/auth";
+import { hasRole } from "@/platform/access";
+import { listSuppliers, SUPPLIER_ROLES } from "@/modules/suppliers";
+import { fmtDate } from "@/platform/util";
 import { createSupplierAction } from "./actions";
 
 export default async function SuppliersPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string; size?: string }> }) {

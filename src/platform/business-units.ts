@@ -2,7 +2,7 @@
 // the top bar; the choice is a cookie and narrows lists, counts, receipts, the outbox and reports. It never widens
 // access: a unit outside the user's scope is ignored.
 import { cookies } from "next/headers";
-import { buScope, type Actor } from "./core";
+import { buScope, type Actor } from "./access";
 import { pool, q } from "./db";
 
 export const BU_COOKIE = "vms_bu";

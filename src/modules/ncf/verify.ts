@@ -1,9 +1,9 @@
 // QR verification pages and print log (FD sections 9 and 13).
-import type { Actor } from "./core";
-import { canRead } from "./core";
+import type { Actor } from "@/platform/access";
+import { canRead } from "./visibility";
 import type { NcfStatus } from "./labels";
-import { one, pool, q } from "./db";
-import { AppError } from "./util";
+import { one, pool, q } from "@/platform/db";
+import { AppError } from "@/platform/util";
 
 export async function verifyDocument(code: string, viewer: Actor | null, ip: string | null) {
   const v = await one<{ id: number; ncf_id: number; version_no: number; content_hash: string; submitted_at: Date; current_version: number; bu_id: number }>(

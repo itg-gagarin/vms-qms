@@ -1,13 +1,13 @@
 import { redirect } from "next/navigation";
-import { BarList, ColumnChart, StatTile } from "@/components/charts";
+import { BarList, ColumnChart, StatTile } from "@/components/ui/charts";
 import { Download } from "lucide-react";
 import { Banner, PageHead, Pager, paging, Section, Shell } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
-import { selectedBu } from "@/lib/bu";
-import { hasRole } from "@/lib/core";
-import { isNcfStatus, STATUS_LABEL, type NcfStatus } from "@/lib/labels";
-import { dashboard, EXPORT_ROLES, REPORT_ROLES, supplierOptions, type ReportFilter } from "@/lib/reports";
-import { AppError, wib } from "@/lib/util";
+import { requireUser } from "@/platform/auth";
+import { selectedBu } from "@/platform/business-units";
+import { hasRole } from "@/platform/access";
+import { isNcfStatus, STATUS_LABEL, type NcfStatus } from "@/modules/ncf/labels";
+import { dashboard, EXPORT_ROLES, REPORT_ROLES, supplierOptions, type ReportFilter } from "@/modules/ncf/reports";
+import { AppError, wib } from "@/platform/util";
 
 const ORDER: NcfStatus[] = ["DRAFT", "WAITING_APPROVAL", "APPROVED", "SENT", "RESPONDED", "CLOSED", "VOID"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];

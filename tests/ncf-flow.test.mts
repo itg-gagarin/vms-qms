@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { at, photo, rebuildDb } from "./helpers.mts";
-import type { HeaderInput } from "../src/lib/ncf.ts";
+import type { HeaderInput } from "../src/modules/ncf/index.ts";
 
 // Imported after helpers so DATABASE_URL points at the test database.
-const { pool, one, q } = await import("../src/lib/db.ts");
-const { loadActor } = await import("../src/lib/core.ts");
-const ncf = await import("../src/lib/ncf.ts");
-const pur = await import("../src/lib/purchasing.ts");
-const { runReminders } = await import("../src/lib/reminders.ts");
-const ver = await import("../src/lib/verify.ts");
+const { pool, one, q } = await import("../src/platform/db.ts");
+const { loadActor } = await import("../src/platform/access.ts");
+const ncf = await import("../src/modules/ncf/index.ts");
+const pur = await import("../src/modules/ncf/purchasing.ts");
+const { runReminders } = await import("../src/modules/ncf/reminders.ts");
+const ver = await import("../src/modules/ncf/verify.ts");
 
 type Actor = NonNullable<Awaited<ReturnType<typeof loadActor>>>;
 const users: Record<string, Actor> = {};
@@ -256,7 +256,7 @@ describe("Access rules", () => {
   test("auditor reads everything; QC lists only its BU; settings need Super Admin", async () => {
     const all = await ncf.listNcf(users.audit, "all");
     assert.equal(all.length, 4); // Premier, the no-email supplier, the rejected one, and the voided one from "Open receipts"
-    const adm = await import("../src/lib/admin.ts");
+    const adm = await import("../src/modules/admin/index.ts");
     const values = { reminder_window_wd: "3", reminder_max: "2", response_target_wd: "3" };
     await assert.rejects(adm.saveWorkflow(users.pur, values), /role/);
     await adm.saveWorkflow(users.admin, values);

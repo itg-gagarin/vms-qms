@@ -1,7 +1,7 @@
 import { ChevronRight, CircleAlert, CircleCheck, Inbox, Info, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { STATUS_LABEL, type NcfStatus } from "@/lib/labels";
+import { STATUS_LABEL, type NcfStatus } from "@/modules/ncf/labels";
 
 // A pill means a state. Waiting is amber, done is emerald, refused is red, ready-to-advance is the green tint,
 // returned-and-to-verify is indigo (info); a draft is plain slate. Each pill carries a dot so it reads without colour too.

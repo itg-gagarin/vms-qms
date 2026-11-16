@@ -1,4 +1,4 @@
-import { ActionForm, Submit } from "@/components/action-form";
+import { ActionForm, Submit } from "@/components/ui/action-form";
 import { loginAction } from "./actions";
 
 // Sign-in only: who it is for, two fields, one button.

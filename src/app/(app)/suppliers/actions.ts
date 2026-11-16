@@ -2,10 +2,10 @@
 
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ActionState } from "@/components/action-form";
-import { requireUser } from "@/lib/auth";
-import * as sup from "@/lib/suppliers";
-import { AppError } from "@/lib/util";
+import type { ActionState } from "@/components/ui/action-form";
+import { requireUser } from "@/platform/auth";
+import * as sup from "@/modules/suppliers";
+import { AppError } from "@/platform/util";
 
 const s = (d: FormData, k: string) => String(d.get(k) ?? "");
 

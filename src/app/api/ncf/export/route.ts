@@ -1,8 +1,8 @@
-import { currentUser } from "@/lib/auth";
-import { selectedBu } from "@/lib/bu";
-import { isNcfStatus } from "@/lib/labels";
-import { exportXlsx } from "@/lib/reports";
-import { AppError, wib } from "@/lib/util";
+import { currentUser } from "@/platform/auth";
+import { selectedBu } from "@/platform/business-units";
+import { isNcfStatus } from "@/modules/ncf/labels";
+import { exportXlsx } from "@/modules/ncf/reports";
+import { AppError, wib } from "@/platform/util";
 
 // Bulk export for QC, approvers and auditors: one .xlsx with an NCF sheet and an Items sheet, same filters as Reports.
 export async function GET(req: Request) {

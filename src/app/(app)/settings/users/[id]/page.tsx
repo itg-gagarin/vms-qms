@@ -1,14 +1,15 @@
 import { KeyRound, Plus, ShieldCheck } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { ActionForm, Submit } from "@/components/action-form";
-import { Modal } from "@/components/modal";
-import { ModalForm } from "@/components/modal-form";
+import { ActionForm, Submit } from "@/components/ui/action-form";
+import { Modal } from "@/components/ui/modal";
+import { ModalForm } from "@/components/ui/modal-form";
 import { Avatar, Banner, EmptyState, PageHead, Section, Shell, StatePill } from "@/components/ui";
-import * as adm from "@/lib/admin";
-import { requireUser } from "@/lib/auth";
-import { hasRole } from "@/lib/core";
-import { AppError, fmtDate } from "@/lib/util";
+import * as adm from "@/modules/admin";
+import { ROLES } from "@/platform/access";
+import { requireUser } from "@/platform/auth";
+import { hasRole } from "@/platform/access";
+import { AppError, fmtDate } from "@/platform/util";
 import { addRolesAction, removeRoleAction, resetPasswordAction, setActiveAction, updateUserAction } from "../../actions";
 
 function Field({ id, label, children, hint }: { id: string; label: string; children: ReactNode; hint?: string }) {
@@ -35,7 +36,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
     throw e;
   }
   const [positions, units] = await Promise.all([adm.listPositions(true), adm.listUnits()]);
-  const roleLabel = Object.fromEntries(adm.ROLES.map((r) => [r.role, r.label]));
+  const roleLabel = Object.fromEntries(ROLES.map((r) => [r.role, r.label]));
   const posOptions = u.position && !positions.some((p) => p.name === u.position) ? [{ id: 0, name: u.position }, ...positions] : positions;
 
   return (
@@ -63,7 +64,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
                 <Field id="ar-role" label="Role">
                   <select id="ar-role" name="role" required defaultValue="" className="input">
                     <option value="" disabled>Choose a role…</option>
-                    {adm.ROLES.map((r) => <option key={r.role} value={r.role}>{r.label}{r.scoped ? "" : " (all units)"}</option>)}
+                    {ROLES.map((r) => <option key={r.role} value={r.role}>{r.label}{r.scoped ? "" : " (all units)"}</option>)}
                   </select>
                 </Field>
                 <fieldset>

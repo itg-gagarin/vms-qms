@@ -2,10 +2,12 @@
 // Purchasing and PCH Div. Head own it (Super Admin counts as every role). Vendors normally arrive with the SAP
 // export (import-mrreg upserts them by vendor code); adding one here is for a vendor not in an export yet.
 import type { PoolClient } from "pg";
-import { audit, requireRole, visibleStatuses, type Actor, type Role } from "./core";
-import { one, pool, q, tx } from "./db";
-import type { NcfStatus } from "./labels";
-import { AppError } from "./util";
+import { audit } from "@/platform/audit";
+import { requireRole, type Actor, type Role } from "@/platform/access";
+import { visibleStatuses } from "@/modules/ncf/visibility";
+import { one, pool, q, tx } from "@/platform/db";
+import type { NcfStatus } from "@/modules/ncf/labels";
+import { AppError } from "@/platform/util";
 
 export const SUPPLIER_ROLES: Role[] = ["PURCHASING", "PCH_DIV_HEAD"];
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;

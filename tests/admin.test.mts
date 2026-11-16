@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { at, rebuildDb } from "./helpers.mts";
 
-const { pool, one } = await import("../src/lib/db.ts");
-const { loadActor, workingDaysBetween } = await import("../src/lib/core.ts");
-const adm = await import("../src/lib/admin.ts");
-const ncf = await import("../src/lib/ncf.ts");
+const { pool, one } = await import("../src/platform/db.ts");
+const { loadActor } = await import("../src/platform/access.ts");
+const { workingDaysBetween } = await import("../src/platform/calendar.ts");
+const numbering = await import("../src/modules/ncf/numbering.ts");
+const adm = await import("../src/modules/admin/index.ts");
+const ncf = await import("../src/modules/ncf/index.ts");
 
 type Actor = NonNullable<Awaited<ReturnType<typeof loadActor>>>;
 const users: Record<string, Actor> = {};
@@ -52,17 +54,17 @@ describe("Super Admin settings", () => {
   });
 
   test("numbering: format is checked; the counter can be set back, and numbers already used are skipped", async () => {
-    await assert.rejects(adm.saveNumbering(users.admin, { format: "NCF-{ROMAN}", reset: "yearly" }, null), /\{SEQ\}/);
-    await assert.rejects(adm.saveNumbering(users.admin, { format: "NCF-{SEQ:4}", reset: "yearly" }, null), /year/);
-    await assert.rejects(adm.saveNumbering(users.admin, { format: "{SEQ}/{FOO}/{YYYY}", reset: "yearly" }, null), /Unknown part/);
-    await adm.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, null, at("2026-11-13 09:00"));
-    await assert.rejects(adm.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, 0, at("2026-11-13 09:00")), /from 1/);
-    await adm.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, 500, at("2026-11-13 09:00"));
+    await assert.rejects(numbering.saveNumbering(users.admin, { format: "NCF-{ROMAN}", reset: "yearly" }, null), /\{SEQ\}/);
+    await assert.rejects(numbering.saveNumbering(users.admin, { format: "NCF-{SEQ:4}", reset: "yearly" }, null), /year/);
+    await assert.rejects(numbering.saveNumbering(users.admin, { format: "{SEQ}/{FOO}/{YYYY}", reset: "yearly" }, null), /Unknown part/);
+    await numbering.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, null, at("2026-11-13 09:00"));
+    await assert.rejects(numbering.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, 0, at("2026-11-13 09:00")), /from 1/);
+    await numbering.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, 500, at("2026-11-13 09:00"));
     const mr = (await one<{ id: number }>(pool, "select id from mrreg where mrreg_no = '260014212'"))!.id;
     const n = await ncf.createDraft(users.qc, mr, at("2026-11-13 09:30"));
     assert.equal((await ncf.getNcf(users.qc, n)).ncf_no, "NCF/BU-DEMO/2611/0500");
     // Back to 500: it is taken, so the next NCF gets 0501 instead of a duplicate.
-    await adm.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, 500, at("2026-11-13 10:00"));
+    await numbering.saveNumbering(users.admin, { format: "NCF/{BU}/{YY}{MM}/{SEQ:4}", reset: "yearly" }, 500, at("2026-11-13 10:00"));
     const n2 = await ncf.createDraft(users.qc, mr, at("2026-11-13 10:30"));
     assert.equal((await ncf.getNcf(users.qc, n2)).ncf_no, "NCF/BU-DEMO/2611/0501");
   });

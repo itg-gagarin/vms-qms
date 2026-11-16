@@ -104,6 +104,11 @@ export async function decideAction(_: ActionState, d: FormData): Promise<ActionS
     if (e instanceof AppError) return { error: e.message };
     throw e;
   }
+  // After an approval, go straight to the next NCF waiting for this approver, if any.
+  if (decision === "APPROVED") {
+    const [next] = (await ncf.listNcf(user, "approve", undefined, 1, 2)).filter((n) => n.id !== id(d));
+    if (next) redirect(`/ncf/${next.id}?msg=signed-next&prev=${encodeURIComponent(s(d, "ncf_no"))}#action`);
+  }
   const msg = decision === "APPROVED" ? (st === "APPROVED" ? "approved-final" : "approved-step") : decision === "RETURNED" ? "returned" : "rejected";
   redirect(`/ncf/${id(d)}?msg=${msg}`);
 }

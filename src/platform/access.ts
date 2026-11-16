@@ -66,3 +66,13 @@ export async function loadActor(db: Db, userId: number): Promise<Actor | undefin
   );
   return { ...u, id: Number(u.id), roles };
 }
+
+/**
+ * The role a person mainly works in, for the shape of their screens (landing page, phone bar). Not an access check:
+ * use hasRole for that. Super Admin, who counts as every role, is treated as an administrator here.
+ */
+export function primaryRole(actor: Actor): Role {
+  const order: Role[] = ["QC_INSPECTOR", "NCF_APPROVER", "PURCHASING", "PCH_DIV_HEAD", "AUDITOR", "SUPER_ADMIN"];
+  const held = new Set(actor.roles.map((r) => r.role));
+  return order.find((r) => held.has(r)) ?? "AUDITOR";
+}

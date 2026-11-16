@@ -15,6 +15,7 @@ const LABEL: Record<string, string> = {
   APPROVAL_REJECTED: "Rejected",
   SET_PO: "Set the PO",
   SENT: "Sent the form to the supplier",
+  // Legacy actions from before the supplier link was removed (migration 008); kept so old trails still read.
   SEND: "Generated the supplier link",
   REISSUE_LINK: "Issued a new supplier link",
   SUPPLIER_OPENED: "Supplier opened the link",

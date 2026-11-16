@@ -20,5 +20,5 @@ export async function setBuAction(data: FormData) {
   const back = String(data.get("back") ?? "/ncf");
   const host = (await headers()).get("host");
   const url = new URL(back, `http://${host}`);
-  redirect(url.host === host && /^\/(ncf|outbox|reports|suppliers|settings)(\/|$|\?)/.test(url.pathname + url.search) ? url.pathname + url.search : "/ncf");
+  redirect(url.host === host && /^\/(home|notifications|ncf|outbox|reports|suppliers|settings)(\/|$|\?)/.test(url.pathname + url.search) ? url.pathname + url.search : "/ncf");
 }

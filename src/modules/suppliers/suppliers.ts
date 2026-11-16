@@ -4,9 +4,8 @@
 import type { PoolClient } from "pg";
 import { audit } from "@/platform/audit";
 import { requireRole, type Actor, type Role } from "@/platform/access";
-import { visibleStatuses } from "@/modules/ncf/visibility";
 import { one, pool, q, tx } from "@/platform/db";
-import type { NcfStatus } from "@/modules/ncf/labels";
+import { visibleStatuses, type NcfStatus } from "@/modules/ncf";
 import { AppError } from "@/platform/util";
 
 export const SUPPLIER_ROLES: Role[] = ["PURCHASING", "PCH_DIV_HEAD"];

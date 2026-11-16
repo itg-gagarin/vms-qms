@@ -48,7 +48,7 @@ export async function createApiKeyAction(_: ActionState, d: FormData): Promise<A
   try {
     const key = await createApiKey(user, s(d, "name"));
     refresh();
-    return { link: key };
+    return { secret: key };
   } catch (e) {
     if (e instanceof AppError) return { error: e.message };
     throw e;
@@ -71,8 +71,8 @@ export const setActiveAction = async (_: ActionState, d: FormData) =>
   run(s(d, "active") === "1" ? "Account activated." : "Account deactivated. Its records and signatures stay.", (u) =>
     adm.setActive(u, Number(d.get("id")), s(d, "active") === "1"));
 
-export const addRoleAction = async (_: ActionState, d: FormData) =>
-  run("Role added.", (u) => adm.addRole(u, Number(d.get("id")), s(d, "role") as Role, n(d, "bu_id"), s(d, "valid_to") || null));
+export const updateRoleAction = async (_: ActionState, d: FormData) =>
+  run("Role updated.", (u) => adm.updateRole(u, Number(d.get("role_id")), s(d, "bu") === "all" ? null : n(d, "bu"), s(d, "valid_to") || null));
 
 export const removeRoleAction = async (_: ActionState, d: FormData) =>
   run("Role removed.", (u) => adm.removeRole(u, Number(d.get("role_id"))));

@@ -29,7 +29,7 @@ camera capture for evidence on phones; read-only API for the VMS (`/api/v1/ncfs`
 Master Settings, API keys).
 
 **Design:** the INTEC design system (github.com/itg-gagarin/intec-design-system): tokens in `src/app/globals.css`, fonts in
-`src/app/layout.tsx`, shared pieces in `src/components/ui.tsx`. One green button per screen for the action that advances the
+`src/app/layout.tsx`, shared pieces in `src/components/ui`. One green button per screen for the action that advances the
 NCF; indigo for saving inside a card; pills only for states; Lucide icons; tables with a frozen header and 10/20/50 paging.
 
 ## Stack
@@ -59,7 +59,7 @@ curl -X POST -H "x-job-secret: $JOB_SECRET" https://<app>/api/jobs/reminders
 ## Tests
 
 ```bash
-npm test                    # 20 tests against a real PostgreSQL test database (TEST_DATABASE_URL)
+npm test                    # 38 tests against a real PostgreSQL test database (TEST_DATABASE_URL)
 python3 tests/e2e_browser.py   # whole flow in Chrome, every role, with screenshots (app running on :3000)
 npm run typecheck && npx eslint src scripts tests
 ```
@@ -68,26 +68,29 @@ npm run typecheck && npx eslint src scripts tests
 
 ## Layout
 
+The code is layered so the NCF can be joined by further QMS modules, and so the VMS (a separate platform) reads QMS data
+only through the API. Full picture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); adding a module:
+[docs/MODULES.md](docs/MODULES.md); running it: [docs/HANDOVER.md](docs/HANDOVER.md); owner decisions:
+[docs/DECISIONS.md](docs/DECISIONS.md).
+
 | Path | What |
 | --- | --- |
-| `db/migrations/001_schema.sql` | The 33-table schema from the ERD tab, unchanged |
-| `db/migrations/002_app.sql` | Login password, No. Komplain counter, QR codes as stored codes, default log partitions |
-| `db/migrations/003_sap_export.sql` | Fits the current SAP MRReg export (no PO date, price, line number) |
-| `src/lib/ncf.ts` | All NCF rules: create, PO, items, evidence, submit and sign, approve, mark sent, close |
-| `src/lib/purchasing.ts` | Supplier Outbox table, marking the supplier's emailed reply returned |
-| `src/lib/reminders.ts` | Daily reminder job (to Purchasing) |
-| `src/lib/reports.ts` | Reports dashboard and the Excel export |
-| `src/lib/admin.ts` | Master Settings: accounts, roles, approval chain, numbering, calendar, categories, contacts |
-| `src/lib/verify.ts` | QR verification, print log |
-| `src/lib/suppliers.ts` | Supplier Master: suppliers, contacts, reply figures |
-| `src/lib/bu.ts` | The Business Unit chosen in the sidebar |
-| `src/lib/notifications.ts` | In-app notifications (read marks on notification_outbox) |
-| `src/lib/api.ts` | API keys and the read-only VMS API |
-| `src/app/(app)` | Internal screens (login required) |
-| `src/app/v` | QR verification pages (read-only) |
-| `scripts/import-mrreg.ts` | Importer for the SAP MRReg xlsx export |
+| `db/migrations/` | Plain SQL, applied in order. `001_schema.sql` is the 33-table ERD, unchanged; later files only add |
+| `src/platform/` | Shared by every module: database, login, roles (`access.ts`), audit, signature, calendar, settings, Business Units, notifications, API keys, files |
+| `src/modules/ncf/` | QMS 1, the NCF: workflow, worklists, receipts, numbering, Purchasing outbox, reminders, reports, QR verification, API data |
+| `src/modules/suppliers/` | Supplier Master: suppliers, NCF contacts, reply figures |
+| `src/modules/admin/` | Master Settings: accounts and roles, positions, Business Units and approval chains, workflow settings, calendar |
+| `src/components/ui/` | Design-system pieces: buttons, tables, forms (`ActionForm`), modals, charts |
+| `src/components/shell/` | Sidebar, top bar, floating phone bar |
+| `src/components/ncf/` | NCF document, print form, stepper, audit trail, evidence picker |
+| `src/app/(app)/` | Internal screens (login required); Server Actions stay thin and call a module |
+| `src/app/v/` | QR verification pages (public, read-only) |
+| `src/app/api/v1/` | Read-only API for the VMS (API key) |
+| `scripts/` | Migrate, seed, SAP MRReg import, demo data |
+| `tests/` | `*.test.mts` against a real PostgreSQL; `e2e_browser.py` drives the whole flow in Chrome |
 
-Rules live in `src/lib`, not in the screens: every function checks the role and the NCF status itself.
+Rules live in `src/modules`, not in the screens: every function checks the role and the NCF status itself. ESLint
+enforces the layers (`eslint.config.mjs`).
 
 ## Known gaps to close before go-live
 

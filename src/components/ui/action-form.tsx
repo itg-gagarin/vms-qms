@@ -3,7 +3,13 @@
 import { CircleAlert } from "lucide-react";
 import { createContext, startTransition, useActionState, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
-export type ActionState = { error?: string; ok?: string; link?: string; n?: number };
+export type ActionState = {
+  error?: string;
+  ok?: string;
+  /** A value shown once with a copy button (a new API key). */
+  secret?: string;
+  n?: number;
+};
 type Action = (prev: ActionState, data: FormData) => Promise<ActionState>;
 
 const Pending = createContext(false);
@@ -120,7 +126,7 @@ export function ActionForm({
         </p>
       )}
       {state.ok && <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{state.ok}</p>}
-      {state.link && <LinkBox link={state.link} />}
+      {state.secret && <SecretBox value={state.secret} />}
     </form>
   );
 }
@@ -134,13 +140,13 @@ export function Submit({ children, className = "btn btn-commit", name, value }: 
   );
 }
 
-function LinkBox({ link }: { link: string }) {
+function SecretBox({ value }: { value: string }) {
   return (
     <div className="mt-3 rounded-md border border-brand/40 bg-brand-soft p-3">
       <p className="text-sm font-semibold text-slate-800">Copy it now: it is shown only once and cannot be read back.</p>
       <div className="mt-2 flex flex-wrap gap-2">
-        <input readOnly value={link} className="input font-mono text-sm" aria-label="Value to copy" onFocus={(e) => e.target.select()} />
-        <button type="button" className="btn" onClick={() => navigator.clipboard.writeText(link)}>
+        <input readOnly value={value} className="input font-mono text-sm" aria-label="Value to copy" onFocus={(e) => e.target.select()} />
+        <button type="button" className="btn" onClick={() => navigator.clipboard.writeText(value)}>
           Copy
         </button>
       </div>

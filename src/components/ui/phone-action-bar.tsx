@@ -20,10 +20,11 @@ export function PhoneActionBar({ href, label }: { href: string; label: string })
   }, [href]);
   return (
     <>
-      <div aria-hidden="true" className="h-16 md:hidden" />
-      <div className={`fixed inset-x-0 bottom-0 z-30 border-t border-hairline bg-white/95 px-4 pt-3 backdrop-blur transition-transform duration-200 md:hidden ${hidden ? "translate-y-full" : ""}`}
-        style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
-        <Link href={href} className="btn btn-advance h-12 w-full justify-center text-[14px]" tabIndex={hidden ? -1 : undefined}>{label}</Link>
+      <div aria-hidden="true" className="h-14 md:hidden" />
+      {/* Floats just above the phone navigation bar (see components/shell/app-shell.tsx, MobileNav) */}
+      <div className={`fixed inset-x-3 z-30 transition-[opacity,transform] duration-200 md:hidden ${hidden ? "pointer-events-none translate-y-4 opacity-0" : ""}`}
+        style={{ bottom: "calc(max(12px, env(safe-area-inset-bottom)) + 72px)" }}>
+        <Link href={href} className="btn btn-advance h-12 w-full justify-center rounded-xl text-[14px] shadow-[0_8px_20px_rgba(15,23,42,0.18)]" tabIndex={hidden ? -1 : undefined}>{label}</Link>
       </div>
     </>
   );

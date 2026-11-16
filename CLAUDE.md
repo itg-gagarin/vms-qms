@@ -25,14 +25,19 @@ about. `scripts/reset.ts` drops the `public` schema.
 
 ## Where things go
 
-- Business rules live in `src/lib` (`ncf.ts`, `purchasing.ts`, `suppliers.ts`, `reports.ts`, `admin.ts`, `verify.ts`). Each function checks the caller's role and
-  the NCF status itself, so screens and Server Actions stay thin. Put new rules there, not in `src/app`.
+- Layers (docs/ARCHITECTURE.md, enforced by ESLint): `src/app` → `src/components` → `src/modules` → `src/platform`.
+  A layer never imports one above it; a module uses another module only through its `index.ts`.
+- Business rules live in `src/modules/<module>` (`ncf/`, `suppliers/`, `admin/`). Each function checks the caller's role
+  and the NCF status itself, so screens and Server Actions stay thin. Put new rules there, not in `src/app`.
+  Anything two modules need (roles, audit, signature, calendar, settings, notifications) belongs in `src/platform`.
+- A new QMS module follows docs/MODULES.md (folder, index, migration, menu group, roles, lint entry).
+  The VMS is a separate platform: it reads QMS data through `/api/v1` only, never the database.
 - Schema changes are new numbered files in `db/migrations/` (plain SQL, applied in order by `scripts/migrate.ts`).
   Do not edit applied migrations; `001_schema.sql` mirrors the ERD and stays unchanged.
 - `src/app/(app)` is internal and needs a login; `src/app/v` (QR verification) is public and read-only, so treat what it
-  receives as untrusted. `src/app/api/v1` is read-only and needs an API key (`src/lib/api.ts`); it never writes.
+  receives as untrusted. `src/app/api/v1` is read-only and needs an API key (`src/platform/api-keys.ts`, data in `src/modules/ncf/api.ts`); it never writes.
 - Form fields and the printed form are Indonesian, matching the paper form (FR/IG/ALL/IN/QUAC/007); app chrome and
-  status names are English. Shared labels live in `src/lib/labels.ts` (no database imports there; client code uses it).
+  status names are English. Shared labels live in `src/modules/ncf/labels.ts` (no database imports there; client code uses it).
 - Times are shown in WIB (UTC+7); supplier response time is counted in working days from `calendar_day`.
 - Receipts follow the SAP MRReg export (`scripts/import-mrreg.ts`): 9-digit MRReg and PO, vendor codes, item groups,
   SAP status and its dates. Demo data uses the same shapes with made-up suppliers; never real export rows.
@@ -41,7 +46,7 @@ about. `scripts/reset.ts` drops the `public` schema.
 ## Rules
 
 - Submitting and approving is an electronic signature (password re-entry, versioned, hashed). Do not weaken it.
-- Role checks go through `hasRole`/`requireRole`/`roleScopes` in `src/lib/core.ts`, never `actor.roles` directly:
+- Role checks go through `hasRole`/`requireRole`/`roleScopes` in `src/platform/access.ts`, never `actor.roles` directly:
   Super Admin counts as every role there, in every module. Signatures are not roles: an approval step names one
   person, and only that person signs it, Super Admin included.
 - The sidebar (`src/app/(app)/layout.tsx`) and each page's guard must use the same role list.
@@ -53,7 +58,7 @@ about. `scripts/reset.ts` drops the `public` schema.
 - The system keeps the supplier's reply as received and does not re-type or interpret the CAPA in it.
 - Styling follows the INTEC design system (README, "Design"): one `btn-advance` per screen, `btn-commit` for saves,
   `btn` (outline) for everything else; codes, quantities and dates in mono (`num`); pills only for states.
-- Each department sees only its NCF stages (`STATUSES_BY_ROLE` in `core.ts`); keep lists, pages and exports on it.
+- Each department sees only its NCF stages (`STATUSES_BY_ROLE` in `src/modules/ncf/visibility.ts`); keep lists, pages and exports on it.
 - Cache Components is off on purpose (`next.config.ts`); pages read the session and live data.
 - Forms go through `ActionForm`, which checks fields itself (`noValidate`): no browser validation bubbles.
 - `deploymentId` comes from `.deployment-id`, written by the Docker build, so open tabs reload after a deploy instead

@@ -1,4 +1,4 @@
-import { KeyRound, Plus, ShieldCheck } from "lucide-react";
+import { KeyRound, Pencil, Plus, ShieldCheck } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { ActionForm, Submit } from "@/components/ui/action-form";
@@ -10,7 +10,7 @@ import { ROLES } from "@/platform/access";
 import { requireUser } from "@/platform/auth";
 import { hasRole } from "@/platform/access";
 import { AppError, fmtDate } from "@/platform/util";
-import { addRolesAction, removeRoleAction, resetPasswordAction, setActiveAction, updateUserAction } from "../../actions";
+import { addRolesAction, removeRoleAction, resetPasswordAction, setActiveAction, updateRoleAction, updateUserAction } from "../../actions";
 
 function Field({ id, label, children, hint }: { id: string; label: string; children: ReactNode; hint?: string }) {
   return (
@@ -98,11 +98,31 @@ export default async function UserPage({ params, searchParams }: { params: Promi
                     <td className="font-medium">{roleLabel[r.role]}</td>
                     <td>{r.bu ? <><span className="num">{r.bu}</span> <span className="text-muted">· {units.find((b) => b.id === r.bu_id)?.name}</span></> : <span className="text-muted">All units</span>}</td>
                     <td className="num">{r.valid_to ? fmtDate(r.valid_to) : <span className="font-sans text-muted">–</span>}</td>
-                    <td className="text-right">
-                      <ActionForm action={removeRoleAction}>
-                        <input type="hidden" name="role_id" value={r.id} />
-                        <Submit className="btn h-7 px-2.5 text-red-700 hover:bg-red-50 md:h-7">Remove</Submit>
-                      </ActionForm>
+                    <td>
+                      <div className="flex justify-end gap-1.5">
+                        <Modal label="Edit" title={`Edit role: ${roleLabel[r.role]}`} icon={<Pencil size={14} aria-hidden="true" />} buttonClassName="btn h-7 px-2.5 md:h-7"
+                          description={adm.ROLE_SCOPED[r.role] ? "Where this role applies and until when." : "This role covers all units; set until when it applies."}>
+                          <ModalForm action={updateRoleAction} className="flex flex-col gap-4">
+                            <input type="hidden" name="role_id" value={r.id} />
+                            {adm.ROLE_SCOPED[r.role] && (
+                              <Field id={`er-bu-${r.id}`} label="Business unit">
+                                <select id={`er-bu-${r.id}`} name="bu" defaultValue={r.bu_id ? String(r.bu_id) : "all"} className="input">
+                                  <option value="all">All units, now and future</option>
+                                  {units.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}
+                                </select>
+                              </Field>
+                            )}
+                            <Field id={`er-until-${r.id}`} label="Until (optional)" hint="Leave empty for no end date.">
+                              <input id={`er-until-${r.id}`} name="valid_to" type="date" defaultValue={r.valid_to ? String(r.valid_to).slice(0, 10) : ""} className="input" />
+                            </Field>
+                            <div className="flex justify-end"><Submit className="btn btn-commit">Save role</Submit></div>
+                          </ModalForm>
+                        </Modal>
+                        <ActionForm action={removeRoleAction}>
+                          <input type="hidden" name="role_id" value={r.id} />
+                          <Submit className="btn h-7 px-2.5 text-red-700 hover:bg-red-50 md:h-7">Remove</Submit>
+                        </ActionForm>
+                      </div>
                     </td>
                   </tr>
                 ))}

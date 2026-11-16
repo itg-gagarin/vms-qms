@@ -1,11 +1,11 @@
 // NCF numbers (No. Komplain): the format, the period the counter restarts in, and the next number. Changed by
 // Super Admin in Master Settings; used when a draft is created.
 import type { PoolClient } from "pg";
-import type { Actor } from "@/platform/access";
+import { requireRole, type Actor } from "@/platform/access";
+import { auditChange } from "@/platform/audit";
 import { one, pool, tx } from "@/platform/db";
 import { settingValue } from "@/platform/settings";
 import { AppError, romanMonth, wib } from "@/platform/util";
-import { admin, log } from "@/modules/admin/common";
 
 export type Numbering = { format: string; reset: "yearly" | "monthly" | "never" };
 export const NUMBER_TOKENS = ["{SEQ}", "{SEQ:3}", "{SEQ:4}", "{ROMAN}", "{MM}", "{YYYY}", "{YY}", "{BU}"];
@@ -81,20 +81,20 @@ export async function numberingState(now = new Date()) {
 /** Changes the format and restart rule, and optionally the next number. It may go back (e.g. to 1): numbers already
  * on an NCF are skipped when NCFs are created, so nothing is ever numbered twice. */
 export async function saveNumbering(actor: Actor, n: Numbering, nextSeq: number | null, now = new Date()) {
-  admin(actor);
+  requireRole(actor, "SUPER_ADMIN");
   checkNumbering(n);
   return tx(async (c) => {
     const cur = await getNumbering(c);
     if (cur.format !== n.format || cur.reset !== n.reset) {
       await c.query("insert into setting(key, value, changed_by) values ('ncf_numbering', $1, $2)", [JSON.stringify(n), actor.id]);
-      await log(c, actor, "setting", 0, "CHANGE", "ncf_numbering", `${cur.format} (${cur.reset})`, `${n.format} (${n.reset})`);
+      await auditChange(c, actor, "setting", 0, "CHANGE", "ncf_numbering", `${cur.format} (${cur.reset})`, `${n.format} (${n.reset})`);
     }
     if (nextSeq !== null) {
       if (!Number.isInteger(nextSeq) || nextSeq < 1) throw new AppError("The next number must be a whole number from 1.");
       const key = counterKey(n, now);
       const last = (await one<{ last: number }>(c, "select last from doc_counter where key = $1 for update", [key]))?.last ?? 0;
       await c.query("insert into doc_counter(key, last) values ($1,$2) on conflict (key) do update set last = $2", [key, nextSeq - 1]);
-      await log(c, actor, "setting", 0, "CHANGE", `counter ${key}`, String(last), String(nextSeq - 1));
+      await auditChange(c, actor, "setting", 0, "CHANGE", `counter ${key}`, String(last), String(nextSeq - 1));
     }
   });
 }

@@ -277,7 +277,7 @@ function worklistWhere(actor: Actor, filter: string, status?: NcfStatus, term = 
       or exists (select 1 from purchase_order p2 where p2.id = n.po_id and p2.po_no ilike '%' || ${t} || '%')
       or exists (select 1 from mrreg m2 where m2.id = n.mrreg_id and m2.mrreg_no ilike '%' || ${t} || '%'))`);
   }
-  // Each department sees only the stages it works with (core.STATUSES_BY_ROLE).
+  // Each department sees only the stages it works with (visibility.ts, STATUSES_BY_ROLE).
   add("n.status = any($?)", visibleStatuses(actor));
   // Business Unit scope for QC and approvers; Purchasing, PCH, Auditor and Admin see all.
   if (!hasRole(actor, ["PURCHASING", "PCH_DIV_HEAD", "AUDITOR", "SUPER_ADMIN"])) {

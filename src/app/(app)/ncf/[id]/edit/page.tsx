@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { ActionForm, Submit } from "@/components/ui/action-form";
 import { EvidenceList, ItemTable } from "@/components/ncf/ncf-document";
 import { EvidencePicker } from "@/components/ncf/evidence-picker";
+import { Modal } from "@/components/ui/modal";
+import { ModalForm } from "@/components/ui/modal-form";
 import { PhoneActionBar } from "@/components/ui/phone-action-bar";
 import { ScrollToFlag } from "@/components/ui/scroll-to-flag";
 import { Banner, Field, FieldGrid, PageHead, Section, Shell } from "@/components/ui";
@@ -212,14 +214,37 @@ export default async function EditNcf({ params, searchParams }: { params: Promis
         ) : (
           <Banner kind="ok">Complete. Submitting locks the content, creates a numbered version and signs it with your name.</Banner>
         )}
-        <ActionForm action={submitAction} className="mt-4 flex flex-wrap items-end gap-3">
-          <input type="hidden" name="id" value={d.id} />
-          <div className="min-w-[240px]">
-            <label htmlFor="password" className="label">Your password, to sign</label>
-            <input id="password" name="password" type="password" required={missing.length === 0} autoComplete="current-password" className="input" />
+        {missing.length > 0 ? (
+          // Not complete: this shows the cards still to fill (highlighted) without asking for the password.
+          <ActionForm action={submitAction} className="mt-4">
+            <input type="hidden" name="id" value={d.id} />
+            <Submit className="btn btn-advance">Sign and submit</Submit>
+          </ActionForm>
+        ) : (
+          <div className="mt-4">
+            <Modal label="Sign and submit" buttonClassName="btn btn-advance" title={`Sign NCF ${d.ncf_no}`}
+              description="Check what you are signing, then confirm with your password.">
+              <ModalForm action={submitAction} className="flex flex-col gap-4">
+                <input type="hidden" name="id" value={d.id} />
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-sm border border-hairline bg-slate-50 p-3 text-[13px]">
+                  <div><dt className="label mb-0">Supplier</dt><dd className="truncate">{d.supplier_name}</dd></div>
+                  <div><dt className="label mb-0">No. PO</dt><dd className="num">{d.po_no}</dd></div>
+                  <div><dt className="label mb-0">Barang</dt><dd className="num">{d.items.length} item · {d.items.reduce((t, i) => t + i.qty_defect, 0)} cacat</dd></div>
+                  <div><dt className="label mb-0">Bukti</dt><dd className="num">{ownFiles.filter((e) => e.file_id).length} file</dd></div>
+                </dl>
+                <p className="rounded-sm border-l-2 border-advance bg-tint/50 px-3 py-2 text-[12.5px] text-slate-700">
+                  Saya menyatakan isi NCF ini benar. Setelah ditandatangani isinya terkunci sebagai versi baru dan dikirim ke approver
+                  pertama. Tanda tangan ini tercatat dengan nama, jabatan, tanggal dan jam.
+                </p>
+                <div>
+                  <label htmlFor="password" className="label">Your password, to sign</label>
+                  <input id="password" name="password" type="password" required autoComplete="current-password" className="input" autoFocus />
+                </div>
+                <div className="flex justify-end"><Submit className="btn btn-advance">Sign now</Submit></div>
+              </ModalForm>
+            </Modal>
           </div>
-          <Submit className="btn btn-advance">Sign and submit</Submit>
-        </ActionForm>
+        )}
       </Section>
       <PhoneActionBar href="#submit" label={missing.length ? `Sign and submit · ${missing.length} to complete` : "Sign and submit"} />
     </Shell>

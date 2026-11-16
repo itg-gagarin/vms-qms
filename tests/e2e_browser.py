@@ -21,13 +21,22 @@ def shot(page, name):
     page.screenshot(path=os.path.join(OUT, f"{name}.png"), full_page=True)
 
 
+def sign_approve(page):
+    """The approver opens the signing dialog, confirms with the password, and lands on the signed NCF."""
+    page.click("button:visible:has-text('Approve')")
+    expect(page.locator("dialog").get_by_text("Saya menyetujui isi NCF ini")).to_be_visible()
+    page.fill("#pw-approved", PW)
+    page.click("dialog button:has-text('Sign and approve')")
+    expect(page.get_by_text(re.compile(r"^Approved and signed\. "))).to_be_visible()
+
+
 def login(page, who):
     page.context.clear_cookies()
     page.goto(f"{BASE}/login")
     page.fill("#email", f"{who}@demo.local")
     page.fill("#password", PW)
     page.click("button:visible:has-text('Sign in')")
-    page.wait_for_url(re.compile(r"/ncf"))
+    page.wait_for_url(re.compile(r"/home"))
 
 
 def main():
@@ -77,11 +86,14 @@ def main():
         expect(page.get_by_text("Evidence added.")).to_be_visible()
         shot(page, "02-edit-complete")
 
+        # Signing happens in a dialog that shows what is signed; a wrong password is refused there
+        page.click("button:visible:has-text('Sign and submit')")
         page.fill("#password", "wrong")
-        page.click("button:visible:has-text('Sign and submit')")
-        expect(page.locator("p[role=alert]")).to_contain_text("Password")
+        page.click("dialog button:has-text('Sign now')")
+        expect(page.locator("dialog p[role=alert]")).to_contain_text("Password")
+        shot(page, "02b-sign-dialog")
         page.fill("#password", PW)
-        page.click("button:visible:has-text('Sign and submit')")
+        page.click("dialog button:has-text('Sign now')")
         page.wait_for_url(ncf_url)
         expect(page.get_by_text("Waiting approval").first).to_be_visible()
 
@@ -90,9 +102,7 @@ def main():
             login(page, who)
             page.goto(f"{BASE}/ncf?tab=approve")
             page.click(f"a:visible:has-text('{no.replace('No. ', '')}')")
-            page.fill("#pw", PW)
-            page.click("button:visible:has-text('Setujui')")
-            expect(page.get_by_text(re.compile(r"^Approved and signed\. "))).to_be_visible()
+            sign_approve(page)
         shot(page, "03-approved-gm")
 
         # 3. Purchasing exports the form, emails it themselves, marks it sent (no link leaves the system)
@@ -140,7 +150,6 @@ def main():
         page.fill("#qty_return", "3")
         page.click("button:visible:has-text('Tambah barang')")
         # Submitting too early outlines the cards still to fill (C, D, E, F) and scrolls to the first
-        page.fill("#password", PW)
         page.click("button:visible:has-text('Sign and submit')")
         page.wait_for_url(re.compile(r"/edit\?check=1"))
         flagged = page.locator("[data-missing=flag]").evaluate_all("els => els.map(e => e.id)")
@@ -157,15 +166,14 @@ def main():
         page.click("button:visible:has-text('Upload')")
         expect(page.get_by_text("Evidence added.")).to_be_visible()
         shot(page, "05b-draft-po")
-        page.fill("#password", PW)
         page.click("button:visible:has-text('Sign and submit')")
+        page.fill("#password", PW)
+        page.click("dialog button:has-text('Sign now')")
         page.wait_for_url(url2)
         for who in ["qcm", "whs", "gm"]:
             login(page, who)
             page.goto(url2)
-            page.fill("#pw", PW)
-            page.click("button:visible:has-text('Setujui')")
-            expect(page.get_by_text(re.compile(r"^Approved and signed\. "))).to_be_visible()
+            sign_approve(page)
         login(page, "pur")
         page.goto(url2)
         page.click("button:visible:has-text('Mark as sent')")

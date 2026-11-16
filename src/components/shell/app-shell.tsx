@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  BarChart3, Bell, Building2, ChevronDown, ChevronsLeft, ChevronsRight, ClipboardCheck, Factory, FileWarning, LogOut, Menu, Search, Send,
-  SlidersHorizontal, X, type LucideIcon,
+  BarChart3, Bell, Building2, ChevronDown, ClipboardCheck, Factory, FileText, FileWarning, House, LogOut, Menu, PanelLeftClose, PanelLeftOpen,
+  PenLine, Plus, Search, Send, SlidersHorizontal, X, type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -11,7 +11,7 @@ import { markAllReadAction, openNoteAction, setNavAction } from "@/app/(app)/she
 import { setBuAction } from "@/app/(app)/bu-actions";
 import { logoutAction } from "@/app/login/actions";
 
-export type NavIcon = "ncf" | "receipt" | "mail" | "settings" | "chart" | "supplier";
+export type NavIcon = "home" | "ncf" | "receipt" | "mail" | "settings" | "chart" | "supplier";
 /** A sub-link that is the parent's page with one query value, e.g. /ncf?status=DRAFT. */
 export type NavChild = { label: string; param: string; value: string; count?: number };
 export type NavItem = { href: string; label: string; icon: NavIcon; children?: NavChild[]; count?: number };
@@ -19,9 +19,12 @@ export type NavGroup = { label: string; items: NavItem[] };
 export type NavUser = { name: string; position: string | null; roles: string[] };
 export type BuOption = { id: number; code: string; name: string };
 export type NoteItem = { id: number; title: string; at: string; read: boolean; todo: boolean | null };
+/** The phone bar's centre button: the one thing this person does most (see platform/access primaryRole). */
+export type CentreAction = { href: string; label: string; icon: "plus" | "sign" | "send" | "chart"; count?: number };
 
 // Lucide is the single icon source (INTEC design system).
 const ICONS: Record<NavIcon, LucideIcon> = {
+  home: House,
   ncf: FileWarning, receipt: ClipboardCheck, mail: Send, settings: SlidersHorizontal, chart: BarChart3, supplier: Factory,
 };
 
@@ -173,7 +176,7 @@ function UnitBlock({ units, selected, compact }: { units: BuOption[]; selected?:
 }
 
 /** The signed-in person at the bottom of the sidebar, with roles and Sign out. */
-function Account({ user, compact }: { user: NavUser; compact: boolean }) {
+function Account({ user, compact, drawer }: { user: NavUser; compact: boolean; drawer: boolean }) {
   const ref = useRef<HTMLDetailsElement>(null);
   useOutside(ref);
   return (
@@ -189,10 +192,12 @@ function Account({ user, compact }: { user: NavUser; compact: boolean }) {
             <span className="truncate text-[11px] text-muted">{user.position}</span>
           </span>
         )}
-        {!compact && <ChevronDown size={14} className="shrink-0 rotate-180 text-muted" aria-hidden="true" />}
+        {!compact && <ChevronDown size={14} className={`shrink-0 text-muted ${drawer ? "rotate-180" : "-rotate-90"}`} aria-hidden="true" />}
         <span className="sr-only">Account menu</span>
       </summary>
-      <div className={`absolute bottom-full z-50 mb-1 w-60 rounded-md border border-hairline bg-white p-1.5 shadow-[0_8px_24px_rgba(15,23,42,0.10)] ${compact ? "left-0" : "left-0 right-0 w-auto"}`}>
+      {/* Desktop: opens to the right of the sidebar. Phone drawer: opens above the account row. */}
+      <div className={`absolute z-50 rounded-md border border-hairline bg-white p-1.5 shadow-[0_8px_24px_rgba(15,23,42,0.10)] ${
+        drawer ? "bottom-full left-0 right-0 mb-1" : "bottom-0 left-full ml-3 w-64"}`}>
         <div className="px-2.5 py-2">
           <div className="text-[13px] font-semibold text-ink">{user.name}</div>
           {user.position && <div className="text-[12px] text-muted">{user.position}</div>}
@@ -267,9 +272,9 @@ function Notifications({ notes, unread }: { notes: NoteItem[]; unread: number })
  * in on phones, and a top bar with the NCF search and notifications. The collapsed choice is kept in a cookie so the
  * server draws the right width on the first paint.
  */
-export function AppShell({ groups, user, search, units, bu, notes, unread, collapsed: initial, children }: {
+export function AppShell({ groups, user, search, units, bu, notes, unread, collapsed: initial, centre, children }: {
   groups: NavGroup[]; user: NavUser; search: boolean; units: BuOption[]; bu?: number; notes: NoteItem[]; unread: number;
-  collapsed: boolean; children: ReactNode;
+  collapsed: boolean; centre: CentreAction; children: ReactNode;
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
@@ -295,14 +300,24 @@ export function AppShell({ groups, user, search, units, bu, notes, unread, colla
   const rail = collapsed;
   const pad = rail ? "lg:pl-16" : "lg:pl-64";
 
-  const side = (compact: boolean) => (
+  const side = (compact: boolean, drawer: boolean) => (
     <>
       <div className={`flex h-14 shrink-0 items-center border-b border-hairline ${compact ? "justify-center px-2" : "justify-between px-4"}`}>
         <Logo compact={compact} />
-        <button type="button" onClick={() => setOpenOn(null)} className="rounded-sm p-1.5 text-muted hover:bg-row-hover lg:hidden">
-          <X size={18} aria-hidden="true" /><span className="sr-only">Close menu</span>
-        </button>
+        {drawer && (
+          <button type="button" onClick={() => setOpenOn(null)} className="rounded-sm p-1.5 text-muted hover:bg-row-hover">
+            <X size={18} aria-hidden="true" /><span className="sr-only">Close menu</span>
+          </button>
+        )}
       </div>
+      {!drawer && (
+        <div className={`flex shrink-0 px-2 pt-2 ${compact ? "justify-center" : "justify-end"}`}>
+          <button type="button" onClick={toggle} className="rounded-sm p-1.5 text-slate-500 hover:bg-row-hover hover:text-ink"
+            aria-label={compact ? "Expand sidebar" : "Collapse sidebar"} title={compact ? "Expand sidebar" : "Collapse sidebar"}>
+            {compact ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}
+          </button>
+        </div>
+      )}
       <UnitBlock units={units} selected={bu} compact={compact} />
       <nav aria-label="Main" className={`flex-1 overflow-y-auto py-3 ${compact ? "px-2" : "px-3"}`}>
         {groups.map((g) => (
@@ -314,12 +329,8 @@ export function AppShell({ groups, user, search, units, bu, notes, unread, colla
           </div>
         ))}
       </nav>
-      <div className={`shrink-0 border-t border-hairline ${compact ? "px-2 py-2" : "px-2 py-2"}`}>
-        <Account user={user} compact={compact} />
-        <button type="button" onClick={toggle} className={`mt-1 hidden w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-[12px] text-muted hover:bg-row-hover hover:text-ink lg:flex ${compact ? "justify-center" : ""}`}
-          aria-label={compact ? "Expand sidebar" : "Collapse sidebar"} title={compact ? "Expand sidebar" : "Collapse sidebar"}>
-          {compact ? <ChevronsRight size={16} aria-hidden="true" /> : <><ChevronsLeft size={16} aria-hidden="true" /> Collapse</>}
-        </button>
+      <div className="shrink-0 border-t border-hairline p-2">
+        <Account user={user} compact={compact} drawer={drawer} />
       </div>
     </>
   );
@@ -328,19 +339,19 @@ export function AppShell({ groups, user, search, units, bu, notes, unread, colla
     <>
       {/* Desktop: the sidebar, full or as an icon rail */}
       <aside className={`no-print fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-hairline bg-white transition-[width] duration-150 lg:flex ${rail ? "w-16" : "w-64"}`}>
-        {side(rail)}
+        {side(rail, false)}
       </aside>
       {/* Phones and tablets: the same sidebar as a drawer */}
       {open && <div className="no-print fixed inset-0 z-40 bg-ink/40 lg:hidden" onClick={() => setOpenOn(null)} aria-hidden="true" />}
       <aside id="app-sidebar" className={`no-print fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-hairline bg-white transition-transform lg:hidden ${open ? "translate-x-0" : "-translate-x-full"}`}>
-        {side(false)}
+        {side(false, true)}
       </aside>
 
       <div className={`transition-[padding] duration-150 ${pad}`}>
         <header className="no-print sticky top-0 z-30 border-b border-hairline bg-white/95 backdrop-blur">
           <div className="flex h-14 items-center gap-3 px-3 sm:px-6">
             <button type="button" onClick={() => setOpenOn(pathname)} aria-expanded={open} aria-controls="app-sidebar"
-              className="-ml-1 rounded-sm p-2 text-slate-700 hover:bg-row-hover lg:hidden">
+              className="-ml-1 hidden rounded-sm p-2 text-slate-700 hover:bg-row-hover md:inline-flex lg:hidden">
               <Menu size={20} aria-hidden="true" /><span className="sr-only">Open menu</span>
             </button>
             <div className="lg:hidden"><Logo /></div>
@@ -355,12 +366,71 @@ export function AppShell({ groups, user, search, units, bu, notes, unread, colla
               </form>
             ) : <div className="flex-1" />}
             <div className="ml-auto flex items-center gap-1">
-              <Notifications notes={notes} unread={unread} />
+              {search && (
+                <Link href="/ncf?focus=search" className="rounded-sm p-2 text-slate-600 hover:bg-row-hover sm:hidden" aria-label="Search NCFs">
+                  <Search size={18} aria-hidden="true" />
+                </Link>
+              )}
+              <div className="hidden md:block"><Notifications notes={notes} unread={unread} /></div>
             </div>
           </div>
         </header>
-        {children}
+        {/* Phones: room under the content for the floating bar */}
+        <div className="pb-28 md:pb-0">{children}</div>
       </div>
+      <MobileNav centre={centre} unread={unread} onMenu={() => setOpenOn(pathname)} menuOpen={open} />
     </>
+  );
+}
+
+const CENTRE_ICONS: Record<CentreAction["icon"], LucideIcon> = { plus: Plus, sign: PenLine, send: Send, chart: BarChart3 };
+
+/**
+ * Phones: a floating bar with the four places people go most and, in the middle, the one action this person does
+ * most (QC: new NCF; approvers: to sign; Purchasing and PCH: the outbox; Auditor and Admin: reports).
+ */
+function MobileNav({ centre, unread, onMenu, menuOpen }: { centre: CentreAction; unread: number; onMenu: () => void; menuOpen: boolean }) {
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const here = `${pathname}${params.size ? `?${params}` : ""}`;
+  const Centre = CENTRE_ICONS[centre.icon];
+  const item = (href: string, label: string, Icon: LucideIcon, on: boolean, badge?: number) => (
+    <Link href={href} aria-current={on ? "page" : undefined}
+      className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-[10.5px] font-medium no-underline hover:no-underline ${
+        on ? "text-tint-ink" : "text-slate-500"}`}>
+      <Icon size={20} strokeWidth={on ? 2.4 : 2} aria-hidden="true" />
+      {label}
+      {!!badge && (
+        <span className="absolute right-[22%] top-0.5 min-w-[16px] rounded-full bg-status-red px-1 text-center font-mono text-[10px] font-semibold leading-4 text-white">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
+    </Link>
+  );
+  return (
+    <nav aria-label="Quick navigation" className="no-print fixed inset-x-3 z-30 md:hidden" style={{ bottom: "max(12px, env(safe-area-inset-bottom))" }}>
+      <div className="flex h-16 items-center rounded-2xl border border-hairline bg-white/95 px-1.5 shadow-[0_10px_30px_rgba(15,23,42,0.14)] backdrop-blur">
+        {item("/home", "Home", House, pathname === "/home")}
+        {item("/ncf", "NCFs", FileText, pathname === "/ncf" || (pathname.startsWith("/ncf/") && pathname !== "/ncf/new"))}
+        <div className="flex flex-1 justify-center">
+          <Link href={centre.href} aria-label={centre.label} aria-current={here === centre.href ? "page" : undefined}
+            className="relative -mt-7 flex size-14 items-center justify-center rounded-full bg-advance text-advance-ink no-underline shadow-[0_8px_20px_rgba(141,198,63,0.45)] ring-4 ring-page hover:no-underline active:scale-95">
+            <Centre size={24} strokeWidth={2.4} aria-hidden="true" />
+            {!!centre.count && (
+              <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-status-red px-1 text-center font-mono text-[10px] font-semibold leading-[18px] text-white ring-2 ring-white">
+                {centre.count > 99 ? "99+" : centre.count}
+              </span>
+            )}
+          </Link>
+        </div>
+        {item("/notifications", "Alerts", Bell, pathname === "/notifications", unread)}
+        <button type="button" onClick={onMenu} aria-expanded={menuOpen} aria-controls="app-sidebar"
+          className={`flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-[10.5px] font-medium ${menuOpen ? "text-tint-ink" : "text-slate-500"}`}>
+          <Menu size={20} aria-hidden="true" />
+          Menu
+        </button>
+      </div>
+      <span className="sr-only">{centre.label}</span>
+    </nav>
   );
 }

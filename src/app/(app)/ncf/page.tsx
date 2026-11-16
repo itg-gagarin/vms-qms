@@ -10,7 +10,7 @@ import { isNcfStatus, STATUS_LABEL, type NcfStatus } from "@/modules/ncf/labels"
 import { countNcf, listNcf } from "@/modules/ncf";
 import { fmtDate } from "@/platform/util";
 
-// Worklist tabs. A tab shows only if the user may see at least one of its statuses (core.STATUSES_BY_ROLE).
+// Worklist tabs. A tab shows only if the user may see at least one of its statuses (STATUSES_BY_ROLE in modules/ncf/visibility.ts).
 const TABS: { key: string; label: string; role: Role[] | null; statuses: NcfStatus[] | null }[] = [
   { key: "mine", label: "My drafts", role: ["QC_INSPECTOR"], statuses: ["DRAFT", "WAITING_APPROVAL"] },
   { key: "approve", label: "To approve", role: ["NCF_APPROVER"], statuses: ["WAITING_APPROVAL"] },
@@ -21,7 +21,7 @@ const TABS: { key: string; label: string; role: Role[] | null; statuses: NcfStat
   { key: "all", label: "All", role: null, statuses: null },
 ];
 
-export default async function NcfList({ searchParams }: { searchParams: Promise<{ tab?: string; status?: string; page?: string; size?: string; q?: string }> }) {
+export default async function NcfList({ searchParams }: { searchParams: Promise<{ tab?: string; status?: string; page?: string; size?: string; q?: string; focus?: string }> }) {
   const user = await requireUser();
   const seen = visibleStatuses(user);
   const tabs = TABS.filter((t) => (!t.role || hasRole(user, t.role)) && (!t.statuses || t.statuses.some((x) => seen.includes(x))));
@@ -60,7 +60,7 @@ export default async function NcfList({ searchParams }: { searchParams: Promise<
               <div className="relative min-w-0 max-w-sm flex-1">
                 <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                 <label htmlFor="q" className="sr-only">Search</label>
-                <input id="q" name="q" defaultValue={term} placeholder="No. Komplain, supplier, PO, MRReg" enterKeyHint="search" className="input h-9 pl-9 md:h-9" />
+                <input id="q" name="q" defaultValue={term} autoFocus={sp.focus === "search"} placeholder="No. Komplain, supplier, PO, MRReg" enterKeyHint="search" className="input h-9 pl-9 md:h-9" />
               </div>
               {term && <Link href={qs({ q: undefined, tab: status ? undefined : tab, status })} className="btn h-9 px-2.5 md:h-9" aria-label="Clear search"><X size={15} aria-hidden="true" /></Link>}
             </form>

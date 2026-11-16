@@ -1,7 +1,10 @@
-import { Clock, FileDown, Printer } from "lucide-react";
+import { Check, Clock, CornerUpLeft, FileDown, Printer, X } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm, Submit } from "@/components/ui/action-form";
+import { Modal } from "@/components/ui/modal";
+import { ModalForm } from "@/components/ui/modal-form";
+import { ReasonChips } from "@/components/ncf/reason-chips";
 import { AuditTimeline } from "@/components/ncf/audit-timeline";
 import { EvidenceList, NcfPart1, NcfPart2 } from "@/components/ncf/ncf-document";
 import { PhoneActionBar } from "@/components/ui/phone-action-bar";
@@ -18,7 +21,7 @@ import { AppError, fmtDate, fmtDateTime } from "@/platform/util";
 import { closeAction, decideAction, markReturnedAction, markSentAction } from "../actions";
 
 const MESSAGES: Record<string, string> = {
-  "approved-step": "Approved and signed. The next approver is notified.",
+  "approved-step": "Approved and signed. The next approver is notified. Nothing else waits for your signature.",
   "approved-final": "Approved and signed. The NCF is now with Purchasing to send.",
   returned: "Returned to QC with your comment.",
   rejected: "Rejected. The NCF is void.",
@@ -29,10 +32,10 @@ const MESSAGES: Record<string, string> = {
 
 type Role = "qc" | "approver" | "purchasing" | null;
 
-export default async function NcfPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ msg?: string }> }) {
+export default async function NcfPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ msg?: string; prev?: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const { msg } = await searchParams;
+  const { msg, prev } = await searchParams;
   // The trail starts loading with the NCF; it is only shown once getNcf has checked the viewer may read it.
   const trailP = auditTrail(Number(id));
   trailP.catch(() => {});
@@ -111,6 +114,7 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
       </section>
 
       {msg && MESSAGES[msg] && <Banner kind="ok">{MESSAGES[msg]}</Banner>}
+      {msg === "signed-next" && prev && <Banner kind="ok">Signed NCF {prev}. This is the next NCF waiting for your signature.</Banner>}
 
       {actor && actor !== "qc" && (
         <div id="action" className="scroll-mt-20">
@@ -201,30 +205,70 @@ function StatusStrip({ d, pending, runningDays }: { d: NcfDetail; pending?: NcfD
   );
 }
 
+/**
+ * The approver's decision. Each choice opens a signing dialog that shows what is being signed and what the signature
+ * means; the password confirms it (electronic signature, CLAUDE.md). Returning or rejecting needs a reason.
+ */
 function ApprovalPanel({ d, pending }: { d: NcfDetail; pending: NcfDetail["approvals"][number] }) {
-  return (
-    <Section title="Your approval" aside={`Step ${pending.step_no}: ${pending.title}`}>
-      <ActionForm action={decideAction} className="grid gap-3 md:grid-cols-[1fr_280px]">
+  const steps = d.approvals.filter((a) => a.step_no > 0).length;
+  const defects = d.items.reduce((t, i) => t + i.qty_defect, 0);
+  const what = (
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-sm border border-hairline bg-slate-50 p-3 text-[13px]">
+      <div><dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">NCF</dt><dd className="num">{d.ncf_no} · versi {d.version?.version_no}</dd></div>
+      <div><dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">Supplier</dt><dd className="truncate">{d.supplier_name}</dd></div>
+      <div><dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">Barang</dt><dd className="num">{d.items.length} item · {defects} cacat</dd></div>
+      <div><dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">Step</dt><dd>{pending.step_no} of {steps} · {pending.title}</dd></div>
+    </dl>
+  );
+  const sign = (decision: "APPROVED" | "RETURNED" | "REJECTED") => {
+    const key = decision.toLowerCase();
+    const needsReason = decision !== "APPROVED";
+    const meaning = {
+      APPROVED: `Saya menyetujui isi NCF ini (versi ${d.version?.version_no}) sebagai ${pending.title}.`,
+      RETURNED: "Saya mengembalikan NCF ini ke QC untuk diperbaiki. QC akan menandatangani versi baru.",
+      REJECTED: "Saya menolak NCF ini. NCF menjadi Void dan alasannya disimpan.",
+    }[decision];
+    return (
+      <ModalForm action={decideAction} className="flex flex-col gap-4">
         <input type="hidden" name="id" value={d.id} />
-        <div>
-          <label htmlFor="comment" className="label">Comment (required to return or reject)</label>
-          <textarea id="comment" name="comment" rows={3} className="input" />
-        </div>
-        <div className="flex flex-col gap-2">
-          <div>
-            <label htmlFor="pw" className="label">Your password, to sign</label>
-            <input id="pw" name="password" type="password" required autoComplete="current-password" className="input" />
+        <input type="hidden" name="decision" value={decision} />
+        <input type="hidden" name="ncf_no" value={d.ncf_no} />
+        {what}
+        {needsReason && (
+          <div className="flex flex-col gap-2">
+            <label htmlFor={`comment-${key}`} className="label">Reason (QC sees this)</label>
+            <ReasonChips target={`comment-${key}`} reasons={decision === "RETURNED"
+              ? ["Lengkapi foto bukti.", "Periksa kembali jumlah sample dan cacat.", "Perjelas uraian masalah.", "PO atau barang tidak sesuai."]
+              : ["Bukan cacat, masih dalam toleransi.", "Barang sesuai spesifikasi PO.", "NCF ganda untuk penerimaan yang sama."]} />
+            <textarea id={`comment-${key}`} name="comment" rows={3} required minLength={5} className="input" autoFocus />
           </div>
-          <p className="text-[12px] text-muted">
-            Saya menyetujui isi NCF ini (versi {d.version?.version_no}). Persetujuan ini tercatat dengan nama, jabatan, tanggal dan jam.
-          </p>
+        )}
+        <p className="rounded-sm border-l-2 border-advance bg-tint/50 px-3 py-2 text-[12.5px] text-slate-700">
+          {meaning} Tanda tangan ini tercatat dengan nama, jabatan, tanggal dan jam.
+        </p>
+        <div>
+          <label htmlFor={`pw-${key}`} className="label">Your password, to sign</label>
+          <input id={`pw-${key}`} name="password" type="password" required autoComplete="current-password" className="input" autoFocus={!needsReason} />
         </div>
-        <div className="flex flex-wrap gap-2 md:col-span-2">
-          <Submit name="decision" value="APPROVED" className="btn btn-advance">Setujui</Submit>
-          <Submit name="decision" value="RETURNED" className="btn">Kembalikan</Submit>
-          <Submit name="decision" value="REJECTED" className="btn btn-danger">Tolak</Submit>
+        <div className="flex justify-end">
+          <Submit className={decision === "APPROVED" ? "btn btn-advance" : decision === "REJECTED" ? "btn btn-danger" : "btn btn-commit"}>
+            {decision === "APPROVED" ? "Sign and approve" : decision === "RETURNED" ? "Sign and return" : "Sign and reject"}
+          </Submit>
         </div>
-      </ActionForm>
+      </ModalForm>
+    );
+  };
+  return (
+    <Section title="Your decision" aside={`Step ${pending.step_no} of ${steps}: ${pending.title}`}>
+      <p className="text-[13px] text-muted">Read the NCF below, then decide. Each decision is your electronic signature, confirmed with your password.</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Modal label="Approve" icon={<Check size={16} aria-hidden="true" />} buttonClassName="btn btn-advance" title={`Approve NCF ${d.ncf_no}`}
+          description="Check what you are signing, then confirm with your password.">{sign("APPROVED")}</Modal>
+        <Modal label="Return to QC" icon={<CornerUpLeft size={16} aria-hidden="true" />} title={`Return NCF ${d.ncf_no} to QC`}
+          description="QC corrects the form and signs a new version; the approvals start again.">{sign("RETURNED")}</Modal>
+        <Modal label="Reject" icon={<X size={16} aria-hidden="true" />} buttonClassName="btn border-red-200 text-red-700 hover:bg-red-50" title={`Reject NCF ${d.ncf_no}`}
+          description="The NCF becomes void. Use this when it is not a supplier non-conformity.">{sign("REJECTED")}</Modal>
+      </div>
     </Section>
   );
 }

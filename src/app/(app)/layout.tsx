@@ -1,15 +1,14 @@
 import { cookies } from "next/headers";
-import { AppShell, type NavGroup, type NavItem } from "@/components/shell/app-shell";
-import { ROLES } from "@/platform/access";
+import { AppShell, type CentreAction, type NavGroup, type NavItem } from "@/components/shell/app-shell";
+import { statusCounts } from "@/modules/ncf";
+import type { NcfStatus } from "@/modules/ncf/labels";
+import { REPORT_ROLES } from "@/modules/ncf/reports";
+import { visibleStatuses } from "@/modules/ncf/visibility";
+import { SUPPLIER_ROLES } from "@/modules/suppliers";
+import { hasRole, primaryRole, ROLES } from "@/platform/access";
 import { requireUser } from "@/platform/auth";
 import { selectedBu, unitsFor } from "@/platform/business-units";
-import { hasRole } from "@/platform/access";
-import { visibleStatuses } from "@/modules/ncf/visibility";
-import type { NcfStatus } from "@/modules/ncf/labels";
-import { statusCounts } from "@/modules/ncf";
 import { inbox } from "@/platform/notifications";
-import { SUPPLIER_ROLES } from "@/modules/suppliers";
-import { REPORT_ROLES } from "@/modules/ncf/reports";
 
 // Sidebar names for the NCF statuses, in workflow order. Every status is listed, so no NCF falls between links.
 const NCF_STATUS_NAV: [NcfStatus, string][] = [
@@ -22,6 +21,10 @@ const NCF_STATUS_NAV: [NcfStatus, string][] = [
   ["VOID", "Void"],
 ];
 
+/**
+ * The frame around every internal page. The menu is grouped by area; a new QMS module adds its group or items here
+ * with the roles that may open it (the same list the module's pages check). Items without a role are left out.
+ */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const seen = visibleStatuses(user);
@@ -33,12 +36,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     cookies(),
   ]);
 
-  // One item per QMS module. A new module adds an entry here with the roles that may open it;
-  // items the user has no role for are left out, and a group with nothing left is hidden.
-  const groups: NavGroup[] = (
-    [
+  const menu: { label: string; items: (NavItem & { show: boolean })[] }[] = [
+      { label: "Workspace", items: [{ href: "/home", label: "Home", icon: "home", show: true }] },
       {
-        label: "Active modules",
+        label: "Quality · NCF",
         items: [
           {
             href: "/ncf", label: "NCF Management", icon: "ncf", show: seen.length > 0, count: counts.toSign || undefined,
@@ -47,23 +48,40 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           },
           { href: "/ncf/new", label: "SAP Goods Receipt", icon: "receipt", show: hasRole(user, "QC_INSPECTOR") },
           { href: "/reports", label: "Reports", icon: "chart", show: hasRole(user, REPORT_ROLES) },
-          { href: "/outbox", label: "Supplier Outbox", icon: "mail", show: hasRole(user, ["PURCHASING", "PCH_DIV_HEAD"]) },
-          { href: "/suppliers", label: "Supplier Master", icon: "supplier", show: hasRole(user, SUPPLIER_ROLES) },
-          { href: "/settings", label: "Master Settings", icon: "settings", show: hasRole(user, "SUPER_ADMIN") },
         ],
       },
-    ] satisfies { label: string; items: (NavItem & { show: boolean })[] }[]
-  )
+      {
+        label: "Purchasing",
+        items: [
+          { href: "/outbox", label: "Supplier Outbox", icon: "mail", show: hasRole(user, ["PURCHASING", "PCH_DIV_HEAD"]) },
+          { href: "/suppliers", label: "Supplier Master", icon: "supplier", show: hasRole(user, SUPPLIER_ROLES) },
+        ],
+      },
+      { label: "Administration", items: [{ href: "/settings", label: "Master Settings", icon: "settings", show: hasRole(user, "SUPER_ADMIN") }] },
+  ];
+  const groups: NavGroup[] = menu
     .map((g) => ({
       label: g.label,
       items: g.items.filter((i) => i.show).map(({ href, label, icon, children, count }) => ({ href, label, icon, children, count })),
     }))
     .filter((g) => g.items.length > 0);
 
+  // The phone bar's centre button follows the person's main role.
+  const centre: CentreAction = {
+    QC_INSPECTOR: { href: "/ncf/new", label: "New NCF", icon: "plus" },
+    NCF_APPROVER: { href: "/ncf?tab=approve", label: "To sign", icon: "sign", count: counts.toSign },
+    PURCHASING: { href: "/outbox", label: "Supplier Outbox", icon: "send", count: counts.byStatus.APPROVED },
+    PCH_DIV_HEAD: { href: "/outbox", label: "Supplier Outbox", icon: "send", count: counts.byStatus.APPROVED },
+    AUDITOR: { href: "/reports", label: "Reports", icon: "chart" },
+    SUPER_ADMIN: { href: "/reports", label: "Reports", icon: "chart" },
+  }[primaryRole(user)] as CentreAction;
+
+  const roleNames = [...new Set(user.roles.map((r) => ROLES.find((x) => x.role === r.role)?.label ?? r.role))];
   return (
-    <AppShell groups={groups} search={seen.length > 0} units={units} bu={bu} collapsed={jar.get("vms_nav")?.value === "collapsed"}
+    <AppShell groups={groups} search={seen.length > 0} units={units} bu={bu} centre={centre}
+      collapsed={jar.get("vms_nav")?.value === "collapsed"}
       notes={notes.items.map((n) => ({ id: n.id, title: n.title, at: new Date(n.at).toISOString(), read: n.read, todo: n.todo }))} unread={notes.unread}
-      user={{ name: user.name, position: user.position, roles: [...new Set(user.roles.map((r) => ROLES.find((x) => x.role === r.role)?.label ?? r.role))] }}>
+      user={{ name: user.name, position: user.position, roles: roleNames }}>
       {children}
     </AppShell>
   );

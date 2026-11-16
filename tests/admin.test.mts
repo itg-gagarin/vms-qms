@@ -80,6 +80,14 @@ describe("Super Admin settings", () => {
     assert.equal(await adm.addRoles(users.admin, nu, "AUDITOR", [demo, u2], null), 1, "unscoped roles cover all units once");
     const got = await adm.getUser(users.admin, nu);
     assert.deepEqual(got.roles.filter((r) => r.role === "QC_INSPECTOR").map((r) => r.bu).sort(), ["BU-DEMO", "BU-TWO"]);
+    // Editing a role: move it to all units with an end date; a second identical role is refused.
+    const two = got.roles.find((r) => r.role === "QC_INSPECTOR" && r.bu === "BU-TWO")!;
+    const demoRole = got.roles.find((r) => r.role === "QC_INSPECTOR" && r.bu === "BU-DEMO")!;
+    await assert.rejects(adm.updateRole(users.admin, two.id, demo, null), /already has/);
+    await adm.updateRole(users.admin, demoRole.id, null, "2027-06-30");
+    const edited = (await adm.getUser(users.admin, nu)).roles.find((r) => r.id === demoRole.id)!;
+    assert.equal(edited.bu, null);
+    assert.match(String(edited.valid_to), /^2027-06-30/);
     const pid = await adm.savePosition(users.admin, null, "QC Supervisor", true);
     await adm.updateUser(users.admin, nu, { name: "Sari", position: "QC Supervisor", email: "sari@demo.local" });
     await adm.savePosition(users.admin, pid, "QC Lead", true);

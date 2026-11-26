@@ -41,10 +41,18 @@ python3 tests/e2e_browser.py
 
 The e2e script needs the app running on port 3000 against a freshly migrated and seeded database.
 
-## Deploying (current test server: Railway)
+## Deploying (current test server: Railway + Neon, Singapore)
 
-The Railway project has two services in US East (`iad`): `web` (this Dockerfile, volume `web-volume` at `/data`) and
-`postgres` (volume at `/var/lib/postgresql/data`). Deploy from the repository root with the Railway CLI:
+- **App:** Railway service `web` in Singapore (`asia-southeast1-eqsg3a`), built from this Dockerfile, with volume
+  `web-volume` at `/data` for evidence files.
+- **Database:** Neon project `integra-qms` (AWS `ap-southeast-1`, Postgres 18), database `qms`. The Neon organisation is
+  managed by Vercel, so new Neon projects are created from Vercel (Storage → Create Database → Neon), not the Neon API.
+  `DATABASE_URL` is the pooled endpoint and `DATABASE_URL_UNPOOLED` the direct one, both `sslmode=verify-full`.
+- **Old database:** the Railway `postgres` service (US East) is no longer used by the app. It is kept as a fallback
+  until someone decides to remove it; its data is the earlier demo set.
+
+Deploy from the repository root with the Railway CLI, one deploy at a time (a second deploy stops the first one,
+including a demo-data load that is still running):
 
 ```bash
 railway up --service web --detach
@@ -52,11 +60,11 @@ railway up --service web --detach
 
 At start-up the container runs `scripts/migrate.ts` (applies new migration files only) and `scripts/seed.ts` (does
 nothing once data exists), then `next start`. Each image writes its own `.deployment-id`, so open browser tabs reload
-after a deploy instead of failing.
+after a deploy instead of failing. Changing a service's region or variables without "skip deploys" also redeploys.
 
-For production, plan: a region near the users (Singapore), automated database backups (Railway's backups need a paid
-plan; otherwise a scheduled `pg_dump` to object storage), HTTPS on the company domain, object storage for evidence
-instead of a volume, and an SMTP worker for `notification_outbox`.
+For production, plan: Neon's paid plan for backups/point-in-time restore and a compute that does not suspend
+(the free plan suspends when idle, so the first request after a quiet period is slower), HTTPS on the company domain,
+object storage for evidence instead of a volume, and an SMTP worker for `notification_outbox`.
 
 ## Database changes
 

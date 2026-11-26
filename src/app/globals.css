@@ -1,49 +1,202 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-@theme {
-  --color-brand: #0b5c7a;
-  --color-brand-dark: #083f54;
-  --color-brand-soft: #e6f0f4;
-  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+/*
+ * Design: shadcn/ui (new-york) structure and components, themed with the INTEC colours.
+ * - primary = INTEC green, the one action that advances work on a screen (text on green is dark, never white)
+ * - commit  = near-black, saving inside a card (shadcn's classic default button)
+ * - everything else is neutral zinc unless it is a state (amber waiting, emerald done, red refused)
+ * Tokens follow shadcn's names (background, foreground, card, muted, accent, border, input, ring, ...), so components
+ * from ui.shadcn.com drop in unchanged. Components live in src/components/ui; see components.json.
+ */
+
+:root {
+  --radius: 0.625rem;
+
+  --background: #ffffff;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+
+  --primary: #8dc63f;             /* INTEC advance green */
+  --primary-foreground: #062c12;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+  --destructive: #dc2626;
+  --commit: #18181b;              /* saving inside a card */
+  --commit-foreground: #fafafa;
+
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #8dc63f;
+
+  --tint: #f2f9e8;                /* pale green wash: active navigation, highlights */
+  --tint-foreground: #3f6212;
+
+  --status-amber: #d97706;
+  --status-emerald: #059669;
+  --status-red: #dc2626;
+
+  --chart-1: #8dc63f;
+  --chart-2: #3f6212;
+  --chart-3: #d97706;
+  --chart-4: #0ea5e9;
+  --chart-5: #a1a1aa;
+  --chart-grid: #f4f4f5;
+
+  --sidebar: #fafafa;
+  --sidebar-foreground: #09090b;
+  --sidebar-primary: #8dc63f;
+  --sidebar-primary-foreground: #062c12;
+  --sidebar-accent: #f4f4f5;
+  --sidebar-accent-foreground: #18181b;
+  --sidebar-border: #e4e4e7;
+  --sidebar-ring: #8dc63f;
 }
 
-body {
-  font-family: var(--font-sans);
+@theme inline {
+  --font-sans: var(--font-geist-sans), "Geist", system-ui, sans-serif;
+  --font-display: var(--font-geist-sans), "Geist", system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-commit: var(--commit);
+  --color-commit-foreground: var(--commit-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-tint: var(--tint);
+  --color-tint-foreground: var(--tint-foreground);
+  --color-status-amber: var(--status-amber);
+  --color-status-emerald: var(--status-emerald);
+  --color-status-red: var(--status-red);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-grid: var(--chart-grid);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* Form controls share one look */
-.input {
-  @apply h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-[15px] text-slate-900 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-100;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  h1, h2, h3, h4 {
+    @apply tracking-tight;
+  }
+  /* Native radios, checkboxes and range inputs take the INTEC green, like the shadcn controls */
+  input[type="radio"], input[type="checkbox"], input[type="range"] {
+    accent-color: var(--primary);
+  }
+  /* In the base layer so text-* utilities on a link can override it. */
+  a {
+    color: var(--tint-foreground);
+  }
+  a:hover {
+    text-decoration: underline;
+  }
 }
-textarea.input {
-  @apply h-auto py-2.5;
-}
-.label {
-  @apply mb-1.5 block text-[13px] font-semibold text-slate-700;
-}
-.btn {
-  @apply inline-flex h-11 items-center justify-center gap-2 rounded-md border border-brand px-4 text-[15px] font-semibold text-brand hover:bg-brand-soft disabled:opacity-50;
-}
-.btn-primary {
-  @apply bg-brand text-white hover:bg-brand-dark;
-}
-.btn-danger {
-  @apply border-red-700 text-red-700 hover:bg-red-50;
-}
-.card {
-  @apply rounded-xl border border-slate-200 bg-white p-6;
-}
-.h2 {
-  @apply text-lg font-semibold text-slate-900;
-}
-.table th {
-  @apply bg-slate-100 px-3 py-2 text-left text-[13px] font-semibold text-slate-700;
-}
-.table td {
-  @apply border-t border-slate-200 px-3 py-2 align-top;
-}
-a {
-  color: var(--color-brand);
+
+/*
+ * Shared classes for plain elements (native inputs, selects, buttons in Server Action forms, tables). They carry the
+ * same styles as the shadcn components (Input, Button variants, Table, Card), so a plain <button className="btn">
+ * and <Button variant="outline"> look the same. In the components layer, so a utility on the element still wins.
+ */
+@layer components {
+  /* = <Input>. 16px and 44px high on phones: iOS zooms into smaller fields, and thumbs need the height. */
+  .input {
+    @apply flex h-11 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-[16px] shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:h-9 md:text-sm;
+  }
+  textarea.input {
+    @apply h-auto min-h-16 py-2;
+  }
+  select.input {
+    @apply bg-background pr-8;
+  }
+  /* = <Label> */
+  .label {
+    @apply mb-2 block text-sm leading-none font-medium text-foreground;
+  }
+  /* = <Button variant="outline">: every secondary action */
+  .btn {
+    @apply inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md border bg-background px-4 text-sm font-medium whitespace-nowrap text-foreground no-underline shadow-xs transition-all outline-none hover:bg-accent hover:text-accent-foreground hover:no-underline focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 md:h-9 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4;
+  }
+  /* = <Button>: the one action that advances the work on a screen (submit, approve, send, close) */
+  .btn-advance, .btn-primary {
+    @apply border-transparent bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground;
+  }
+  /* = <Button variant="commit">: saving inside a card */
+  .btn-commit {
+    @apply border-transparent bg-commit text-commit-foreground hover:bg-commit/90 hover:text-commit-foreground;
+  }
+  /* = <Button variant="destructive"> */
+  .btn-danger {
+    @apply border-transparent bg-destructive text-white hover:bg-destructive/90 hover:text-white;
+  }
+  /* = <Card> */
+  .card {
+    @apply rounded-xl border bg-card p-6 text-card-foreground shadow-sm;
+  }
+  .h2 {
+    @apply leading-none font-semibold text-foreground;
+  }
+  /* = <Table>: header stays put when the table scrolls */
+  .table th {
+    @apply sticky top-0 z-10 h-10 border-b bg-muted/60 px-3 text-left align-middle text-[13px] font-medium whitespace-nowrap text-muted-foreground backdrop-blur first:pl-4 last:pr-4;
+  }
+  .table td {
+    @apply border-b px-3 py-2.5 align-middle text-sm first:pl-4 last:pr-4;
+  }
+  .table tbody tr {
+    @apply transition-colors hover:bg-muted/50;
+  }
+  .table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+  /* Anything compared down a column: codes, quantities, dates */
+  .num {
+    @apply font-mono text-[13px] tabular-nums;
+  }
 }
 
 /* A4 print */
@@ -58,9 +211,26 @@ a {
   .no-print {
     display: none !important;
   }
+  /* One A4 sheet per page. Break before each later sheet (not after every one, which adds a blank last page),
+     and pin the height to exactly A4 so a fraction of a pixel cannot spill onto an extra page. */
   .sheet {
     margin: 0 !important;
     box-shadow: none !important;
-    break-after: page;
+    height: 297mm !important;
+    overflow: hidden;
   }
+  .sheet + .sheet {
+    break-before: page;
+  }
+}
+
+@keyframes loading {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+/* Fields our own form check marked invalid (forms use noValidate, so the browser shows no bubbles) */
+.input[aria-invalid="true"] {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 20%, transparent);
 }

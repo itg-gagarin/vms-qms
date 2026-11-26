@@ -1,26 +1,35 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ActionForm, Submit } from "@/components/action-form";
-import { EvidenceList, ItemTable } from "@/components/ncf-document";
-import { Banner, Field, Section, Shell } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
-import { hasRole } from "@/lib/core";
-import { LIMITS } from "@/lib/files";
-import { GOODS_STATUS } from "@/lib/labels";
-import { getNcf, missingForSubmit, mrregLines, problemCategories } from "@/lib/ncf";
-import { AppError, fmtDate } from "@/lib/util";
+import { ActionForm, Submit } from "@/components/ui/action-form";
+import { EvidenceList, ItemTable } from "@/components/ncf/ncf-document";
+import { EvidencePicker } from "@/components/ncf/evidence-picker";
+import { Modal } from "@/components/ui/modal";
+import { ModalForm } from "@/components/ui/modal-form";
+import { PhoneActionBar } from "@/components/ui/phone-action-bar";
+import { ScrollToFlag } from "@/components/ui/scroll-to-flag";
+import { Banner, Field, FieldGrid, PageHead, Section, Shell } from "@/components/ui";
+import { requireUser } from "@/platform/auth";
+import { hasRole } from "@/platform/access";
+import { LIMITS } from "@/platform/files";
+import { GOODS_STATUS } from "@/modules/ncf/labels";
+import { getNcf, missingParts, mrregLines, type DraftPart, mrregPos, problemCategories } from "@/modules/ncf";
+import { AppError, fmtDate } from "@/platform/util";
 import {
   addEvidenceAction,
   addItemAction,
   removeEvidenceAction,
   removeItemAction,
   saveHeaderAction,
+  setPoAction,
   submitAction,
 } from "../../actions";
 
-export default async function EditNcf({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditNcf({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ check?: string }> }) {
   const user = await requireUser();
   const { id } = await params;
+  // The pick lists load alongside the NCF; they are only used once getNcf has checked access.
+  const listsP = Promise.all([mrregLines(Number(id)), problemCategories(), mrregPos(Number(id))]);
+  listsP.catch(() => {});
   let d;
   try {
     d = await getNcf(user, Number(id));
@@ -29,36 +38,51 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
     throw e;
   }
   if (d.status !== "DRAFT" || !hasRole(user, "QC_INSPECTOR", d.bu_id)) redirect(`/ncf/${d.id}`);
-  const [lines, categories] = await Promise.all([mrregLines(d.id), problemCategories()]);
+  const [lines, categories, pos] = await listsP;
   const free = lines.filter((l) => !l.used);
-  const missing = missingForSubmit(d);
+  const missing = missingParts(d);
+  const flag = (await searchParams).check === "1" && missing.length > 0;
+  const mark = (part: DraftPart) => ({ id: `part-${part}`, flag, missing: missing.filter((m) => m.part === part).map((m) => m.text) });
   const ownFiles = d.evidence.filter((e) => e.capa_response_id === null);
 
   return (
     <Shell>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-sm"><Link href={`/ncf/${d.id}`}>← View NCF</Link></p>
-          <h1 className="mt-1 text-3xl font-bold">Non Conformity Form</h1>
-          <p className="text-slate-600">Diisi QC Incoming saat pemeriksaan. Draft is saved per section.</p>
-        </div>
-        <span className="text-lg font-semibold">No. {d.ncf_no}</span>
-      </div>
+      {flag && <ScrollToFlag />}
+      <PageHead title={<>Non Conformity Form <span className="num ml-1 text-[18px] font-medium text-muted-foreground">No. {d.ncf_no}</span></>}
+        crumbs={[{ label: "NCF Management", href: "/ncf" }, { label: `NCF ${d.ncf_no}`, href: `/ncf/${d.id}` }, { label: "Edit draft" }]}
+        sub="Diisi QC Incoming saat pemeriksaan. Each section saves on its own; submitting signs the whole form.">
+        <Link href={`/ncf/${d.id}`} className="btn">View NCF</Link>
+      </PageHead>
 
-      <Section title="A. Identifikasi masalah" aside="No. Komplain and SAP fields are filled automatically">
-        <div className="flex flex-wrap gap-x-6 gap-y-4">
-          <Field label="No. Komplain">{d.ncf_no}</Field>
+      <Section {...mark("A")} title="A. Identifikasi masalah" aside="No. Komplain and SAP fields are filled automatically">
+        <FieldGrid cols={4}>
+          <Field label="No. Komplain"><span className="num">{d.ncf_no}</span></Field>
           <Field label="Business Unit">{d.bu_name}</Field>
           <Field label="Nama Supplier">{d.supplier_name}</Field>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-4">
-          <Field label="No. SJ (dari MRReg)">{d.sj_no}</Field>
-          <Field label="Tanggal SJ">{fmtDate(d.sj_date)}</Field>
-          <Field label="Tanggal Masuk">{fmtDate(d.receipt_date)}</Field>
-        </div>
+          <Field label="Kode Vendor"><span className="num">{d.supplier_code}</span></Field>
+          <Field label="No. MRReg"><span className="num">{d.mrreg_no}</span></Field>
+          <Field label="No. SJ (dari MRReg)"><span className="num">{d.sj_no}</span></Field>
+          <Field label="Tanggal SJ"><span className="num">{fmtDate(d.sj_date)}</span></Field>
+          <Field label="Tanggal Masuk"><span className="num">{fmtDate(d.receipt_date)}</span></Field>
+        </FieldGrid>
+        <ActionForm action={setPoAction} className="mt-4 flex flex-wrap items-end gap-3 border-t border-border pt-4">
+          <input type="hidden" name="id" value={d.id} />
+          <div className="min-w-[260px]">
+            <label htmlFor="po_id" className="label">No. PO {pos.length > 1 && `(${pos.length} POs on this MRReg)`}</label>
+            <select id="po_id" name="po_id" required defaultValue={d.po_id ?? ""} className="input">
+              <option value="" disabled>Choose the PO…</option>
+              {pos.map((p) => <option key={p.id} value={p.id}>{p.po_no} · {p.lines} line{p.lines === 1 ? "" : "s"}</option>)}
+            </select>
+          </div>
+          <Submit className="btn btn-commit">{d.po_id ? "Change PO" : "Set PO"}</Submit>
+          <p className="w-full text-xs text-muted-foreground">
+            One MRReg can hold several POs of the same supplier. The items in section B come from this PO.
+            {d.items.length > 0 && " To change it, remove the items first."}
+          </p>
+        </ActionForm>
       </Section>
 
-      <Section title="B. Penyimpangan yang terjadi" aside="Nama, kode barang dan Jumlah Datang dari SAP">
+      <Section {...mark("B")} title="B. Penyimpangan yang terjadi" aside="Nama, kode barang dan Jumlah Datang dari SAP">
         <ItemTable d={d}>
           {(itemId) => (
             <ActionForm action={removeItemAction}>
@@ -69,14 +93,14 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
           )}
         </ItemTable>
         {free.length > 0 ? (
-          <ActionForm action={addItemAction} resetOnOk className="mt-4 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50 p-4">
+          <ActionForm action={addItemAction} resetOnOk className="mt-4 flex flex-wrap items-end gap-3 rounded-md border border-border p-3">
             <input type="hidden" name="id" value={d.id} />
             <div className="min-w-[260px] flex-[3_1_260px]">
               <label htmlFor="line_id" className="label">Barang (dari MRReg)</label>
               <select id="line_id" name="line_id" className="input" required>
                 {free.map((l) => (
                   <option key={l.id} value={l.id}>
-                    {l.item_code} · {l.item_name} · datang {l.qty_received} {l.uom} · PO {l.po_no}
+                    {l.item_code} · {l.item_name}{l.item_group ? ` · ${l.item_group}` : ""} · datang {l.qty_received} {l.uom === "-" ? "" : l.uom}
                   </option>
                 ))}
               </select>
@@ -93,16 +117,18 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
               <label htmlFor="qty_return" className="label">Qty Retur</label>
               <input id="qty_return" name="qty_return" inputMode="decimal" defaultValue="0" className="input text-right" />
             </div>
-            <Submit className="btn">+ Tambah barang</Submit>
+            <Submit className="btn btn-commit">+ Tambah barang</Submit>
           </ActionForm>
         ) : (
-          <p className="mt-3 text-sm text-slate-600">All items of this MRReg are on the NCF.</p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {d.po_id ? `All items of PO ${d.po_no} are on the NCF.` : "Choose the PO in section A to list its items."}
+          </p>
         )}
       </Section>
 
       <ActionForm action={saveHeaderAction} className="flex flex-col gap-5">
         <input type="hidden" name="id" value={d.id} />
-        <Section title="Pemeriksaan dan status barang">
+        <Section {...mark("C")} title="C. Pemeriksaan dan status barang">
           <div className="flex flex-wrap gap-4">
             <div className="min-w-[200px] flex-1">
               <label htmlFor="inspect_date" className="label">Tanggal Periksa</label>
@@ -114,10 +140,10 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
             </div>
           </div>
           <fieldset className="mt-5">
-            <legend className="label">C. Status barang</legend>
+            <legend className="label">Status barang</legend>
             <div className="flex flex-wrap gap-3">
               {Object.entries(GOODS_STATUS).map(([k, label]) => (
-                <label key={k} className="flex min-h-11 flex-1 basis-56 cursor-pointer items-start gap-3 rounded-lg border border-slate-300 px-4 py-3 has-[:checked]:border-2 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
+                <label key={k} className="flex min-h-11 flex-1 basis-56 cursor-pointer items-start gap-3 rounded-lg border border-input px-4 py-3 has-[:checked]:border-2 has-[:checked]:border-primary has-[:checked]:bg-tint">
                   <input type="radio" name="goods_status" value={k} defaultChecked={d.goods_status === k} className="mt-1 size-4" />
                   <span className="font-semibold">{label}</span>
                 </label>
@@ -129,7 +155,7 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
             <input id="hold_note" name="hold_note" defaultValue={d.hold_note ?? ""} className="input" />
           </div>
         </Section>
-        <Section title="D. Masalah yang ditemukan">
+        <Section {...mark("D")} title="D. Masalah yang ditemukan">
           <div className="flex flex-wrap gap-4">
             <div className="min-w-[220px] flex-1">
               <label htmlFor="problem_category_id" className="label">Kategori masalah</label>
@@ -144,16 +170,16 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
             </div>
           </div>
         </Section>
-        <Section title="F. Tindak lanjut dari Integra">
+        <Section {...mark("F")} title="F. Tindak lanjut dari Integra">
           <label htmlFor="follow_up" className="label">Tindak lanjut</label>
           <textarea id="follow_up" name="follow_up" rows={3} defaultValue={d.follow_up ?? ""} className="input" />
         </Section>
         <div className="flex justify-end">
-          <Submit className="btn">Save sections C, D and F</Submit>
+          <Submit className="btn btn-commit">Save sections C, D and F</Submit>
         </div>
       </ActionForm>
 
-      <Section title="E. Bukti" aside={`Foto, video, dokumen · max ${LIMITS.filesPerNcf} files, video up to 50 MB`}>
+      <Section {...mark("E")} title="E. Bukti" aside={`Foto, video, dokumen · max ${LIMITS.filesPerNcf} files, video up to 50 MB`}>
         <EvidenceList items={ownFiles} fileHref={(f) => `/api/files/${f}`}>
           {(evId) => (
             <ActionForm action={removeEvidenceAction}>
@@ -163,37 +189,64 @@ export default async function EditNcf({ params }: { params: Promise<{ id: string
             </ActionForm>
           )}
         </EvidenceList>
-        <ActionForm action={addEvidenceAction} resetOnOk className="mt-4 flex flex-col gap-3 rounded-lg border-2 border-dashed border-slate-400 bg-slate-50 p-4">
+        <ActionForm action={addEvidenceAction} resetOnOk className="mt-4 flex flex-col gap-3 rounded-lg border border-dashed border-input bg-muted/50 p-4">
           <input type="hidden" name="id" value={d.id} />
           <div>
-            <label htmlFor="files" className="label">Files (or take a photo with the camera)</label>
-            <input id="files" name="files" type="file" multiple accept="image/*,video/mp4,video/quicktime,application/pdf,.docx,.xlsx" className="block w-full text-sm" />
+            <div className="label">Add evidence</div>
+            <EvidencePicker />
           </div>
           <div>
             <label htmlFor="note" className="label">Catatan bukti</label>
             <input id="note" name="note" className="input" />
           </div>
-          <div><Submit className="btn">Upload</Submit></div>
+          <div><Submit className="btn btn-commit">Upload</Submit></div>
         </ActionForm>
       </Section>
 
-      <Section title="Sign and submit for approval">
+      <Section id="submit" title="Sign and submit for approval">
         {missing.length > 0 ? (
-          <Banner kind="info">
-            Still missing: <ul className="mt-1 list-disc pl-5">{missing.map((m) => <li key={m}>{m}</li>)}</ul>
+          <Banner kind={flag ? "error" : "info"}>
+            Still missing:
+            <ul className="mt-1 list-disc pl-5">
+              {missing.map((m) => <li key={m.text}><a href={`#part-${m.part}`}>{m.part}</a> · {m.text}</li>)}
+            </ul>
           </Banner>
         ) : (
           <Banner kind="ok">Complete. Submitting locks the content, creates a numbered version and signs it with your name.</Banner>
         )}
-        <ActionForm action={submitAction} className="mt-4 flex flex-wrap items-end gap-3">
-          <input type="hidden" name="id" value={d.id} />
-          <div className="min-w-[240px]">
-            <label htmlFor="password" className="label">Your password, to sign</label>
-            <input id="password" name="password" type="password" required autoComplete="current-password" className="input" />
+        {missing.length > 0 ? (
+          // Not complete: this shows the cards still to fill (highlighted) without asking for the password.
+          <ActionForm action={submitAction} className="mt-4">
+            <input type="hidden" name="id" value={d.id} />
+            <Submit className="btn btn-advance">Sign and submit</Submit>
+          </ActionForm>
+        ) : (
+          <div className="mt-4">
+            <Modal label="Sign and submit" buttonClassName="btn btn-advance" title={`Sign NCF ${d.ncf_no}`}
+              description="Check what you are signing, then confirm with your password.">
+              <ModalForm action={submitAction} className="flex flex-col gap-4">
+                <input type="hidden" name="id" value={d.id} />
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border border-border bg-muted/50 p-3 text-[13px]">
+                  <div><dt className="label mb-0">Supplier</dt><dd className="truncate">{d.supplier_name}</dd></div>
+                  <div><dt className="label mb-0">No. PO</dt><dd className="num">{d.po_no}</dd></div>
+                  <div><dt className="label mb-0">Barang</dt><dd className="num">{d.items.length} item · {d.items.reduce((t, i) => t + i.qty_defect, 0)} cacat</dd></div>
+                  <div><dt className="label mb-0">Bukti</dt><dd className="num">{ownFiles.filter((e) => e.file_id).length} file</dd></div>
+                </dl>
+                <p className="rounded-md border-l-2 border-primary bg-tint/50 px-3 py-2 text-[12.5px] text-foreground/80">
+                  Saya menyatakan isi NCF ini benar. Setelah ditandatangani isinya terkunci sebagai versi baru dan dikirim ke approver
+                  pertama. Tanda tangan ini tercatat dengan nama, jabatan, tanggal dan jam.
+                </p>
+                <div>
+                  <label htmlFor="password" className="label">Your password, to sign</label>
+                  <input id="password" name="password" type="password" required autoComplete="current-password" className="input" autoFocus />
+                </div>
+                <div className="flex justify-end"><Submit className="btn btn-advance">Sign now</Submit></div>
+              </ModalForm>
+            </Modal>
           </div>
-          <Submit>Sign and submit</Submit>
-        </ActionForm>
+        )}
       </Section>
+      <PhoneActionBar href="#submit" label={missing.length ? `Sign and submit · ${missing.length} to complete` : "Sign and submit"} />
     </Shell>
   );
 }

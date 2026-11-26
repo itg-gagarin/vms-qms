@@ -1,10 +1,11 @@
-// Applies db/migrations/*.sql in name order, once each.
+// Applies db/migrations/*.sql in name order, once each. Uses DATABASE_URL_UNPOOLED when set (Neon: the direct
+// endpoint, so schema changes do not go through the connection pooler), otherwise DATABASE_URL.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Client } from "pg";
 
 async function main() {
-  const c = new Client({ connectionString: process.env.DATABASE_URL });
+  const c = new Client({ connectionString: process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL });
   await c.connect();
   await c.query(
     "create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())",

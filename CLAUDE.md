@@ -56,8 +56,12 @@ about. `scripts/reset.ts` drops the `public` schema.
   show nothing beyond what is printed on the form. Do not add a supplier link or upload page without the owner's decision.
 - Closing takes no verification note (owner's decision); `ncf.closure_note` stays only for rows closed before 008.
 - The system keeps the supplier's reply as received and does not re-type or interpret the CAPA in it.
-- Styling follows the INTEC design system (README, "Design"): one `btn-advance` per screen, `btn-commit` for saves,
-  `btn` (outline) for everything else; codes, quantities and dates in mono (`num`); pills only for states.
+- Styling is shadcn/ui (new-york, `components.json`) themed with the INTEC colours (`src/app/globals.css`): primary is
+  INTEC green with dark text. Add components with `npx shadcn@latest add <name>` into `src/components/ui`; use shadcn
+  token names (`bg-background`, `text-muted-foreground`, `border`, ...), not raw colours. One advancing action per screen
+  (`<Button>` or `btn btn-advance`), `btn-commit` (near-black) for saves, `btn` (outline) for everything else; plain
+  classes mirror the shadcn variants for Server Action forms. Codes, quantities and dates in mono (`num`); badges only
+  for states. The printed form (`print-form.tsx`) follows the paper form, not the app theme.
 - Each department sees only its NCF stages (`STATUSES_BY_ROLE` in `src/modules/ncf/visibility.ts`); keep lists, pages and exports on it.
 - Cache Components is off on purpose (`next.config.ts`); pages read the session and live data.
 - Forms go through `ActionForm`, which checks fields itself (`noValidate`): no browser validation bubbles.

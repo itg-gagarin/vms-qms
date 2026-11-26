@@ -14,6 +14,8 @@ record the change here with its date.
 | Nov 2026 | **NCF numbers start at 1** each period; numbers already used are skipped. Format and reset period are set in Master Settings. | `modules/ncf/numbering.ts` |
 | Nov 2026 | **Indonesian national holidays and cuti bersama 2026–2027** are loaded as calendar defaults (SKB 3 Menteri); Super Admin can change them. | migration 012, Master Settings → Working calendar |
 | Nov 2026 | **SAP Goods Receipt lists open receipts only** (no NCF yet, not cancelled in SAP). | migration 011 |
+| 26 Nov 2026 | **UI in shadcn/ui style with the INTEC colours**, replacing the INTEC component styles (green stays the advancing action; saving is near-black instead of indigo; Geist fonts). | `components.json`, `src/app/globals.css`, `src/components/ui` |
+| 26 Nov 2026 | **Database on Neon (Singapore)**, with the app moved to Railway's Singapore region; fresh database with the demo data, not a copy of the old one. | [HANDOVER.md](HANDOVER.md) |
 | Nov 2026 | **The VMS is a separate platform.** It reads QMS data through the read-only API; the QMS is built to take more quality modules. | `src/app/api/v1`, [ARCHITECTURE.md](ARCHITECTURE.md) |
 
 ## Design choices

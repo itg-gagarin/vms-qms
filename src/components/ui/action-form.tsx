@@ -109,7 +109,7 @@ export function ActionForm({
     >
       <Pending value={pending}>{children}</Pending>
       {invalid.length > 0 && (
-        <div role="alert" className="mt-3 flex gap-2 rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
+        <div role="alert" className="mt-3 flex gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
           <CircleAlert size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
           <div>
             <b className="font-semibold">Please complete {invalid.length === 1 ? "this field" : "these fields"}:</b>
@@ -120,12 +120,12 @@ export function ActionForm({
         </div>
       )}
       {state.error && !invalid.length && (
-        <p role="alert" className="mt-3 flex gap-2 rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
+        <p role="alert" className="mt-3 flex gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
           <CircleAlert size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
           <span>{state.error}</span>
         </p>
       )}
-      {state.ok && <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{state.ok}</p>}
+      {state.ok && <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{state.ok}</p>}
       {state.secret && <SecretBox value={state.secret} />}
     </form>
   );
@@ -142,8 +142,8 @@ export function Submit({ children, className = "btn btn-commit", name, value }: 
 
 function SecretBox({ value }: { value: string }) {
   return (
-    <div className="mt-3 rounded-md border border-brand/40 bg-brand-soft p-3">
-      <p className="text-sm font-semibold text-slate-800">Copy it now: it is shown only once and cannot be read back.</p>
+    <div className="mt-3 rounded-lg border border-primary/40 bg-tint p-3">
+      <p className="text-sm font-semibold text-foreground">Copy it now: it is shown only once and cannot be read back.</p>
       <div className="mt-2 flex flex-wrap gap-2">
         <input readOnly value={value} className="input font-mono text-sm" aria-label="Value to copy" onFocus={(e) => e.target.select()} />
         <button type="button" className="btn" onClick={() => navigator.clipboard.writeText(value)}>

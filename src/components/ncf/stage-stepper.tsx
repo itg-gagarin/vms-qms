@@ -33,23 +33,23 @@ export function StageStepper({ d }: { d: NcfDetail }) {
           <li key={s.label} aria-current={now ? "step" : undefined}
             className="relative flex items-start gap-3 pb-3 last:pb-0 md:flex-1 md:flex-col md:items-center md:gap-0 md:pb-0 md:text-center">
             {/* Phones: a vertical line down the left; wider screens: a line across */}
-            {!last && <span aria-hidden="true" className={`absolute left-[13px] top-7 h-[calc(100%-28px)] w-[2px] md:left-1/2 md:top-[13px] md:h-[2px] md:w-full ${done ? "bg-advance" : "bg-hairline"}`} />}
+            {!last && <span aria-hidden="true" className={`absolute left-[13px] top-7 h-[calc(100%-28px)] w-[2px] md:left-1/2 md:top-[13px] md:h-[2px] md:w-full ${done ? "bg-primary" : "bg-border"}`} />}
             <span aria-hidden="true"
               className={`relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 font-mono text-[12px] font-semibold ${
-                done ? "border-advance bg-advance text-advance-ink"
+                done ? "border-primary bg-primary text-primary-foreground"
                   : stopped ? "border-status-red bg-status-red text-white"
-                  : now ? "border-advance bg-white text-tint-ink ring-4 ring-tint"
-                  : "border-slate-300 bg-white text-slate-400"
+                  : now ? "border-primary bg-background text-tint-foreground ring-4 ring-tint"
+                  : "border-input bg-background text-muted-foreground/70"
               }`}>
               {done ? <Check size={14} strokeWidth={3} /> : stopped ? <X size={13} strokeWidth={3} /> : i + 1}
             </span>
             <span className="flex min-w-0 flex-col pt-1 md:items-center md:pt-0">
-            <span className={`px-1 text-[13px] leading-tight md:mt-2 ${done || now ? "font-semibold text-ink" : stopped ? "font-semibold text-status-red" : "text-muted"}`}>
+            <span className={`px-1 text-[13px] leading-tight md:mt-2 ${done || now ? "font-semibold text-foreground" : stopped ? "font-semibold text-status-red" : "text-muted-foreground"}`}>
               {s.label}
               <span className="sr-only">{done ? " (done)" : now ? " (current)" : stopped ? " (stopped here)" : ""}</span>
             </span>
             {(s.sub || (done && s.date)) && (
-              <span className="mt-0.5 px-1 font-mono text-[11px] leading-tight text-muted">
+              <span className="mt-0.5 px-1 font-mono text-[11px] leading-tight text-muted-foreground">
                 {[s.sub, done && s.date ? fmtDate(s.date) : null].filter(Boolean).join(" · ")}
               </span>
             )}

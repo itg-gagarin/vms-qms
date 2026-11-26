@@ -7,7 +7,7 @@ import "./globals.css";
 export default function GlobalError({ error, retry }: { error: unknown; retry: () => void }) {
   return (
     <html lang="id">
-      <body className="min-h-full bg-page text-ink">
+      <body className="min-h-full bg-background text-foreground">
         <ErrorView error={error} retry={retry} />
       </body>
     </html>

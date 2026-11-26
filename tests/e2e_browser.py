@@ -24,9 +24,9 @@ def shot(page, name):
 def sign_approve(page):
     """The approver opens the signing dialog, confirms with the password, and lands on the signed NCF."""
     page.click("button:visible:has-text('Approve')")
-    expect(page.locator("dialog").get_by_text("Saya menyetujui isi NCF ini")).to_be_visible()
+    expect(page.locator("[role=dialog]").get_by_text("Saya menyetujui isi NCF ini")).to_be_visible()
     page.fill("#pw-approved", PW)
-    page.click("dialog button:has-text('Sign and approve')")
+    page.click("[role=dialog] button:has-text('Sign and approve')")
     expect(page.get_by_text(re.compile(r"^Approved and signed\. "))).to_be_visible()
 
 
@@ -89,11 +89,11 @@ def main():
         # Signing happens in a dialog that shows what is signed; a wrong password is refused there
         page.click("button:visible:has-text('Sign and submit')")
         page.fill("#password", "wrong")
-        page.click("dialog button:has-text('Sign now')")
-        expect(page.locator("dialog p[role=alert]")).to_contain_text("Password")
+        page.click("[role=dialog] button:has-text('Sign now')")
+        expect(page.locator("[role=dialog] p[role=alert]")).to_contain_text("Password")
         shot(page, "02b-sign-dialog")
         page.fill("#password", PW)
-        page.click("dialog button:has-text('Sign now')")
+        page.click("[role=dialog] button:has-text('Sign now')")
         page.wait_for_url(ncf_url)
         expect(page.get_by_text("Waiting approval").first).to_be_visible()
 
@@ -168,7 +168,7 @@ def main():
         shot(page, "05b-draft-po")
         page.click("button:visible:has-text('Sign and submit')")
         page.fill("#password", PW)
-        page.click("dialog button:has-text('Sign now')")
+        page.click("[role=dialog] button:has-text('Sign now')")
         page.wait_for_url(url2)
         for who in ["qcm", "whs", "gm"]:
             login(page, who)
@@ -246,16 +246,16 @@ def main():
         page.goto(f"{BASE}/suppliers")
         expect(page.get_by_role("heading", name="Supplier Master")).to_be_visible()
         page.click("button:has-text('Add supplier')")
-        page.click("dialog button:has-text('Add supplier')")
-        expect(page.locator("dialog").get_by_text("Please complete these fields")).to_be_visible()
+        page.click("[role=dialog] button:has-text('Add supplier')")
+        expect(page.locator("[role=dialog]").get_by_text("Please complete these fields")).to_be_visible()
         page.fill("#new-code", "VLP09001")
         page.fill("#new-name", "Uji E2E, PT")
-        page.click("dialog button:has-text('Add supplier')")
+        page.click("[role=dialog] button:has-text('Add supplier')")
         page.wait_for_url(re.compile(r"/suppliers/\d+$"))
         page.click("button:has-text('Add contact')")
         page.fill("#new-name", "Rina (QA)")
         page.fill("#new-email", "qa@uji-e2e.demo")
-        page.click("dialog button:has-text('Add contact')")
+        page.click("[role=dialog] button:has-text('Add contact')")
         expect(page.get_by_text("qa@uji-e2e.demo")).to_be_visible()
         shot(page, "12-supplier")
 

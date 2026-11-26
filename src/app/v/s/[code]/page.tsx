@@ -27,7 +27,7 @@ export default async function VerifySig({ params }: { params: Promise<{ code: st
     <VerifyShell kind="Verifikasi tanda tangan" tone={a.superseded ? "bad" : "ok"} verdict={verdict}>
       <div>
         <h1 className="text-[24px] font-semibold leading-tight">{a.signer_name}</h1>
-        <p className="text-muted">{a.signer_position}</p>
+        <p className="text-muted-foreground">{a.signer_position}</p>
       </div>
       <Facts rows={[
         ["Dokumen", <span key="d" className="num">NCF {a.ncf_no}</span>],

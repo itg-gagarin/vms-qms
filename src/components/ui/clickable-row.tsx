@@ -16,7 +16,7 @@ export function ClickableRow({ href, children, className = "" }: { href: string;
         if (window.getSelection()?.toString()) return; // let people select text without navigating
         router.push(href);
       }}
-      className={`cursor-pointer hover:bg-row-hover ${className}`}
+      className={`cursor-pointer hover:bg-muted/50 ${className}`}
     >
       {children}
     </tr>

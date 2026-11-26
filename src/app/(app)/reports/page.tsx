@@ -61,7 +61,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           </select>
         </div>
         <button className="btn h-10">Apply</button>
-        <p className="w-full text-xs text-slate-500">Period is the date the NCF was raised. Export uses the same filters.</p>
+        <p className="w-full text-xs text-muted-foreground">Period is the date the NCF was raised. Export uses the same filters.</p>
       </form>
 
       {error && <Banner kind="error">{error}</Banner>}
@@ -78,14 +78,14 @@ function Figures({ data, page, size, base }: { data: Awaited<ReturnType<typeof d
   return (
     <>
       <section className="grid gap-4 md:grid-cols-[1.2fr_2fr]" aria-label="Supplier responsiveness">
-        <div className="flex flex-col justify-between gap-3 rounded-md border border-hairline border-t-[3px] border-t-advance bg-white p-4">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">Median supplier response</div>
-          <div className="font-[family-name:var(--font-display)] text-[36px] font-semibold leading-none text-ink">
-            {kpi.median_wd ?? "–"}<span className="ml-1 text-[18px] font-medium text-muted">working days</span>
+        <div className="flex flex-col justify-between gap-3 rounded-xl border bg-card shadow-sm p-5">
+          <div className="text-xs font-medium text-muted-foreground">Median supplier response</div>
+          <div className="text-4xl leading-none font-semibold tabular-nums">
+            {kpi.median_wd ?? "–"}<span className="ml-1 text-[18px] font-medium text-muted-foreground">working days</span>
           </div>
-          <div className="text-[13px] text-muted">
+          <div className="text-[13px] text-muted-foreground">
             {kpi.responded} repl{kpi.responded === 1 ? "y" : "ies"} · average {kpi.avg_wd ?? "–"} wd
-            {onTimePct !== null && <> · <span className="font-semibold text-ink">{onTimePct}%</span> within the {target}-day target</>}
+            {onTimePct !== null && <> · <span className="font-semibold text-foreground">{onTimePct}%</span> within the {target}-day target</>}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
@@ -114,20 +114,20 @@ function Figures({ data, page, size, base }: { data: Awaited<ReturnType<typeof d
       </div>
 
       <Section flush title="Supplier responsiveness" aside={`longest delay first, unanswered included · target ${target} working days`}>
-        <ul className="divide-y divide-hairline md:hidden">
-          {data.suppliers.length === 0 && <li className="px-4 py-6 text-center text-muted">No NCFs in this period.</li>}
+        <ul className="divide-y divide-border md:hidden">
+          {data.suppliers.length === 0 && <li className="px-4 py-6 text-center text-muted-foreground">No NCFs in this period.</li>}
           {data.suppliers.slice((page - 1) * size, page * size).map((s) => (
             <li key={s.id} className="px-4 py-3">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="font-medium">{s.name}</span>
                 <span className={`num shrink-0 font-semibold ${s.avg_wd !== null && s.avg_wd > target ? "text-red-700" : ""}`}>{s.avg_wd === null ? "–" : `${s.avg_wd} wd avg`}</span>
               </div>
-              <div className="num mt-0.5 text-[12px] text-muted">
+              <div className="num mt-0.5 text-[12px] text-muted-foreground">
                 {s.ncfs} NCF · {s.responded} replied · slowest {s.max_wd === null ? "–" : `${s.max_wd} wd`}
                 {s.responded ? ` · ${Math.round((100 * s.on_time) / s.responded)}% on target` : ""}
               </div>
               {s.waiting > 0 && (
-                <div className={`num text-[12px] ${s.oldest_wait !== null && s.oldest_wait > target ? "font-semibold text-red-700" : "text-muted"}`}>
+                <div className={`num text-[12px] ${s.oldest_wait !== null && s.oldest_wait > target ? "font-semibold text-red-700" : "text-muted-foreground"}`}>
                   Waiting now: {s.waiting} · oldest {s.oldest_wait} wd
                 </div>
               )}
@@ -148,7 +148,7 @@ function Figures({ data, page, size, base }: { data: Awaited<ReturnType<typeof d
               </tr>
             </thead>
             <tbody className="tabular-nums">
-              {data.suppliers.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-muted">No NCFs in this period.</td></tr>}
+              {data.suppliers.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-muted-foreground">No NCFs in this period.</td></tr>}
               {data.suppliers.slice((page - 1) * size, page * size).map((s) => (
                 <tr key={s.id}>
                   <td className="font-medium">{s.name}</td>

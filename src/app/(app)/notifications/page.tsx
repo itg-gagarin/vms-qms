@@ -17,16 +17,16 @@ export default async function NotificationsPage() {
       </PageHead>
       <section className="card overflow-hidden p-0">
         {items.length === 0 ? <EmptyState icon={Bell} title="Nothing yet">You will see here when an NCF needs you.</EmptyState> : (
-          <ul className="divide-y divide-hairline">
+          <ul className="divide-y divide-border">
             {items.map((n) => (
               <li key={n.id}>
                 <form action={openNoteAction}>
                   <input type="hidden" name="id" value={n.id} />
-                  <button className={`flex w-full gap-3 px-4 py-3 text-left hover:bg-row-hover ${n.read ? "" : "bg-tint/40"}`}>
-                    <span aria-hidden="true" className={`mt-1.5 size-2 shrink-0 rounded-full ${n.read ? "bg-slate-200" : "bg-advance"}`} />
+                  <button className={`flex w-full gap-3 px-4 py-3 text-left hover:bg-muted/50 ${n.read ? "" : "bg-tint/40"}`}>
+                    <span aria-hidden="true" className={`mt-1.5 size-2 shrink-0 rounded-full ${n.read ? "bg-muted" : "bg-primary"}`} />
                     <span className="min-w-0 flex-1">
-                      <span className={`block text-[13px] ${n.read ? "text-slate-700" : "font-semibold text-ink"}`}>{n.title}</span>
-                      <span className="mt-0.5 flex items-center gap-2 text-[11px] text-muted">
+                      <span className={`block text-[13px] ${n.read ? "text-foreground/80" : "font-semibold text-foreground"}`}>{n.title}</span>
+                      <span className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
                         <span className="num">{fmtDateTime(n.at)}</span>
                         {n.todo === true && <span className="rounded-full border border-amber-200 bg-amber-50 px-1.5 font-medium text-amber-800">To do</span>}
                         {n.todo === false && <span>Done</span>}

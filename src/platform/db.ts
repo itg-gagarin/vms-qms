@@ -10,11 +10,20 @@ declare global {
   var __vmsPool: Pool | undefined;
 }
 
+/**
+ * One pool per server process. On Neon, DATABASE_URL is the pooled endpoint (host with "-pooler"); idle connections
+ * are closed on our side before the pooler or a suspended compute drops them, and a dropped idle connection is logged
+ * instead of crashing the process.
+ */
 function makePool() {
-  return new Pool({
+  const p = new Pool({
     connectionString: process.env.DATABASE_URL,
     max: 10,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 15_000,
   });
+  p.on("error", (e) => console.error("[db] idle connection closed:", e.message));
+  return p;
 }
 
 export const pool: Pool = globalThis.__vmsPool ?? makePool();

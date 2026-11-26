@@ -7,7 +7,7 @@ export default function NcfNotFound() {
     <Shell>
       <div className="card flex flex-col gap-3 p-8">
         <h1 className="text-2xl font-bold">This NCF is not open to you</h1>
-        <p className="text-slate-700">
+        <p className="text-foreground/80">
           Either the number does not exist, or the NCF is at a stage your department does not work with. QC sees drafts, pending and
           closed NCFs; approvers see pending, approved and closed; Purchasing sees them from approval to closure.
         </p>

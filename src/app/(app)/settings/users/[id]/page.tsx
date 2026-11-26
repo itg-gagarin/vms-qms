@@ -16,7 +16,7 @@ function Field({ id, label, children, hint }: { id: string; label: string; child
     <div>
       <label htmlFor={id} className="label">{label}</label>
       {children}
-      {hint && <p className="mt-1 text-[12px] text-muted">{hint}</p>}
+      {hint && <p className="mt-1 text-[12px] text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -68,16 +68,16 @@ export default async function UserPage({ params, searchParams }: { params: Promi
                 </Field>
                 <fieldset>
                   <legend className="label">Business units</legend>
-                  <div className="flex flex-col gap-1.5 rounded-sm border border-hairline p-3">
+                  <div className="flex flex-col gap-1.5 rounded-md border border-border p-3">
                     <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="bu" value="all" className="size-4" /> All units, now and future</label>
                     {units.map((b) => (
                       <label key={b.id} className="flex items-center gap-2 text-[13px]">
                         <input type="checkbox" name="bu" value={b.id} className="size-4" defaultChecked={units.length === 1} />
-                        <span className="num text-muted">{b.code}</span> {b.name}
+                        <span className="num text-muted-foreground">{b.code}</span> {b.name}
                       </label>
                     ))}
                   </div>
-                  <p className="mt-1 text-[12px] text-muted">Used for QC Inspector and NCF Approver; the other roles always cover all units.</p>
+                  <p className="mt-1 text-[12px] text-muted-foreground">Used for QC Inspector and NCF Approver; the other roles always cover all units.</p>
                 </fieldset>
                 <Field id="ar-until" label="Until (optional)" hint="Ends the role on this date, e.g. for an external auditor.">
                   <input id="ar-until" name="valid_to" type="date" className="input" />
@@ -95,8 +95,8 @@ export default async function UserPage({ params, searchParams }: { params: Promi
                 {u.roles.map((r) => (
                   <tr key={r.id}>
                     <td className="font-medium">{roleLabel[r.role]}</td>
-                    <td>{r.bu ? <><span className="num">{r.bu}</span> <span className="text-muted">· {units.find((b) => b.id === r.bu_id)?.name}</span></> : <span className="text-muted">All units</span>}</td>
-                    <td className="num">{r.valid_to ? fmtDate(r.valid_to) : <span className="font-sans text-muted">–</span>}</td>
+                    <td>{r.bu ? <><span className="num">{r.bu}</span> <span className="text-muted-foreground">· {units.find((b) => b.id === r.bu_id)?.name}</span></> : <span className="text-muted-foreground">All units</span>}</td>
+                    <td className="num">{r.valid_to ? fmtDate(r.valid_to) : <span className="font-sans text-muted-foreground">–</span>}</td>
                     <td>
                       <div className="flex justify-end gap-1.5">
                         <Modal label="Edit" title={`Edit role: ${roleLabel[r.role]}`} icon={<Pencil size={14} aria-hidden="true" />} buttonClassName="btn h-7 px-2.5 md:h-7"
@@ -155,7 +155,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
               <div><Submit className="btn"><KeyRound size={15} aria-hidden="true" /> Set password</Submit></div>
             </ActionForm>
           </Section>
-          <p className="text-[12px] text-muted">Accounts are deactivated, never deleted: their signatures and records stay attributed to them.</p>
+          <p className="text-[12px] text-muted-foreground">Accounts are deactivated, never deleted: their signatures and records stay attributed to them.</p>
         </div>
       </div>
     </Shell>

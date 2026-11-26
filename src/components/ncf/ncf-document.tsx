@@ -47,7 +47,7 @@ export function NcfPart1({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: num
         <EvidenceList items={files} fileHref={fileHref} />
       </Section>
       <Section title="F. Tindak lanjut dari Integra">
-        <p className="whitespace-pre-line text-[13px]">{d.follow_up || <span className="text-slate-500">–</span>}</p>
+        <p className="whitespace-pre-line text-[13px]">{d.follow_up || <span className="text-muted-foreground">–</span>}</p>
       </Section>
     </>
   );
@@ -62,16 +62,16 @@ export function ItemTable({ d, totals, children }: { d: NcfDetail; totals?: { r:
   return (
     // The layout follows the width of the card it sits in (container query), not the screen: next to the
     // signatures column the card is narrow even on a laptop, so items show as cards until the card is 1024px wide.
-    <div className="@container rounded-sm border border-hairline">
+    <div className="@container rounded-md border border-border">
       {/* Narrow: one card per item, the four quantities side by side. No sideways scrolling. */}
-      <ol className="divide-y divide-hairline @5xl:hidden">
-        {d.items.length === 0 && <li className="px-3 py-6 text-center text-muted">No items yet.</li>}
+      <ol className="divide-y divide-border @5xl:hidden">
+        {d.items.length === 0 && <li className="px-3 py-6 text-center text-muted-foreground">No items yet.</li>}
         {d.items.map((i, k) => (
           <li key={i.id} className="px-3 py-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="font-semibold leading-snug"><span className="num mr-1.5 text-muted">{k + 1}.</span>{i.item_name}</div>
-                <div className="num break-all text-[12px] text-muted">{i.item_code}</div>
+                <div className="font-semibold leading-snug"><span className="num mr-1.5 text-muted-foreground">{k + 1}.</span>{i.item_name}</div>
+                <div className="num break-all text-[12px] text-muted-foreground">{i.item_code}</div>
               </div>
               {children && <div className="-mr-2 -mt-2 shrink-0">{children(i.id)}</div>}
             </div>
@@ -79,7 +79,7 @@ export function ItemTable({ d, totals, children }: { d: NcfDetail; totals?: { r:
           </li>
         ))}
         {d.items.length > 1 && (
-          <li className="bg-slate-50 px-3 py-3">
+          <li className="bg-muted/50 px-3 py-3">
             <div className="font-semibold">Total</div>
             <Qty r={t.r} s={t.s} c={t.c} x={t.x} p={pct(t.c, t.s)} />
           </li>
@@ -102,7 +102,7 @@ export function ItemTable({ d, totals, children }: { d: NcfDetail; totals?: { r:
         </thead>
         <tbody>
           {d.items.length === 0 && (
-            <tr><td colSpan={children ? 9 : 8} className="py-6 text-center text-muted">No items yet.</td></tr>
+            <tr><td colSpan={children ? 9 : 8} className="py-6 text-center text-muted-foreground">No items yet.</td></tr>
           )}
           {d.items.map((i, k) => (
             <tr key={i.id}>
@@ -118,7 +118,7 @@ export function ItemTable({ d, totals, children }: { d: NcfDetail; totals?: { r:
             </tr>
           ))}
           {d.items.length > 0 && (
-            <tr className="bg-slate-50 font-semibold">
+            <tr className="bg-muted/50 font-semibold">
               <td />
               <td>Total</td>
               <td />
@@ -140,8 +140,8 @@ function Qty({ r, s, c, x, p }: { r: number; s: number; c: number; x: number; p:
   return (
     <dl className="mt-2 grid grid-cols-4 gap-2 text-center">
       {([["Datang", r], ["Sample", s], ["Cacat", `${c} · ${p}%`], ["Retur", x]] as const).map(([k, v]) => (
-        <div key={k} className="rounded-xs bg-slate-50 px-1 py-1.5">
-          <dt className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted">{k}</dt>
+        <div key={k} className="rounded-sm bg-muted/50 px-1 py-1.5">
+          <dt className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">{k}</dt>
           <dd className="num text-[13px] font-semibold">{v}</dd>
         </div>
       ))}
@@ -158,22 +158,22 @@ export function EvidenceList({
   fileHref: (fileId: number) => string;
   children?: (evidenceId: number) => React.ReactNode;
 }) {
-  if (!items.length) return <p className="text-muted">No evidence yet.</p>;
+  if (!items.length) return <p className="text-muted-foreground">No evidence yet.</p>;
   return (
     <ul className="flex flex-col gap-2">
       {items.map((e) => (
-        <li key={e.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-hairline px-3 py-2">
+        <li key={e.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
           {e.file_id ? (
             <span>
               <a href={fileHref(e.file_id)} target="_blank" rel="noreferrer" className="font-semibold">
                 {e.file_name}
               </a>{" "}
-              <span className="text-sm text-muted">
+              <span className="text-sm text-muted-foreground">
                 · {e.kind === "PHOTO" ? "Foto" : e.kind === "VIDEO" ? "Video" : "Dokumen"} · {Math.max(1, Math.round((e.bytes ?? 0) / 1024))} KB
               </span>
             </span>
           ) : (
-            <span><span className="text-sm font-semibold text-muted">Catatan:</span> {e.caption}</span>
+            <span><span className="text-sm font-semibold text-muted-foreground">Catatan:</span> {e.caption}</span>
           )}
           {children?.(e.id)}
         </li>
@@ -202,7 +202,7 @@ export function NcfPart2({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: num
         : byEmail ? `Balasan lewat email · dicatat oleh ${d.capa.recorded_by_name}` : `Dijawab oleh ${d.capa.responder_name}, ${d.capa.responder_position}`}>
         {byEmail ? (
           <div className="flex flex-col gap-3">
-            <p className="text-sm text-slate-700">The supplier&apos;s CAPA is in their reply, kept here as received.</p>
+            <p className="text-sm text-foreground/80">The supplier&apos;s CAPA is in their reply, kept here as received.</p>
             {capaFiles.length > 0 && <EvidenceList items={capaFiles} fileHref={fileHref} />}
           </div>
         ) : d.capa ? (
@@ -219,25 +219,25 @@ export function NcfPart2({ d, fileHref }: { d: NcfDetail; fileHref: (fileId: num
             {capaFiles.length > 0 && <EvidenceList items={capaFiles} fileHref={fileHref} />}
           </div>
         ) : (
-          <p className="text-muted">The supplier fills in Part 2 of the exported form and emails it back to Purchasing.</p>
+          <p className="text-muted-foreground">The supplier fills in Part 2 of the exported form and emails it back to Purchasing.</p>
         )}
       </Section>
       <Section title="Jejak waktu" aside="Dicatat sistem">
         <ol className="flex flex-col">
           {steps.map(([label, when, who]) => (
-            <li key={label} className="flex flex-wrap justify-between gap-2 border-t border-hairline py-2 first:border-t-0">
+            <li key={label} className="flex flex-wrap justify-between gap-2 border-t border-border py-2 first:border-t-0">
               <span className="font-semibold">{label}</span>
-              <span className="text-slate-700">{when ? `${fmtDateTime(when)}${who ? ` · ${who}` : ""}` : "–"}</span>
+              <span className="text-foreground/80">{when ? `${fmtDateTime(when)}${who ? ` · ${who}` : ""}` : "–"}</span>
             </li>
           ))}
         </ol>
         {d.request?.response_working_days != null && (
-          <p className="mt-3 text-sm text-slate-700">
+          <p className="mt-3 text-sm text-foreground/80">
             Waktu respons supplier: <strong>{d.request.response_working_days} hari kerja</strong> (dari dikirim sampai balasan diterima).
           </p>
         )}
         {d.reminders.length > 0 && (
-          <p className="mt-2 text-sm text-slate-700">
+          <p className="mt-2 text-sm text-foreground/80">
             Reminders to Purchasing: {d.reminders.map((r) => `#${r.seq_no} ${fmtDateTime(r.sent_at)}`).join(" · ")}
           </p>
         )}

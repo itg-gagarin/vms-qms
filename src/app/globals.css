@@ -1,109 +1,194 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 /*
- * INTEC design system tokens (github.com/itg-gagarin/intec-design-system, GLOBAL-DESIGN.md).
- * Colour is spent, not spread: one green marks the action that advances work, indigo marks saving inside a card,
- * everything else is slate unless it is a state. Depth is a 1px hairline, not a shadow.
+ * Design: shadcn/ui (new-york) structure and components, themed with the INTEC colours.
+ * - primary = INTEC green, the one action that advances work on a screen (text on green is dark, never white)
+ * - commit  = near-black, saving inside a card (shadcn's classic default button)
+ * - everything else is neutral zinc unless it is a state (amber waiting, emerald done, red refused)
+ * Tokens follow shadcn's names (background, foreground, card, muted, accent, border, input, ring, ...), so components
+ * from ui.shadcn.com drop in unchanged. Components live in src/components/ui; see components.json.
  */
-@theme {
-  --font-sans: var(--font-plex-sans), "IBM Plex Sans", system-ui, sans-serif;
-  --font-display: var(--font-inter), "Inter", system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
 
-  --color-page: #f7f8fa;          /* surface.page: the ground, never white */
-  --color-ink: #0f1729;           /* text.default */
-  --color-muted: #64748b;         /* text.muted */
-  --color-hairline: #e2e8f0;      /* border.default */
-  --color-row-hover: #f8fafc;     /* surface.hover */
-  --color-chart-grid: #eef2f7;
+:root {
+  --radius: 0.625rem;
 
-  --color-advance: #8dc63f;       /* brand.advance: the one green action per screen */
-  --color-advance-hover: #7ab034;
-  --color-advance-ink: #062c12;   /* text on green: never white */
-  --color-tint: #f2f9e8;          /* pale green wash (active nav, tints) */
-  --color-tint-ink: #3f6212;      /* text.on-tint */
-  --color-commit: #4f46e5;        /* brand.commit: saving inside a card */
-  --color-commit-hover: #4338ca;
+  --background: #ffffff;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
 
-  --color-status-amber: #d97706;  /* waiting */
-  --color-status-emerald: #059669;/* done */
-  --color-status-red: #dc2626;    /* overdue / refused */
+  --primary: #8dc63f;             /* INTEC advance green */
+  --primary-foreground: #062c12;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+  --destructive: #dc2626;
+  --commit: #18181b;              /* saving inside a card */
+  --commit-foreground: #fafafa;
 
-  /* Older names, mapped onto the INTEC roles */
-  --color-brand: #3f6212;
-  --color-brand-soft: #f2f9e8;
-  --color-brand-dark: #062c12;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #8dc63f;
 
-  --radius-xs: 4px;
-  --radius-sm: 6px;   /* the house radius */
-  --radius-md: 8px;
+  --tint: #f2f9e8;                /* pale green wash: active navigation, highlights */
+  --tint-foreground: #3f6212;
+
+  --status-amber: #d97706;
+  --status-emerald: #059669;
+  --status-red: #dc2626;
+
+  --chart-1: #8dc63f;
+  --chart-2: #3f6212;
+  --chart-3: #d97706;
+  --chart-4: #0ea5e9;
+  --chart-5: #a1a1aa;
+  --chart-grid: #f4f4f5;
+
+  --sidebar: #fafafa;
+  --sidebar-foreground: #09090b;
+  --sidebar-primary: #8dc63f;
+  --sidebar-primary-foreground: #062c12;
+  --sidebar-accent: #f4f4f5;
+  --sidebar-accent-foreground: #18181b;
+  --sidebar-border: #e4e4e7;
+  --sidebar-ring: #8dc63f;
 }
 
-body {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.5;
-}
-h1, h2, h3, h4 {
-  font-family: var(--font-display);
+@theme inline {
+  --font-sans: var(--font-geist-sans), "Geist", system-ui, sans-serif;
+  --font-display: var(--font-geist-sans), "Geist", system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-commit: var(--commit);
+  --color-commit-foreground: var(--commit-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-tint: var(--tint);
+  --color-tint-foreground: var(--tint-foreground);
+  --color-status-amber: var(--status-amber);
+  --color-status-emerald: var(--status-emerald);
+  --color-status-red: var(--status-red);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-grid: var(--chart-grid);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 }
 
 @layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  h1, h2, h3, h4 {
+    @apply tracking-tight;
+  }
+  /* Native radios, checkboxes and range inputs take the INTEC green, like the shadcn controls */
+  input[type="radio"], input[type="checkbox"], input[type="range"] {
+    accent-color: var(--primary);
+  }
   /* In the base layer so text-* utilities on a link can override it. */
   a {
-    color: var(--color-tint-ink);
+    color: var(--tint-foreground);
   }
   a:hover {
     text-decoration: underline;
   }
-  :focus-visible {
-    outline: 2px solid var(--color-advance);
-    outline-offset: 1px;
-  }
 }
 
-/* Shared component classes. In the components layer, so a utility on the same element (e.g. "btn h-8") wins. */
+/*
+ * Shared classes for plain elements (native inputs, selects, buttons in Server Action forms, tables). They carry the
+ * same styles as the shadcn components (Input, Button variants, Table, Card), so a plain <button className="btn">
+ * and <Button variant="outline"> look the same. In the components layer, so a utility on the element still wins.
+ */
 @layer components {
+  /* = <Input>. 16px and 44px high on phones: iOS zooms into smaller fields, and thumbs need the height. */
   .input {
-    /* 16px on phones: iOS zooms the page into any field below 16px. 44px high for a thumb. */
-    @apply h-11 w-full rounded-sm border border-hairline bg-transparent px-3 text-[16px] text-ink md:h-9 md:text-[13px] outline-none placeholder:text-slate-400 focus:border-advance focus:ring-1 focus:ring-advance disabled:cursor-not-allowed disabled:opacity-50;
+    @apply flex h-11 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-[16px] shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 md:h-9 md:text-sm;
   }
   textarea.input {
-    @apply h-auto py-2;
+    @apply h-auto min-h-16 py-2;
   }
   select.input {
-    @apply bg-white;
+    @apply bg-background pr-8;
   }
+  /* = <Label> */
   .label {
-    @apply mb-1 block text-[11px] font-semibold uppercase tracking-[0.06em] text-muted;
+    @apply mb-2 block text-sm leading-none font-medium text-foreground;
   }
-  /* Outline: the workhorse for every secondary action */
+  /* = <Button variant="outline">: every secondary action */
   .btn {
-    @apply inline-flex h-11 items-center justify-center gap-2 rounded-sm md:h-8 border border-hairline bg-white px-3.5 text-[14px] font-medium md:text-[13px] text-ink no-underline hover:bg-row-hover hover:no-underline disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md border bg-background px-4 text-sm font-medium whitespace-nowrap text-foreground no-underline shadow-xs transition-all outline-none hover:bg-accent hover:text-accent-foreground hover:no-underline focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 md:h-9 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4;
   }
-  /* Advance: the one lifecycle action on a screen (submit, approve, send, close) */
+  /* = <Button>: the one action that advances the work on a screen (submit, approve, send, close) */
   .btn-advance, .btn-primary {
-    @apply border-advance bg-advance text-advance-ink hover:bg-advance-hover;
+    @apply border-transparent bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground;
   }
-  /* Commit: saving inside a card */
+  /* = <Button variant="commit">: saving inside a card */
   .btn-commit {
-    @apply border-commit bg-commit text-white hover:bg-commit-hover;
+    @apply border-transparent bg-commit text-commit-foreground hover:bg-commit/90 hover:text-commit-foreground;
   }
+  /* = <Button variant="destructive"> */
   .btn-danger {
-    @apply border-status-red bg-status-red text-white hover:bg-red-700;
+    @apply border-transparent bg-destructive text-white hover:bg-destructive/90 hover:text-white;
   }
+  /* = <Card> */
   .card {
-    @apply rounded-md border border-hairline bg-white p-4;
+    @apply rounded-xl border bg-card p-6 text-card-foreground shadow-sm;
   }
   .h2 {
-    @apply font-[family-name:var(--font-display)] text-[14px] font-semibold leading-snug text-ink;
+    @apply leading-none font-semibold text-foreground;
   }
-  /* Data tables: a quiet grey header that stays put, roomy rows, first and last cells inset to the card edge */
+  /* = <Table>: header stays put when the table scrolls */
   .table th {
-    @apply sticky top-0 z-10 whitespace-nowrap border-b border-hairline bg-slate-50 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted first:pl-4 last:pr-4;
+    @apply sticky top-0 z-10 h-10 border-b bg-muted/60 px-3 text-left align-middle text-[13px] font-medium whitespace-nowrap text-muted-foreground backdrop-blur first:pl-4 last:pr-4;
   }
   .table td {
-    @apply border-b border-hairline px-3 py-2.5 align-middle text-[13px] first:pl-4 last:pr-4;
+    @apply border-b px-3 py-2.5 align-middle text-sm first:pl-4 last:pr-4;
+  }
+  .table tbody tr {
+    @apply transition-colors hover:bg-muted/50;
   }
   .table tbody tr:last-child td {
     @apply border-b-0;
@@ -146,6 +231,6 @@ h1, h2, h3, h4 {
 
 /* Fields our own form check marked invalid (forms use noValidate, so the browser shows no bubbles) */
 .input[aria-invalid="true"] {
-  border-color: var(--color-status-red);
-  box-shadow: 0 0 0 1px var(--color-status-red);
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 20%, transparent);
 }

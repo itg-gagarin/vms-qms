@@ -28,7 +28,7 @@ export default async function VerifyDoc({ params }: { params: Promise<{ code: st
     <VerifyShell kind="Verifikasi dokumen" tone={v.void || v.superseded ? "bad" : "ok"} verdict={verdict}
       staffHref={v.canOpenFull ? `/ncf/${v.ncf_id}` : "/login"}>
       <div>
-        <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">Non Conformity Form</div>
+        <div className="text-xs font-medium text-muted-foreground">Non Conformity Form</div>
         <h1 className="font-mono text-[26px] font-semibold leading-tight">{v.ncf_no}</h1>
       </div>
       <Facts rows={[
@@ -38,24 +38,24 @@ export default async function VerifyDoc({ params }: { params: Promise<{ code: st
         ["Tanggal Masuk", fmtDate(v.receipt_date)],
       ]} />
       <div>
-        <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">Barang</h2>
-        <ul className="divide-y divide-hairline rounded-sm border border-hairline">
+        <h2 className="mb-2 text-xs font-medium text-muted-foreground">Barang</h2>
+        <ul className="divide-y divide-border rounded-md border border-border">
           {v.items.map((i) => (
             <li key={i.item_code} className="px-3 py-2.5">
               <div className="text-[14px] font-medium">{i.item_name}</div>
-              <div className="num text-[12px] text-muted">{i.item_code}</div>
-              <div className="num mt-1 text-[12px] text-slate-700">Datang {i.qty_received} · Sample {i.qty_sample} · Cacat {i.qty_defect} · Retur {i.qty_return}</div>
+              <div className="num text-[12px] text-muted-foreground">{i.item_code}</div>
+              <div className="num mt-1 text-[12px] text-foreground/80">Datang {i.qty_received} · Sample {i.qty_sample} · Cacat {i.qty_defect} · Retur {i.qty_return}</div>
             </li>
           ))}
         </ul>
       </div>
       <div>
-        <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">Tanda tangan</h2>
+        <h2 className="mb-2 text-xs font-medium text-muted-foreground">Tanda tangan</h2>
         <ul className="flex flex-col gap-2">
           {v.approvals.map((a) => (
             <li key={a.step_no} className="flex flex-wrap items-baseline justify-between gap-x-3 text-[14px]">
-              <span><b className="font-semibold">{a.signer_name}</b> <span className="text-muted">· {a.signer_position}</span></span>
-              <span className="num text-[12px] text-muted">{fmtDate(a.decided_at)}</span>
+              <span><b className="font-semibold">{a.signer_name}</b> <span className="text-muted-foreground">· {a.signer_position}</span></span>
+              <span className="num text-[12px] text-muted-foreground">{fmtDate(a.decided_at)}</span>
             </li>
           ))}
         </ul>

@@ -48,7 +48,7 @@ export default async function EditNcf({ params, searchParams }: { params: Promis
   return (
     <Shell>
       {flag && <ScrollToFlag />}
-      <PageHead title={<>Non Conformity Form <span className="num ml-1 text-[18px] font-medium text-muted">No. {d.ncf_no}</span></>}
+      <PageHead title={<>Non Conformity Form <span className="num ml-1 text-[18px] font-medium text-muted-foreground">No. {d.ncf_no}</span></>}
         crumbs={[{ label: "NCF Management", href: "/ncf" }, { label: `NCF ${d.ncf_no}`, href: `/ncf/${d.id}` }, { label: "Edit draft" }]}
         sub="Diisi QC Incoming saat pemeriksaan. Each section saves on its own; submitting signs the whole form.">
         <Link href={`/ncf/${d.id}`} className="btn">View NCF</Link>
@@ -65,7 +65,7 @@ export default async function EditNcf({ params, searchParams }: { params: Promis
           <Field label="Tanggal SJ"><span className="num">{fmtDate(d.sj_date)}</span></Field>
           <Field label="Tanggal Masuk"><span className="num">{fmtDate(d.receipt_date)}</span></Field>
         </FieldGrid>
-        <ActionForm action={setPoAction} className="mt-4 flex flex-wrap items-end gap-3 border-t border-hairline pt-4">
+        <ActionForm action={setPoAction} className="mt-4 flex flex-wrap items-end gap-3 border-t border-border pt-4">
           <input type="hidden" name="id" value={d.id} />
           <div className="min-w-[260px]">
             <label htmlFor="po_id" className="label">No. PO {pos.length > 1 && `(${pos.length} POs on this MRReg)`}</label>
@@ -75,7 +75,7 @@ export default async function EditNcf({ params, searchParams }: { params: Promis
             </select>
           </div>
           <Submit className="btn btn-commit">{d.po_id ? "Change PO" : "Set PO"}</Submit>
-          <p className="w-full text-xs text-slate-500">
+          <p className="w-full text-xs text-muted-foreground">
             One MRReg can hold several POs of the same supplier. The items in section B come from this PO.
             {d.items.length > 0 && " To change it, remove the items first."}
           </p>
@@ -93,7 +93,7 @@ export default async function EditNcf({ params, searchParams }: { params: Promis
           )}
         </ItemTable>
         {free.length > 0 ? (
-          <ActionForm action={addItemAction} resetOnOk className="mt-4 flex flex-wrap items-end gap-3 rounded-sm border border-hairline p-3">
+          <ActionForm action={addItemAction} resetOnOk className="mt-4 flex flex-wrap items-end gap-3 rounded-md border border-border p-3">
             <input type="hidden" name="id" value={d.id} />
             <div className="min-w-[260px] flex-[3_1_260px]">
               <label htmlFor="line_id" className="label">Barang (dari MRReg)</label>
@@ -120,7 +120,7 @@ export default async function EditNcf({ params, searchParams }: { params: Promis
             <Submit className="btn btn-commit">+ Tambah barang</Submit>
           </ActionForm>
         ) : (
-          <p className="mt-3 text-sm text-muted">
+          <p className="mt-3 text-sm text-muted-foreground">
             {d.po_id ? `All items of PO ${d.po_no} are on the NCF.` : "Choose the PO in section A to list its items."}
           </p>
         )}
@@ -143,7 +143,7 @@ export default async function EditNcf({ params, searchParams }: { params: Promis
             <legend className="label">Status barang</legend>
             <div className="flex flex-wrap gap-3">
               {Object.entries(GOODS_STATUS).map(([k, label]) => (
-                <label key={k} className="flex min-h-11 flex-1 basis-56 cursor-pointer items-start gap-3 rounded-lg border border-slate-300 px-4 py-3 has-[:checked]:border-2 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
+                <label key={k} className="flex min-h-11 flex-1 basis-56 cursor-pointer items-start gap-3 rounded-lg border border-input px-4 py-3 has-[:checked]:border-2 has-[:checked]:border-primary has-[:checked]:bg-tint">
                   <input type="radio" name="goods_status" value={k} defaultChecked={d.goods_status === k} className="mt-1 size-4" />
                   <span className="font-semibold">{label}</span>
                 </label>
@@ -189,7 +189,7 @@ export default async function EditNcf({ params, searchParams }: { params: Promis
             </ActionForm>
           )}
         </EvidenceList>
-        <ActionForm action={addEvidenceAction} resetOnOk className="mt-4 flex flex-col gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4">
+        <ActionForm action={addEvidenceAction} resetOnOk className="mt-4 flex flex-col gap-3 rounded-lg border border-dashed border-input bg-muted/50 p-4">
           <input type="hidden" name="id" value={d.id} />
           <div>
             <div className="label">Add evidence</div>
@@ -226,13 +226,13 @@ export default async function EditNcf({ params, searchParams }: { params: Promis
               description="Check what you are signing, then confirm with your password.">
               <ModalForm action={submitAction} className="flex flex-col gap-4">
                 <input type="hidden" name="id" value={d.id} />
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-sm border border-hairline bg-slate-50 p-3 text-[13px]">
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border border-border bg-muted/50 p-3 text-[13px]">
                   <div><dt className="label mb-0">Supplier</dt><dd className="truncate">{d.supplier_name}</dd></div>
                   <div><dt className="label mb-0">No. PO</dt><dd className="num">{d.po_no}</dd></div>
                   <div><dt className="label mb-0">Barang</dt><dd className="num">{d.items.length} item · {d.items.reduce((t, i) => t + i.qty_defect, 0)} cacat</dd></div>
                   <div><dt className="label mb-0">Bukti</dt><dd className="num">{ownFiles.filter((e) => e.file_id).length} file</dd></div>
                 </dl>
-                <p className="rounded-sm border-l-2 border-advance bg-tint/50 px-3 py-2 text-[12.5px] text-slate-700">
+                <p className="rounded-md border-l-2 border-primary bg-tint/50 px-3 py-2 text-[12.5px] text-foreground/80">
                   Saya menyatakan isi NCF ini benar. Setelah ditandatangani isinya terkunci sebagai versi baru dan dikirim ke approver
                   pertama. Tanda tangan ini tercatat dengan nama, jabatan, tanggal dan jam.
                 </p>

@@ -70,10 +70,10 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
     <Shell>
       <section className="card overflow-hidden p-0" aria-label="NCF summary">
         <div className="flex flex-col gap-4 px-4 pb-4 pt-4 sm:px-5 sm:pt-5">
-          <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 text-[13px] text-muted">
-            <Link href="/ncf" className="text-muted no-underline hover:text-ink">NCF Management</Link>
-            <span aria-hidden="true" className="text-slate-300">/</span>
-            <Link href={`/ncf?status=${d.status}`} className="text-muted no-underline hover:text-ink">{STATUS_LABEL[d.status]}</Link>
+          <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 text-[13px] text-muted-foreground">
+            <Link href="/ncf" className="text-muted-foreground no-underline hover:text-foreground">NCF Management</Link>
+            <span aria-hidden="true" className="text-zinc-300">/</span>
+            <Link href={`/ncf?status=${d.status}`} className="text-muted-foreground no-underline hover:text-foreground">{STATUS_LABEL[d.status]}</Link>
           </nav>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
@@ -81,8 +81,8 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
                 <h1 className="font-mono text-[20px] font-semibold leading-tight tracking-tight">NCF {d.ncf_no}</h1>
                 <StatusBadge status={d.status} />
               </div>
-              <p className="mt-1 text-[13px] text-muted">
-                <span className="font-semibold text-ink">{d.supplier_name}</span> <span className="num text-[12px]">{d.supplier_code}</span>
+              <p className="mt-1 text-[13px] text-muted-foreground">
+                <span className="font-semibold text-foreground">{d.supplier_name}</span> <span className="num text-[12px]">{d.supplier_code}</span>
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -91,7 +91,7 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
               {primary && <Link href={primary.href} className={`max-md:hidden ${actor === "qc" ? "btn btn-advance" : "btn"}`}>{primary.label}</Link>}
             </div>
           </div>
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-hairline pt-4 sm:grid-cols-3 lg:grid-cols-6">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border pt-4 sm:grid-cols-3 lg:grid-cols-6">
             {([
               ["No. MRReg", d.mrreg_no ?? "–", true],
               ["No. PO", d.po_no ?? "–", true],
@@ -101,14 +101,14 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
               ["Dibuat", fmtDate(d.created_at), true],
             ] as [string, string, boolean][]).map(([k, v, mono]) => (
               <div key={k} className="min-w-0">
-                <dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">{k}</dt>
-                <dd className={`mt-0.5 truncate text-[13px] text-ink ${mono ? "num" : ""}`} title={v}>{v}</dd>
+                <dt className="text-xs font-medium text-muted-foreground">{k}</dt>
+                <dd className={`mt-0.5 truncate text-[13px] text-foreground ${mono ? "num" : ""}`} title={v}>{v}</dd>
               </div>
             ))}
           </dl>
           <StatusStrip d={d} pending={pending} runningDays={runningDays} />
         </div>
-        <div className="border-t border-hairline bg-slate-50/60 px-3 pb-4 pt-5 sm:px-5">
+        <div className="border-t border-border bg-muted/50/60 px-3 pb-4 pt-5 sm:px-5">
           <StageStepper d={d} />
         </div>
       </section>
@@ -135,21 +135,21 @@ export default async function NcfPage({ params, searchParams }: { params: Promis
         <aside className="flex min-w-0 flex-col gap-6 xl:sticky xl:top-4" aria-label="Signatures and audit trail">
           <Section title="Signatures" aside={d.version && d.version.version_no > 1 ? `Versi ${d.version.version_no}` : undefined}>
             {d.approvals.length === 0 ? (
-              <p className="text-muted">Signatures start when QC submits.</p>
+              <p className="text-muted-foreground">Signatures start when QC submits.</p>
             ) : (
               <ol className="flex flex-col">
                 {d.approvals.map((a) => (
-                  <li key={a.id} className="flex gap-3 border-t border-hairline py-2.5 first:border-t-0 first:pt-0 last:pb-0">
+                  <li key={a.id} className="flex gap-3 border-t border-border py-2.5 first:border-t-0 first:pt-0 last:pb-0">
                     <Avatar name={a.signer_name} size={30} />
                     <div className="min-w-0 flex-1">
                     <div className="flex justify-between gap-2">
                       <span className="font-semibold">{a.title}</span>
-                      <span className={`text-[13px] font-medium ${a.decision === "APPROVED" ? "text-status-emerald" : a.decision ? "text-status-red" : "text-muted"}`}>
+                      <span className={`text-[13px] font-medium ${a.decision === "APPROVED" ? "text-status-emerald" : a.decision ? "text-status-red" : "text-muted-foreground"}`}>
                         {a.decision === "APPROVED" ? "Signed" : a.decision === "RETURNED" ? "Returned" : a.decision === "REJECTED" ? "Rejected"
                           : d.status !== "WAITING_APPROVAL" ? "Not reached" : a.id === pending?.id ? "Waiting" : "Queued"}
                       </span>
                     </div>
-                    <div className="text-[13px] text-slate-700">
+                    <div className="text-[13px] text-foreground/80">
                       {a.signer_name}{a.decided_at && <> · <span className="font-mono text-[12px]">{fmtDateTime(a.decided_at)}</span></>}
                     </div>
                     </div>
@@ -194,11 +194,11 @@ function StatusStrip({ d, pending, runningDays }: { d: NcfDetail; pending?: NcfD
     }
   })();
   const color = {
-    slate: "border-hairline text-slate-700", amber: "border-amber-200 bg-amber-50 text-amber-900",
+    slate: "border-border text-foreground/80", amber: "border-amber-200 bg-amber-50 text-amber-900",
     red: "border-red-200 bg-red-50 text-red-800", emerald: "border-emerald-200 bg-emerald-50 text-emerald-900",
   }[tone];
   return (
-    <div className={`flex items-start gap-2 rounded-sm border px-3 py-2 ${color}`}>
+    <div className={`flex items-start gap-2 rounded-md border px-3 py-2 ${color}`}>
       <Clock size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
       <p><span className="font-semibold">{title}</span>{rest && <> · {rest}</>}</p>
     </div>
@@ -213,11 +213,11 @@ function ApprovalPanel({ d, pending }: { d: NcfDetail; pending: NcfDetail["appro
   const steps = d.approvals.filter((a) => a.step_no > 0).length;
   const defects = d.items.reduce((t, i) => t + i.qty_defect, 0);
   const what = (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-sm border border-hairline bg-slate-50 p-3 text-[13px]">
-      <div><dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">NCF</dt><dd className="num">{d.ncf_no} · versi {d.version?.version_no}</dd></div>
-      <div><dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">Supplier</dt><dd className="truncate">{d.supplier_name}</dd></div>
-      <div><dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">Barang</dt><dd className="num">{d.items.length} item · {defects} cacat</dd></div>
-      <div><dt className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">Step</dt><dd>{pending.step_no} of {steps} · {pending.title}</dd></div>
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border border-border bg-muted/50 p-3 text-[13px]">
+      <div><dt className="text-xs font-medium text-muted-foreground">NCF</dt><dd className="num">{d.ncf_no} · versi {d.version?.version_no}</dd></div>
+      <div><dt className="text-xs font-medium text-muted-foreground">Supplier</dt><dd className="truncate">{d.supplier_name}</dd></div>
+      <div><dt className="text-xs font-medium text-muted-foreground">Barang</dt><dd className="num">{d.items.length} item · {defects} cacat</dd></div>
+      <div><dt className="text-xs font-medium text-muted-foreground">Step</dt><dd>{pending.step_no} of {steps} · {pending.title}</dd></div>
     </dl>
   );
   const sign = (decision: "APPROVED" | "RETURNED" | "REJECTED") => {
@@ -243,7 +243,7 @@ function ApprovalPanel({ d, pending }: { d: NcfDetail; pending: NcfDetail["appro
             <textarea id={`comment-${key}`} name="comment" rows={3} required minLength={5} className="input" autoFocus />
           </div>
         )}
-        <p className="rounded-sm border-l-2 border-advance bg-tint/50 px-3 py-2 text-[12.5px] text-slate-700">
+        <p className="rounded-md border-l-2 border-primary bg-tint/50 px-3 py-2 text-[12.5px] text-foreground/80">
           {meaning} Tanda tangan ini tercatat dengan nama, jabatan, tanggal dan jam.
         </p>
         <div>
@@ -260,7 +260,7 @@ function ApprovalPanel({ d, pending }: { d: NcfDetail; pending: NcfDetail["appro
   };
   return (
     <Section title="Your decision" aside={`Step ${pending.step_no} of ${steps}: ${pending.title}`}>
-      <p className="text-[13px] text-muted">Read the NCF below, then decide. Each decision is your electronic signature, confirmed with your password.</p>
+      <p className="text-[13px] text-muted-foreground">Read the NCF below, then decide. Each decision is your electronic signature, confirmed with your password.</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Modal label="Approve" icon={<Check size={16} aria-hidden="true" />} buttonClassName="btn btn-advance" title={`Approve NCF ${d.ncf_no}`}
           description="Check what you are signing, then confirm with your password.">{sign("APPROVED")}</Modal>
@@ -278,7 +278,7 @@ function SendPanel({ d }: { d: NcfDetail }) {
   return (
     <Section title="Send to supplier">
       <div className="grid gap-4 md:grid-cols-[1fr_320px]">
-        <ol className="flex list-decimal flex-col gap-1 pl-5 text-slate-700">
+        <ol className="flex list-decimal flex-col gap-1 pl-5 text-foreground/80">
           <li>
             Export the form as PDF{" "}
             <Link href={`/print/${d.id}?export=1`} target="_blank" className="btn ml-1 h-8 px-3"><FileDown size={15} aria-hidden="true" /> Export form (PDF)</Link>
@@ -304,7 +304,7 @@ function ReturnPanel({ d, runningDays }: { d: NcfDetail; runningDays: number | n
     <Section title="Supplier reply" aside={<>Sent <span className="font-mono">{fmtDateTime(d.request?.sent_at)}</span> · {runningDays} wd so far</>}>
       <ActionForm action={markReturnedAction} className="flex flex-col gap-3">
         <input type="hidden" name="id" value={d.id} />
-        <p className="text-slate-700">
+        <p className="text-foreground/80">
           When the supplier&apos;s reply arrives by email, attach it (the email saved as PDF or .eml, or the filled-in form) and mark it
           returned. The clock stops at the time you enter. The system keeps the reply as received; it does not re-type the CAPA.
         </p>
@@ -335,11 +335,11 @@ function ClosePanel({ d, fileHref }: { d: NcfDetail; fileHref: (f: number) => st
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <div className="label">Supplier&apos;s reply</div>
-          {reply.length ? <EvidenceList items={reply} fileHref={fileHref} /> : <p className="text-muted">No file.</p>}
+          {reply.length ? <EvidenceList items={reply} fileHref={fileHref} /> : <p className="text-muted-foreground">No file.</p>}
         </div>
         <ActionForm action={closeAction} className="flex flex-col gap-2">
           <input type="hidden" name="id" value={d.id} />
-          <p className="text-[13px] text-muted">Close once you have checked the supplier&apos;s reply. The NCF then becomes read-only.</p>
+          <p className="text-[13px] text-muted-foreground">Close once you have checked the supplier&apos;s reply. The NCF then becomes read-only.</p>
           <div><Submit className="btn btn-advance">Close NCF</Submit></div>
         </ActionForm>
       </div>

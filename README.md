@@ -28,9 +28,11 @@ skipped); Indonesian national holidays and cuti bersama 2026–2027 loaded by de
 camera capture for evidence on phones; read-only API for the VMS (`/api/v1/ncfs`, `/api/v1/responsiveness`, keys in
 Master Settings, API keys).
 
-**Design:** the INTEC design system (github.com/itg-gagarin/intec-design-system): tokens in `src/app/globals.css`, fonts in
-`src/app/layout.tsx`, shared pieces in `src/components/ui`. One green button per screen for the action that advances the
-NCF; indigo for saving inside a card; pills only for states; Lucide icons; tables with a frozen header and 10/20/50 paging.
+**Design:** shadcn/ui (new-york style, Radix primitives, `components.json`) themed with the INTEC colours: tokens in
+`src/app/globals.css` (primary = INTEC green #8DC63F with dark text, neutrals zinc, radius 10px), Geist fonts in
+`src/app/layout.tsx`, components in `src/components/ui`. One green button per screen for the action that advances the
+NCF; near-black for saving inside a card; outline for the rest; badges only for states; Lucide icons; tables with a
+frozen header and 10/20/50 paging. The printed form keeps the paper layout.
 
 ## Stack
 
@@ -80,7 +82,7 @@ only through the API. Full picture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 | `src/modules/ncf/` | QMS 1, the NCF: workflow, worklists, receipts, numbering, Purchasing outbox, reminders, reports, QR verification, API data |
 | `src/modules/suppliers/` | Supplier Master: suppliers, NCF contacts, reply figures |
 | `src/modules/admin/` | Master Settings: accounts and roles, positions, Business Units and approval chains, workflow settings, calendar |
-| `src/components/ui/` | Design-system pieces: buttons, tables, forms (`ActionForm`), modals, charts |
+| `src/components/ui/` | shadcn/ui components (button, card, dialog, sheet, dropdown-menu, …) and our own pieces built on them: `ActionForm`, `Modal`, `Section`, tables, charts |
 | `src/components/shell/` | Sidebar, top bar, floating phone bar |
 | `src/components/ncf/` | NCF document, print form, stepper, audit trail, evidence picker |
 | `src/app/(app)/` | Internal screens (login required); Server Actions stay thin and call a module |

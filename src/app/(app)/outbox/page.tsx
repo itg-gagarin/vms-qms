@@ -23,8 +23,8 @@ export default async function SupplierOutbox({ searchParams }: { searchParams: P
 
       <TableCard footer={<Pager total={total} page={page} size={size} base={{ tab }} />}>
         {/* Phones: one card per NCF, contacts tappable */}
-        <ul className="divide-y divide-hairline md:hidden">
-          {rows.length === 0 && <li className="px-4 py-8 text-center text-muted">Nothing here: no NCF is at this stage.</li>}
+        <ul className="divide-y divide-border md:hidden">
+          {rows.length === 0 && <li className="px-4 py-8 text-center text-muted-foreground">Nothing here: no NCF is at this stage.</li>}
           {rows.map((r) => {
             const late = r.running && (r.working_days ?? 0) > window;
             return (
@@ -33,7 +33,7 @@ export default async function SupplierOutbox({ searchParams }: { searchParams: P
                   <Link href={`/ncf/${r.id}`} className="num font-semibold">{r.ncf_no}</Link>
                   <StatusBadge status={r.status} />
                 </div>
-                <div className="text-[13px] font-medium">{r.supplier} <span className="num text-[12px] font-normal text-muted">{r.supplier_code}{r.po_no && ` · PO ${r.po_no}`}</span></div>
+                <div className="text-[13px] font-medium">{r.supplier} <span className="num text-[12px] font-normal text-muted-foreground">{r.supplier_code}{r.po_no && ` · PO ${r.po_no}`}</span></div>
                 <div className="text-[13px]">
                   {r.contacts.length === 0 && <span className="text-status-amber">No contact on file</span>}
                   {r.contacts.map((c, i) => (
@@ -44,14 +44,14 @@ export default async function SupplierOutbox({ searchParams }: { searchParams: P
                     </div>
                   ))}
                 </div>
-                <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-[12px] text-muted">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-[12px] text-muted-foreground">
                   <span className="num">
                     {r.sent_at ? `Sent ${fmtDateTime(r.sent_at)}` : "Not sent yet"}
                     {r.responded_at && ` · returned ${fmtDateTime(r.responded_at)}`}
                     {r.reminders > 0 && ` · ${r.reminders} reminder${r.reminders > 1 ? "s" : ""}`}
                   </span>
                   {r.working_days !== null && (
-                    <span className={`num text-[13px] font-semibold ${late ? "text-status-red" : r.running ? "text-ink" : "text-status-emerald"}`}>
+                    <span className={`num text-[13px] font-semibold ${late ? "text-status-red" : r.running ? "text-foreground" : "text-status-emerald"}`}>
                       {r.working_days} wd{r.running ? " so far" : ""}{late && ` · over ${window}`}
                     </span>
                   )}
@@ -73,18 +73,18 @@ export default async function SupplierOutbox({ searchParams }: { searchParams: P
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-muted">Nothing here: no NCF is at this stage.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Nothing here: no NCF is at this stage.</td></tr>}
             {rows.map((r) => {
               const late = r.running && (r.working_days ?? 0) > window;
               return (
                 <ClickableRow key={r.id} href={`/ncf/${r.id}`}>
                   <td className="whitespace-nowrap">
                     <Link href={`/ncf/${r.id}`} className="num font-semibold">{r.ncf_no}</Link>
-                    {r.po_no && <div className="num text-[12px] text-muted">PO {r.po_no}</div>}
+                    {r.po_no && <div className="num text-[12px] text-muted-foreground">PO {r.po_no}</div>}
                   </td>
                   <td>
                     <div className="font-medium">{r.supplier}</div>
-                    <div className="num text-[12px] text-muted">{r.supplier_code}</div>
+                    <div className="num text-[12px] text-muted-foreground">{r.supplier_code}</div>
                   </td>
                   <td className="text-[13px]">
                     {r.contacts.length === 0 && <span className="text-status-amber">No contact on file</span>}
@@ -97,14 +97,14 @@ export default async function SupplierOutbox({ searchParams }: { searchParams: P
                     ))}
                   </td>
                   <td><StatusBadge status={r.status} /></td>
-                  <td className="num whitespace-nowrap">{r.sent_at ? fmtDateTime(r.sent_at) : <span className="font-sans text-muted">Not yet</span>}</td>
+                  <td className="num whitespace-nowrap">{r.sent_at ? fmtDateTime(r.sent_at) : <span className="font-sans text-muted-foreground">Not yet</span>}</td>
                   <td className="num whitespace-nowrap">
-                    {r.responded_at ? fmtDateTime(r.responded_at) : r.sent_at ? <span className="font-sans text-muted">Waiting</span> : ""}
-                    {r.reminders > 0 && <div className="font-sans text-[12px] text-muted">{r.reminders} reminder{r.reminders > 1 ? "s" : ""}</div>}
+                    {r.responded_at ? fmtDateTime(r.responded_at) : r.sent_at ? <span className="font-sans text-muted-foreground">Waiting</span> : ""}
+                    {r.reminders > 0 && <div className="font-sans text-[12px] text-muted-foreground">{r.reminders} reminder{r.reminders > 1 ? "s" : ""}</div>}
                   </td>
                   <td className="whitespace-nowrap text-right">
                     {r.working_days !== null && (
-                      <span className={`num font-semibold ${late ? "text-status-red" : r.running ? "text-ink" : "text-status-emerald"}`}>
+                      <span className={`num font-semibold ${late ? "text-status-red" : r.running ? "text-foreground" : "text-status-emerald"}`}>
                         {r.working_days} wd{r.running ? " so far" : ""}
                       </span>
                     )}
@@ -116,7 +116,7 @@ export default async function SupplierOutbox({ searchParams }: { searchParams: P
           </tbody>
         </table>
       </TableCard>
-      <p className="text-[13px] text-muted">wd = working days (weekends and holidays in the calendar don&apos;t count).</p>
+      <p className="text-[13px] text-muted-foreground">wd = working days (weekends and holidays in the calendar don&apos;t count).</p>
     </Shell>
   );
 }

@@ -52,8 +52,8 @@ function detail(e: Event) {
 const tone = (a: string) =>
   a.includes("REJECTED") ? "bg-status-red ring-red-100"
     : a.includes("RETURNED") && a.startsWith("APPROVAL") ? "bg-status-amber ring-amber-100"
-    : ["SUBMIT", "APPROVAL_APPROVED", "CLOSE", "SENT", "SUPPLIER_RESPONDED", "SUPPLIER_RETURNED"].includes(a) ? "bg-advance ring-tint"
-    : "bg-slate-300 ring-slate-100";
+    : ["SUBMIT", "APPROVAL_APPROVED", "CLOSE", "SENT", "SUPPLIER_RESPONDED", "SUPPLIER_RETURNED"].includes(a) ? "bg-primary ring-tint"
+    : "bg-zinc-300 ring-zinc-100";
 
 /**
  * The audit trail, newest first, always open. Each event has its own marker column, so the dots and the line
@@ -69,15 +69,15 @@ export function AuditTimeline({ events }: { events: Event[] }) {
         return (
           <li key={i} className="grid grid-cols-[20px_minmax(0,1fr)] gap-x-3">
             <div className="relative flex justify-center" aria-hidden="true">
-              {!last && <span className="absolute bottom-0 top-4 w-px bg-hairline" />}
+              {!last && <span className="absolute bottom-0 top-4 w-px bg-border" />}
               <span className={`relative mt-1.5 size-2.5 rounded-full ring-4 ${tone(e.action)}`} />
             </div>
             <div className={last ? "" : "pb-4"}>
-              <div className="text-[13px] font-semibold leading-snug text-ink">{LABEL[e.action] ?? e.action.replace(/_/g, " ").toLowerCase()}</div>
-              <div className="num mt-0.5 text-[11px] text-muted">
+              <div className="text-[13px] font-semibold leading-snug text-foreground">{LABEL[e.action] ?? e.action.replace(/_/g, " ").toLowerCase()}</div>
+              <div className="num mt-0.5 text-[11px] text-muted-foreground">
                 {fmtDateTime(e.at)} · <span className="font-sans">{e.actor_name ?? (e.actor_type === "SUPPLIER" ? "Supplier" : "System")}</span>
               </div>
-              {more && <div className="mt-1 break-words text-[12px] text-slate-700" title={more.full}>{more.text}</div>}
+              {more && <div className="mt-1 break-words text-[12px] text-foreground/80" title={more.full}>{more.text}</div>}
             </div>
           </li>
         );

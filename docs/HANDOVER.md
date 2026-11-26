@@ -4,7 +4,8 @@
 
 | Name | Needed | What |
 | --- | --- | --- |
-| `DATABASE_URL` | yes | PostgreSQL 15+ connection string |
+| `DATABASE_URL` | yes | PostgreSQL 15+ connection string. On Neon: the pooled endpoint (host with `-pooler`), `sslmode=require` |
+| `DATABASE_URL_UNPOOLED` | on Neon | The direct endpoint; `scripts/migrate.ts` uses it so schema changes bypass the pooler |
 | `SESSION_SECRET` | yes | Signs login cookies; 32+ characters (`openssl rand -base64 48`). Changing it signs everyone out |
 | `APP_URL` | yes | Public base URL, printed in the QR codes. Changing it breaks QRs already printed |
 | `STORAGE_DIR` | yes | Evidence and reply files. The Docker image uses `/data/storage`; mount a persistent volume at `/data` |

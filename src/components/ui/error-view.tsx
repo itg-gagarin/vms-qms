@@ -12,14 +12,14 @@ export function ErrorView({ error, retry }: { error: unknown; retry: () => void 
   }, [error]);
   return (
     <main className="flex min-h-[70vh] items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md rounded-md border border-hairline bg-white p-6 text-center">
+      <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-sm text-center">
         <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-amber-50 text-status-amber">
           <TriangleAlert size={22} aria-hidden="true" />
         </span>
-        <h1 className="mt-4 font-[family-name:var(--font-display)] text-[18px] font-semibold text-ink">
+        <h1 className="mt-4 text-[18px] font-semibold text-foreground">
           {stale ? "The system was just updated" : "This page could not load"}
         </h1>
-        <p className="mt-1 text-[13px] text-muted">
+        <p className="mt-1 text-[13px] text-muted-foreground">
           {stale ? "Reload to continue with the new version. Nothing you saved is lost." : "Try again. If it keeps happening, tell the PMO administrator."}
         </p>
         <div className="mt-5 flex justify-center gap-2">

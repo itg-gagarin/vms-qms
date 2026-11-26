@@ -13,7 +13,7 @@ export function ReasonChips({ target, reasons }: { target: string; reasons: stri
     <div className="flex flex-wrap gap-1.5">
       {reasons.map((r) => (
         <button key={r} type="button" onClick={() => add(r)}
-          className="rounded-full border border-hairline bg-slate-50 px-2.5 py-1 text-[12px] text-slate-700 hover:border-slate-300 hover:bg-white">
+          className="rounded-md border bg-background px-2.5 py-1 text-xs shadow-xs text-foreground/80 hover:bg-accent">
           {r}
         </button>
       ))}

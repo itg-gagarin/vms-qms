@@ -45,7 +45,7 @@ export default async function PrintPage({ params, searchParams }: { params: Prom
   const log = await logPrint(user, d.id, d.status);
   const pages = external || ["APPROVED", "SENT", "RESPONDED", "CLOSED"].includes(d.status) ? 2 : 1;
   return (
-    <div className="bg-slate-300 py-2 print:bg-white print:py-0">
+    <div className="bg-zinc-300 py-2 print:bg-white print:py-0">
       <PrintBar back={`/ncf/${d.id}`} autoPrint={external} fileName={fileName(d)} label={external ? "Save as PDF for the supplier" : "Print or save as PDF"} />
       <PrintForm d={d} pages={pages} meta={{ kind: log.kind, copy: log.copy, printedBy: user.name, printedAt: new Date(), external }} />
     </div>

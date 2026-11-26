@@ -57,10 +57,10 @@ export default async function SupplierPage({ params }: { params: Promise<{ id: s
 
       <section aria-label="Responsiveness" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         {tiles.map(([k, v, sub]) => (
-          <div key={k} className="rounded-md border border-hairline border-t-[3px] border-t-advance bg-white px-4 py-3">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">{k}</div>
-            <div className="num mt-1 text-[22px] font-semibold leading-none text-ink">{v}</div>
-            {sub && <div className="mt-1 text-[12px] text-muted">{sub}</div>}
+          <div key={k} className="rounded-xl border bg-card shadow-sm p-4">
+            <div className="text-sm text-muted-foreground">{k}</div>
+            <div className="mt-1.5 text-2xl leading-none font-semibold tabular-nums">{v}</div>
+            {sub && <div className="mt-1 text-[12px] text-muted-foreground">{sub}</div>}
           </div>
         ))}
       </section>
@@ -87,7 +87,7 @@ export default async function SupplierPage({ params }: { params: Promise<{ id: s
             </thead>
             <tbody>
               {s.contacts.map((c) => (
-                <tr key={c.id} className={c.active ? "" : "text-muted"}>
+                <tr key={c.id} className={c.active ? "" : "text-muted-foreground"}>
                   <td className="font-medium">{c.name}{!c.active && <span className="ml-2 text-[12px] font-normal">(inactive)</span>}</td>
                   <td className="max-w-[240px] truncate">{c.email ? <a href={`mailto:${c.email}`}>{c.email}</a> : "–"}</td>
                   <td className="num max-sm:hidden">{c.phone ?? "–"}</td>

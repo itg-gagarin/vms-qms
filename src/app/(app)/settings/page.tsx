@@ -75,11 +75,11 @@ async function Accounts({ user, term }: { user: Actor; term: string }) {
         <div className="flex w-full flex-wrap items-center gap-2">
           <form className="relative min-w-0 flex-[1_1_240px] sm:max-w-sm" role="search">
             <Hidden name="tab" value="accounts" />
-            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" aria-hidden="true" />
             <label htmlFor="uq" className="sr-only">Search accounts</label>
             <input id="uq" name="q" defaultValue={term} placeholder="Name, email or position" className="input h-9 pl-9 md:h-9" />
           </form>
-          <span className="text-[12px] text-muted"><span className="num text-ink">{all.filter((u) => u.active).length}</span> active · {all.length} total</span>
+          <span className="text-[12px] text-muted-foreground"><span className="num text-foreground">{all.filter((u) => u.active).length}</span> active · {all.length} total</span>
           <div className="ml-auto">
             <Modal label="New account" title="New account" icon={<Plus size={15} aria-hidden="true" />} buttonClassName="btn btn-commit"
               description="Roles and business units are given on the account page that opens next.">
@@ -118,16 +118,16 @@ async function Accounts({ user, term }: { user: Actor; term: string }) {
                     <Avatar name={u.name} size={28} />
                     <div className="min-w-0">
                       <Link href={`/settings/users/${u.id}`} className="block font-medium">{u.name}</Link>
-                      <div className="truncate text-[12px] text-muted">{u.email}</div>
+                      <div className="truncate text-[12px] text-muted-foreground">{u.email}</div>
                     </div>
                   </div>
                 </td>
-                <td className="max-md:hidden">{u.position ?? <span className="text-muted">–</span>}</td>
+                <td className="max-md:hidden">{u.position ?? <span className="text-muted-foreground">–</span>}</td>
                 <td>
                   <div className="flex flex-wrap gap-1">
                     {u.roles.length === 0 && <span className="text-[12px] text-status-amber">No role yet</span>}
                     {u.roles.map((r) => (
-                      <span key={r.id} className="rounded-xs border border-hairline bg-slate-50 px-1.5 py-0.5 text-[11px] text-slate-700">
+                      <span key={r.id} className="rounded-sm border border-border bg-muted/50 px-1.5 py-0.5 text-[11px] text-foreground/80">
                         {roleLabel[r.role]}{r.bu ? ` · ${r.bu}` : ""}
                       </span>
                     ))}
@@ -149,20 +149,20 @@ async function Positions() {
   const list = await adm.listPositions();
   return (
     <Section flush title="Positions" description="The list behind the Position field. The position is printed under each signature; renaming one updates the accounts, not signatures already given.">
-      <ul className="divide-y divide-hairline">
+      <ul className="divide-y divide-border">
         {list.map((p) => (
           <li key={p.id} className="px-4 py-2.5">
             <ActionForm action={savePositionAction} className="flex flex-wrap items-center gap-3">
               <Hidden name="id" value={p.id} />
               <input name="name" defaultValue={p.name} aria-label="Position name" required className="input max-w-xs" />
               <label className="flex items-center gap-1.5 text-[13px]"><input type="checkbox" name="active" defaultChecked={p.active} /> In the list</label>
-              <span className="text-[12px] text-muted">{p.users} account{p.users === 1 ? "" : "s"}</span>
+              <span className="text-[12px] text-muted-foreground">{p.users} account{p.users === 1 ? "" : "s"}</span>
               <Submit className="btn">Save</Submit>
             </ActionForm>
           </li>
         ))}
       </ul>
-      <ActionForm action={savePositionAction} resetOnOk className="flex flex-wrap items-center gap-3 border-t border-hairline px-4 py-3">
+      <ActionForm action={savePositionAction} resetOnOk className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3">
         <input name="name" required placeholder="New position, e.g. QC Supervisor" aria-label="New position" className="input max-w-xs" />
         <Submit className="btn btn-commit">Add position</Submit>
       </ActionForm>
@@ -187,7 +187,7 @@ async function Chain() {
                 const st = steps.find((x) => x.step_no === i);
                 return (
                   <div key={i} className="grid items-end gap-3 md:grid-cols-[60px_1fr_1fr]">
-                    <div className="pb-2.5 text-sm font-semibold text-muted">Step {i}</div>
+                    <div className="pb-2.5 text-sm font-semibold text-muted-foreground">Step {i}</div>
                     <Field id={`t${b.id}${i}`} label="Title on the form"><input id={`t${b.id}${i}`} name={`title_${i}`} defaultValue={st?.approver_title ?? ""} className="input" placeholder={["QC Manager", "Material WHS Manager", "GM"][i - 1]} /></Field>
                     <Field id={`a${b.id}${i}`} label="Approver">
                       <select id={`a${b.id}${i}`} name={`approver_${i}`} defaultValue={st?.approver_id ?? ""} className="input">
@@ -198,7 +198,7 @@ async function Chain() {
                   </div>
                 );
               })}
-              <p className="text-xs text-slate-500">Only people with the NCF Approver role for this unit are listed. Changes apply to NCFs submitted from now on.</p>
+              <p className="text-xs text-muted-foreground">Only people with the NCF Approver role for this unit are listed. Changes apply to NCFs submitted from now on.</p>
               <div><Submit>Save chain</Submit></div>
             </ActionForm>
           </Section>
@@ -228,7 +228,7 @@ async function Numbering() {
             <input id="next" name="next" type="number" min={1} placeholder={`next is ${st.next}`} className="input" />
           </Field>
         </div>
-        <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">
+        <div className="rounded-lg bg-muted/50 p-3 text-sm text-foreground/80">
           Parts: <code>{"{SEQ}"}</code> running number, <code>{"{SEQ:3}"}</code>/<code>{"{SEQ:4}"}</code> padded (007),{" "}
           <code>{"{ROMAN}"}</code> month in Roman (XI), <code>{"{MM}"}</code> month (11), <code>{"{YYYY}"}</code>/<code>{"{YY}"}</code> year,{" "}
           <code>{"{BU}"}</code> business-unit code. The paper register uses <code>{"{SEQ}/{ROMAN}/{YYYY}"}</code>, restarting every year.
@@ -252,7 +252,7 @@ async function Workflow() {
           {adm.WORKFLOW_KEYS.map((k) => (
             <Field key={k.key} id={k.key} label={k.label}>
               <input id={k.key} name={k.key} type="number" min={k.min} max={k.max} defaultValue={values[k.key]} required className="input max-w-[200px]" />
-              <p className="mt-1 text-xs text-slate-500">{k.help}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{k.help}</p>
             </Field>
           ))}
         </div>
@@ -274,11 +274,11 @@ async function Categories() {
             <Hidden name="id" value={c.id} />
             <input name="name" defaultValue={c.name} aria-label="Category name" className="input h-10 max-w-sm" />
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" defaultChecked={c.active} /> Active</label>
-            <span className="text-xs text-slate-500">{c.used} NCF{c.used === 1 ? "" : "s"}</span>
+            <span className="text-xs text-muted-foreground">{c.used} NCF{c.used === 1 ? "" : "s"}</span>
             <Submit className="btn btn-commit">Save</Submit>
           </ActionForm>
         ))}
-        <ActionForm action={saveCategoryAction} resetOnOk className="mt-3 flex flex-wrap items-center gap-3 border-t border-hairline pt-4">
+        <ActionForm action={saveCategoryAction} resetOnOk className="mt-3 flex flex-wrap items-center gap-3 border-t border-border pt-4">
           <input name="name" required placeholder="New category" aria-label="New category" className="input h-10 max-w-sm" />
           <Submit className="btn btn-commit">Add category</Submit>
         </ActionForm>
@@ -301,7 +301,7 @@ async function Calendar({ year }: { year: number }) {
         {cal.days === 0 ? (
           <ActionForm action={extendCalendarAction} className="flex items-center gap-3">
             <Hidden name="year" value={year} />
-            <p className="text-sm text-slate-700">{year} is not in the calendar yet, so working days cannot be counted in it.</p>
+            <p className="text-sm text-foreground/80">{year} is not in the calendar yet, so working days cannot be counted in it.</p>
             <Submit className="btn h-10">Add {year}</Submit>
           </ActionForm>
         ) : (
@@ -312,7 +312,7 @@ async function Calendar({ year }: { year: number }) {
               <ul className="flex flex-col">
                 {cal.holidays.map((h) => (
                   <li key={h.day}>
-                    <ActionForm action={setHolidayAction} className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline py-1.5 text-[13px] first:border-t-0">
+                    <ActionForm action={setHolidayAction} className="flex flex-wrap items-center justify-between gap-2 border-t border-border py-1.5 text-[13px] first:border-t-0">
                       <Hidden name="day" value={h.day} /><Hidden name="name" value={h.name ?? ""} /><Hidden name="holiday" value="0" />
                       <span className="flex min-w-0 flex-wrap items-center gap-2">
                         <span className="num w-[82px] shrink-0">{fmtDate(h.day)}</span>
@@ -320,7 +320,7 @@ async function Calendar({ year }: { year: number }) {
                         {h.kind === "NATIONAL" && <StatePill tone="red">Libur nasional</StatePill>}
                         {h.kind === "CUTI_BERSAMA" && <StatePill tone="amber">Cuti bersama</StatePill>}
                         {h.kind === "COMPANY" && <StatePill tone="indigo">Company</StatePill>}
-                        {h.weekend && <span className="text-[12px] text-muted">weekend</span>}
+                        {h.weekend && <span className="text-[12px] text-muted-foreground">weekend</span>}
                       </span>
                       {!h.weekend && <Submit className="btn h-7 px-2 text-xs md:h-7">Make working day</Submit>}
                     </ActionForm>
@@ -328,9 +328,9 @@ async function Calendar({ year }: { year: number }) {
                 ))}
               </ul>
             </div>
-            <ActionForm action={setHolidayAction} resetOnOk className="flex flex-col gap-3 self-start rounded-md border border-hairline p-4">
+            <ActionForm action={setHolidayAction} resetOnOk className="flex flex-col gap-3 self-start rounded-lg border border-border p-4">
               <div className="h2">Add a holiday</div>
-              <p className="text-[12px] text-muted">Indonesian national holidays and cuti bersama for 2026 and 2027 are loaded from the SKB 3 Menteri. Add company days off here.</p>
+              <p className="text-[12px] text-muted-foreground">Indonesian national holidays and cuti bersama for 2026 and 2027 are loaded from the SKB 3 Menteri. Add company days off here.</p>
               <Hidden name="holiday" value="1" />
               <Field id="hday" label="Date"><input id="hday" name="day" type="date" min={`${year}-01-01`} max={`${year}-12-31`} required className="input" /></Field>
               <Field id="hname" label="Holiday name"><input id="hname" name="name" required className="input" placeholder="e.g. Ulang tahun perusahaan" /></Field>
@@ -355,11 +355,11 @@ async function Units() {
             <Hidden name="id" value={b.id} />
             <input name="code" defaultValue={b.code} aria-label="Code" className="input h-10 w-40 font-mono" />
             <input name="name" defaultValue={b.name} aria-label="Name" className="input h-10 max-w-sm" />
-            <span className="text-xs text-slate-500">{b.ncfs} NCF{b.ncfs === 1 ? "" : "s"}</span>
+            <span className="text-xs text-muted-foreground">{b.ncfs} NCF{b.ncfs === 1 ? "" : "s"}</span>
             <Submit className="btn btn-commit">Save</Submit>
           </ActionForm>
         ))}
-        <ActionForm action={saveUnitAction} resetOnOk className="mt-3 flex flex-wrap items-center gap-3 border-t border-hairline pt-4">
+        <ActionForm action={saveUnitAction} resetOnOk className="mt-3 flex flex-wrap items-center gap-3 border-t border-border pt-4">
           <input name="code" required placeholder="CODE" aria-label="New unit code" className="input h-10 w-40 font-mono" />
           <input name="name" required placeholder="Name" aria-label="New unit name" className="input h-10 max-w-sm" />
           <Submit className="btn btn-commit">Add unit</Submit>
@@ -386,8 +386,8 @@ async function ApiKeys({ user }: { user: Actor }) {
                 <tr key={k.id}>
                   <td className="font-medium">{k.name}</td>
                   <td className="num">vms_{k.prefix}_…</td>
-                  <td className="num">{fmtDate(k.created_at)} <span className="font-sans text-muted">· {k.created_by}</span></td>
-                  <td className="num">{k.last_used_at ? fmtDate(k.last_used_at) : <span className="font-sans text-muted">never</span>}</td>
+                  <td className="num">{fmtDate(k.created_at)} <span className="font-sans text-muted-foreground">· {k.created_by}</span></td>
+                  <td className="num">{k.last_used_at ? fmtDate(k.last_used_at) : <span className="font-sans text-muted-foreground">never</span>}</td>
                   <td>{k.revoked_at ? <StatePill tone="slate">Revoked</StatePill> : <StatePill tone="emerald">Active</StatePill>}</td>
                   <td className="text-right">
                     {!k.revoked_at && (
@@ -402,7 +402,7 @@ async function ApiKeys({ user }: { user: Actor }) {
             </tbody>
           </table>
         )}
-        <ActionForm action={createApiKeyAction} className="border-t border-hairline px-4 py-3">
+        <ActionForm action={createApiKeyAction} className="border-t border-border px-4 py-3">
           <div className="flex flex-wrap items-center gap-3">
             <input name="name" required minLength={2} placeholder="Used by, e.g. VMS reports" aria-label="Key name" className="input max-w-xs" />
             <Submit className="btn btn-commit">Make key</Submit>
@@ -412,9 +412,9 @@ async function ApiKeys({ user }: { user: Actor }) {
       <Section title="How the VMS reads the data">
         <div className="flex flex-col gap-3 text-[13px]">
           <p>Send the key in the <code>Authorization: Bearer</code> header (or <code>X-API-Key</code>). Dates are the day the NCF was raised (WIB). Drafts are not included.</p>
-          <pre className="overflow-x-auto rounded-sm bg-slate-50 p-3 font-mono text-[12px] leading-relaxed">{`GET ${base}/api/v1/ncfs?from=2026-01-01&to=2026-12-31&status=CLOSED&supplier=VLP00412&bu=BU-DEMO&page=1&size=100
+          <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-[12px] leading-relaxed">{`GET ${base}/api/v1/ncfs?from=2026-01-01&to=2026-12-31&status=CLOSED&supplier=VLP00412&bu=BU-DEMO&page=1&size=100
 GET ${base}/api/v1/responsiveness?from=2026-01-01&to=2026-12-31&bu=BU-DEMO`}</pre>
-          <p className="text-muted"><code>/ncfs</code> returns rows with items and every timestamp (raised, submitted, approved, sent, reply received, closed) and the working-day figures. <code>/responsiveness</code> returns the Reports page figures: summary, per supplier, per month, per status and per category.</p>
+          <p className="text-muted-foreground"><code>/ncfs</code> returns rows with items and every timestamp (raised, submitted, approved, sent, reply received, closed) and the working-day figures. <code>/responsiveness</code> returns the Reports page figures: summary, per supplier, per month, per status and per category.</p>
         </div>
       </Section>
     </>

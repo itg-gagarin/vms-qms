@@ -18,7 +18,7 @@ audit findings or CAPA tracking) gets the same shape so the next developer finds
 4. **Lint.** Add the module name to `MODULES` in `eslint.config.mjs` so the layer rules apply to it.
 5. **Screens.** `src/app/(app)/<module>/`: `page.tsx` files guarded with `requireRole` (or a visibility check), and
    `actions.ts` with Server Actions that read the form, call the module, and return `ActionState` or redirect. Forms go
-   through `ActionForm`/`ModalForm`. Follow the INTEC rules: one `btn-advance` per screen, `btn-commit` for saves.
+   through `ActionForm`/`ModalForm`. Use the shadcn components in `src/components/ui` (add new ones with `npx shadcn@latest add`): one advancing action per screen, `btn-commit` for saves.
 6. **Menu.** Add a group or items to `menu` in `src/app/(app)/layout.tsx` with the same role list the pages check.
    Add the route to the redirect allowlist in `src/app/(app)/bu-actions.ts` if the Business Unit switch should return
    to it.

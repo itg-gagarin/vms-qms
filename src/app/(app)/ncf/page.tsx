@@ -58,13 +58,13 @@ export default async function NcfList({ searchParams }: { searchParams: Promise<
               {status && <input type="hidden" name="status" value={status} />}
               {!status && tab !== "all" && <input type="hidden" name="tab" value={tab} />}
               <div className="relative min-w-0 max-w-sm flex-1">
-                <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70" aria-hidden="true" />
                 <label htmlFor="q" className="sr-only">Search</label>
                 <input id="q" name="q" defaultValue={term} autoFocus={sp.focus === "search"} placeholder="No. Komplain, supplier, PO, MRReg" enterKeyHint="search" className="input h-9 pl-9 md:h-9" />
               </div>
               {term && <Link href={qs({ q: undefined, tab: status ? undefined : tab, status })} className="btn h-9 px-2.5 md:h-9" aria-label="Clear search"><X size={15} aria-hidden="true" /></Link>}
             </form>
-            <span className="ml-auto text-[13px] text-muted"><span className="num text-ink">{total}</span> NCF{total === 1 ? "" : "s"}{term && <> matching &ldquo;{term}&rdquo;</>}</span>
+            <span className="ml-auto text-[13px] text-muted-foreground"><span className="num text-foreground">{total}</span> NCF{total === 1 ? "" : "s"}{term && <> matching &ldquo;{term}&rdquo;</>}</span>
           </>
         }
         footer={<Pager total={total} page={page} size={size} base={{ tab: status ? undefined : tab, status, q: term || undefined }} />}>
@@ -75,16 +75,16 @@ export default async function NcfList({ searchParams }: { searchParams: Promise<
         )}
         {/* Phones: each NCF is one tappable card */}
         {rows.length > 0 && (
-          <ul className="divide-y divide-hairline md:hidden">
+          <ul className="divide-y divide-border md:hidden">
             {rows.map((r) => (
               <li key={r.id}>
-                <Link href={`/ncf/${r.id}`} className="block px-4 py-3 text-ink no-underline active:bg-row-hover hover:no-underline">
+                <Link href={`/ncf/${r.id}`} className="block px-4 py-3 text-foreground no-underline active:bg-muted/50 hover:no-underline">
                   <span className="flex items-center justify-between gap-3">
-                    <span className="num font-semibold text-tint-ink">{r.ncf_no}</span>
+                    <span className="num font-semibold text-tint-foreground">{r.ncf_no}</span>
                     <StatusBadge status={r.status} />
                   </span>
                   <span className="mt-0.5 block truncate text-[13px]">{r.supplier_name}</span>
-                  <span className="num mt-0.5 block text-[12px] text-muted">
+                  <span className="num mt-0.5 block text-[12px] text-muted-foreground">
                     {[r.po_no && `PO ${r.po_no}`, fmtDate(r.receipt_date), `${r.items} item${r.items === 1 ? "" : "s"}`, `${r.defects} cacat`].filter(Boolean).join(" · ")}
                   </span>
                 </Link>
@@ -111,8 +111,8 @@ export default async function NcfList({ searchParams }: { searchParams: Promise<
                 <ClickableRow key={r.id} href={`/ncf/${r.id}`}>
                   <td><Link href={`/ncf/${r.id}`} className="num font-semibold">{r.ncf_no}</Link></td>
                   <td className="font-medium">{r.supplier_name}</td>
-                  <td className="num">{r.po_no ?? <span className="font-sans text-muted">–</span>}</td>
-                  <td className="text-slate-700">{r.bu_name}</td>
+                  <td className="num">{r.po_no ?? <span className="font-sans text-muted-foreground">–</span>}</td>
+                  <td className="text-foreground/80">{r.bu_name}</td>
                   <td className="num">{fmtDate(r.receipt_date)}</td>
                   <td className="num text-right">{r.items}</td>
                   <td className="num text-right">{r.defects}</td>

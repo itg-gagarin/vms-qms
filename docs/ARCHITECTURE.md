@@ -33,7 +33,7 @@ separate platform with its own code and database; it reads QMS data only through
 | Layer | May import | Holds |
 | --- | --- | --- |
 | `src/app` | everything below | Pages, layouts, Server Actions, route handlers. Read the form, call a module, redirect. No SQL, no rules. |
-| `src/components` | modules' client-safe files (`labels.ts`), platform types | UI only. `ui/` is the INTEC design system, `shell/` the frame, `ncf/` the NCF document pieces. |
+| `src/components` | modules' client-safe files (`labels.ts`), platform types | UI only. `ui/` holds the shadcn/ui components (INTEC colours) and our pieces built on them, `shell/` the frame, `ncf/` the NCF document pieces. |
 | `src/modules/<m>` | `src/platform`, other modules **through their `index.ts`** | Business rules. Every exported function checks the caller's role and the record's state itself. |
 | `src/platform` | nothing above it | What every module needs: database, session, roles, audit, e-signature, working-day calendar, dated settings, Business Units, notification queue, API keys, file storage. |
 

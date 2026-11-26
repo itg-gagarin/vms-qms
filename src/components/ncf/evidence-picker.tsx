@@ -71,20 +71,20 @@ export function EvidencePicker() {
       {items.length > 0 ? (
         <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {items.map(({ file: f, url }, k) => (
-            <li key={`${f.name}-${k}`} className="flex items-center gap-2.5 rounded-sm border border-hairline bg-white p-2">
+            <li key={`${f.name}-${k}`} className="flex items-center gap-2.5 rounded-md border bg-card p-2">
               {url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={url} alt="" className="size-11 shrink-0 rounded-xs object-cover" />
+                <img src={url} alt="" className="size-11 shrink-0 rounded-sm object-cover" />
               ) : (
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-xs bg-slate-100 text-[10px] font-semibold uppercase text-slate-500">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-sm bg-muted text-[10px] font-semibold uppercase text-muted-foreground">
                   {f.name.split(".").pop()?.slice(0, 4)}
                 </span>
               )}
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-medium">{f.name}</span>
-                <span className="num text-[11px] text-muted">{size(f.size)}</span>
+                <span className="num text-[11px] text-muted-foreground">{size(f.size)}</span>
               </span>
-              <button type="button" onClick={() => remove(k)} className="rounded-sm p-1.5 text-muted hover:bg-row-hover hover:text-ink"
+              <button type="button" onClick={() => remove(k)} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 aria-label={`Remove ${f.name}`}>
                 <X size={15} aria-hidden="true" />
               </button>
@@ -92,7 +92,7 @@ export function EvidencePicker() {
           ))}
         </ul>
       ) : (
-        <p className="text-[12px] text-muted">No file chosen yet. Photos, videos (up to 50 MB), PDF, Word or Excel.</p>
+        <p className="text-[12px] text-muted-foreground">No file chosen yet. Photos, videos (up to 50 MB), PDF, Word or Excel.</p>
       )}
     </div>
   );

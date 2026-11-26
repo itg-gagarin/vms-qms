@@ -146,7 +146,9 @@ async function main() {
 
   await c.query("commit");
   await c.end();
-  console.log(`seed: done. Logins: qc, qcm, whs, gm, pur, pch, audit, admin @demo.local, password ${PASSWORD}`);
+  // Never print the password: deploy logs are read by more people than the accounts are meant for.
+  console.log(`seed: done. Logins: qc, qcm, whs, gm, pur, pch, audit, admin @demo.local; password ${
+    process.env.SEED_PASSWORD ? "from SEED_PASSWORD" : "demo1234 (default)"}`);
 }
 
 main().catch((e) => {

@@ -35,7 +35,9 @@ about. `scripts/reset.ts` drops the `public` schema.
 - Schema changes are new numbered files in `db/migrations/` (plain SQL, applied in order by `scripts/migrate.ts`).
   Do not edit applied migrations; `001_schema.sql` mirrors the ERD and stays unchanged.
 - `src/app/(app)` is internal and needs a login; `src/app/v` (QR verification) is public and read-only, so treat what it
-  receives as untrusted. `src/app/api/v1` is read-only and needs an API key (`src/platform/api-keys.ts`, data in `src/modules/ncf/api.ts`); it never writes.
+  receives as untrusted. `src/app/api/v1` is read-only and needs a Read API key (`src/platform/api-keys.ts`, data in `src/modules/ncf/api.ts`); it never writes.
+  `src/app/api/import` is the only write API: the SAP feed from n8n, Import keys only (`src/modules/ncf/sap-feed.ts`,
+  `integrations/n8n/README.md`). A key has one scope; never let a Read key write or an Import key read.
 - Form fields and the printed form are Indonesian, matching the paper form (FR/IG/ALL/IN/QUAC/007); app chrome and
   status names are English. Shared labels live in `src/modules/ncf/labels.ts` (no database imports there; client code uses it).
 - Times are shown in WIB (UTC+7); supplier response time is counted in working days from `calendar_day`.

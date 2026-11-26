@@ -46,7 +46,7 @@ export const addRolesAction = async (_: ActionState, d: FormData) =>
 export async function createApiKeyAction(_: ActionState, d: FormData): Promise<ActionState> {
   const user = await requireUser();
   try {
-    const key = await createApiKey(user, s(d, "name"));
+    const key = await createApiKey(user, s(d, "name"), s(d, "scope") === "import" ? "import" : "read");
     refresh();
     return { secret: key };
   } catch (e) {
@@ -79,7 +79,7 @@ export const removeRoleAction = async (_: ActionState, d: FormData) =>
   run("Role removed.", (u) => adm.removeRole(u, Number(d.get("role_id"))));
 
 export const saveUnitAction = async (_: ActionState, d: FormData) =>
-  run("Saved.", (u) => adm.saveUnit(u, n(d, "id"), s(d, "code"), s(d, "name")));
+  run("Saved.", (u) => adm.saveUnit(u, n(d, "id"), s(d, "code"), s(d, "name"), n(d, "sap_branch")));
 
 export const saveChainAction = async (_: ActionState, d: FormData) =>
   run("Approval chain saved. It applies to NCFs submitted from now on.", (u) =>

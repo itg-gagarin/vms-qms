@@ -73,6 +73,10 @@ rename a file that has run anywhere. Take a backup before deploying a migration 
 
 ## SAP MRReg import
 
+The normal route is the SAP feed: n8n queries SAP Business One and posts the rows to `POST /api/import/sap/mrreg` with
+an Import API key. Setup, the query and the workflow: [integrations/n8n/README.md](../integrations/n8n/README.md). Each
+batch is listed in Master Settings → API keys → SAP feed. The xlsx importer below is the fallback:
+
 ```bash
 npm run import:mrreg -- path/to/mrreg-export.xlsx
 ```

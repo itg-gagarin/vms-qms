@@ -12,7 +12,10 @@ closes (no verification note) → two-page A4 print with a document QR and one s
 every step. There is no supplier-facing page. The only part of the system a supplier can reach is the read-only QR
 verification page, which shows what is already printed on the form (number, version, items, who signed and when).
 
-**Not in this MVP:** live SAP connection (MRRegs come from the SAP export via `npm run import:mrreg`), sending email from
+**SAP:** n8n runs the MRReg + PO query in SAP Business One and posts the rows to `POST /api/import/sap/mrreg` with an
+Import API key (`integrations/n8n/README.md`); the xlsx importer (`npm run import:mrreg`) stays as a fallback.
+
+**Not in this MVP:** sending email from
 the system (internal notifications are queued in `notification_outbox` for a future SMTP worker), supplier scoring,
 "ask for more information", voiding after sending (no role owns it yet), SSO.
 
@@ -88,7 +91,8 @@ only through the API. Full picture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 | `src/app/(app)/` | Internal screens (login required); Server Actions stay thin and call a module |
 | `src/app/v/` | QR verification pages (public, read-only) |
 | `src/app/api/v1/` | Read-only API for the VMS (API key) |
-| `scripts/` | Migrate, seed, SAP MRReg import, demo data |
+| `scripts/` | Migrate, seed, SAP MRReg xlsx import, demo data |
+| `integrations/` | The SAP query (`sap/`) and the n8n workflow that feeds it to the QMS (`n8n/`) |
 | `tests/` | `*.test.mts` against a real PostgreSQL; `e2e_browser.py` drives the whole flow in Chrome |
 
 Rules live in `src/modules`, not in the screens: every function checks the role and the NCF status itself. ESLint

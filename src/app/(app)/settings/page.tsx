@@ -10,7 +10,8 @@ import { Avatar, EmptyState, PageHead, Section, Shell, StatePill, TableCard, Tab
 import * as adm from "@/modules/admin";
 import * as numbering from "@/modules/ncf/numbering";
 import { ROLES } from "@/platform/access";
-import { listApiKeys } from "@/platform/api-keys";
+import { API_SCOPES, listApiKeys } from "@/platform/api-keys";
+import { recentSapBatches } from "@/modules/ncf/sap-feed";
 import { requireUser } from "@/platform/auth";
 import { hasRole, type Actor } from "@/platform/access";
 import { fmtDate, wib } from "@/platform/util";
@@ -348,13 +349,14 @@ async function Calendar({ year }: { year: number }) {
 async function Units() {
   const units = await adm.listUnits();
   return (
-    <Section title="Business units" aside="Each unit has its own QC, approvers and approval chain">
+    <Section title="Business units" description="Each unit has its own QC, approvers and approval chain. The SAP branch (BPLId) routes receipts from the SAP feed to the unit; receipts of an unmapped branch go to the default unit.">
       <div className="flex flex-col gap-2">
         {units.map((b) => (
           <ActionForm key={b.id} action={saveUnitAction} className="flex flex-wrap items-center gap-3">
             <Hidden name="id" value={b.id} />
             <input name="code" defaultValue={b.code} aria-label="Code" className="input h-10 w-40 font-mono" />
             <input name="name" defaultValue={b.name} aria-label="Name" className="input h-10 max-w-sm" />
+            <input name="sap_branch" type="number" min={0} defaultValue={b.sap_branch_id ?? ""} placeholder="SAP branch" aria-label="SAP branch (BPLId)" title="SAP branch (BPLId) whose receipts belong to this unit" className="input h-10 w-32 font-mono" />
             <span className="text-xs text-muted-foreground">{b.ncfs} NCF{b.ncfs === 1 ? "" : "s"}</span>
             <Submit className="btn btn-commit">Save</Submit>
           </ActionForm>
@@ -362,6 +364,7 @@ async function Units() {
         <ActionForm action={saveUnitAction} resetOnOk className="mt-3 flex flex-wrap items-center gap-3 border-t border-border pt-4">
           <input name="code" required placeholder="CODE" aria-label="New unit code" className="input h-10 w-40 font-mono" />
           <input name="name" required placeholder="Name" aria-label="New unit name" className="input h-10 max-w-sm" />
+          <input name="sap_branch" type="number" min={0} placeholder="SAP branch" aria-label="New unit SAP branch (BPLId)" className="input h-10 w-32 font-mono" />
           <Submit className="btn btn-commit">Add unit</Submit>
         </ActionForm>
       </div>
@@ -373,18 +376,19 @@ async function Units() {
 
 /** Keys for other Integra systems (the VMS) to read NCF rows and responsiveness. */
 async function ApiKeys({ user }: { user: Actor }) {
-  const keys = await listApiKeys(user);
+  const [keys, batches] = await Promise.all([listApiKeys(user), recentSapBatches(user)]);
   const base = process.env.APP_URL ?? "";
   return (
     <>
-      <Section flush title="API keys" description="Read-only access for other Integra systems, such as the VMS. A key is shown once when it is made; only a hash is kept.">
+      <Section flush title="API keys" description="Access for other Integra systems: Read keys for the VMS, Import keys for the SAP feed from n8n. A key does one of the two. It is shown once when it is made; only a hash is kept.">
         {keys.length === 0 ? <EmptyState title="No key yet">Make one for each system that reads NCF data, so each can be revoked on its own.</EmptyState> : (
           <table className="table w-full">
-            <thead><tr><th scope="col">Name</th><th scope="col">Key starts</th><th scope="col">Made</th><th scope="col">Last used</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Revoke</span></th></tr></thead>
+            <thead><tr><th scope="col">Name</th><th scope="col">Scope</th><th scope="col">Key starts</th><th scope="col">Made</th><th scope="col">Last used</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Revoke</span></th></tr></thead>
             <tbody>
               {keys.map((k) => (
                 <tr key={k.id}>
                   <td className="font-medium">{k.name}</td>
+                  <td>{k.scope === "import" ? <StatePill tone="indigo">Import</StatePill> : <StatePill tone="slate">Read</StatePill>}</td>
                   <td className="num">vms_{k.prefix}_…</td>
                   <td className="num">{fmtDate(k.created_at)} <span className="font-sans text-muted-foreground">· {k.created_by}</span></td>
                   <td className="num">{k.last_used_at ? fmtDate(k.last_used_at) : <span className="font-sans text-muted-foreground">never</span>}</td>
@@ -404,10 +408,37 @@ async function ApiKeys({ user }: { user: Actor }) {
         )}
         <ActionForm action={createApiKeyAction} className="border-t border-border px-4 py-3">
           <div className="flex flex-wrap items-center gap-3">
-            <input name="name" required minLength={2} placeholder="Used by, e.g. VMS reports" aria-label="Key name" className="input max-w-xs" />
+            <input name="name" required minLength={2} placeholder="Used by, e.g. VMS reports or n8n SAP feed" aria-label="Key name" className="input max-w-xs" />
+            <select name="scope" defaultValue="read" aria-label="What the key may do" className="input w-auto">
+              {API_SCOPES.map((x) => <option key={x.scope} value={x.scope}>{x.label}: {x.hint}</option>)}
+            </select>
             <Submit className="btn btn-commit">Make key</Submit>
           </div>
         </ActionForm>
+      </Section>
+      <Section flush title="SAP feed" description="n8n runs the MRReg + PO query in SAP and posts the rows here with an Import key. Setup: integrations/n8n/README.md.">
+        <div className="px-4 py-3 sm:px-5">
+          <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-[12px] leading-relaxed">{`POST ${base}/api/import/sap/mrreg
+X-API-Key: vms_xxxxxxxx_…   (Import key)
+{ "window": { "from": "2026-11-01", "to": "2026-11-26" }, "rows": [ { "No. MRReg": 260014520, "MRReg Line": 1, … } ] }`}</pre>
+        </div>
+        {batches.length === 0 ? <EmptyState title="Nothing received yet">The last batches from n8n show here, with what was added and what was skipped.</EmptyState> : (
+          <table className="table w-full">
+            <thead><tr><th scope="col">Received</th><th scope="col">Window</th><th scope="col" className="text-right">Rows</th><th scope="col" className="text-right">Receipts new / updated</th><th scope="col" className="text-right">Skipped</th><th scope="col">Unmapped branches</th></tr></thead>
+            <tbody>
+              {batches.map((b) => (
+                <tr key={b.id}>
+                  <td className="num">{fmtDate(b.received_at)} {wib(b.received_at).time}</td>
+                  <td className="num">{b.window_from ? `${b.window_from} → ${b.window_to ?? ""}` : "–"}</td>
+                  <td className="num text-right">{b.rows}</td>
+                  <td className="num text-right">{b.mrregs_inserted} / {b.mrregs_updated}</td>
+                  <td className="num text-right">{b.skipped ? <span className="text-status-red" title={b.first_skip ?? ""}>{b.skipped}</span> : 0}</td>
+                  <td className="num">{b.unmapped || "–"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </Section>
       <Section title="How the VMS reads the data">
         <div className="flex flex-col gap-3 text-[13px]">

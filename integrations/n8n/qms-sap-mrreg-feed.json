@@ -1,0 +1,231 @@
+{
+  "name": "QMS · SAP MRReg feed",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */30 6-21 * * 1-6"
+            },
+            {
+              "field": "cronExpression",
+              "expression": "0 0 1 * * *"
+            }
+          ]
+        }
+      },
+      "id": "8514c854-801d-508e-b852-d682c90a5542",
+      "name": "Every 30 min, 06:00-21:00 and 01:00 WIB",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "fcf1a497-1cb9-5ad6-8724-d2d7ce0f11c3",
+      "name": "Run now (backfill or test)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Everything this workflow needs, in one place. Secrets are not here: the SAP password is read from the n8n host's\n// environment (SAP_SL_PASSWORD) and the QMS Import key is the n8n credential \"QMS Import key\".\nreturn [{ json: {\n  qmsUrl: 'https://web-production-b4994f55.up.railway.app',     // QMS base URL (no trailing slash)\n  slUrl: $env.SAP_SL_URL ?? 'https://sap-b1-server:50000',       // SAP B1 Service Layer base URL\n  companyDb: $env.SAP_COMPANY_DB ?? 'SBO_INTEGRA',               // SAP company database\n  slUser: $env.SAP_SL_USER ?? 'n8n',                             // Service Layer user (read-only rights are enough)\n  slPassword: $env.SAP_SL_PASSWORD ?? '',\n  slInsecureTls: true,          // Service Layer often has a self-signed certificate; set false once it has a proper one\n  sqlCode: 'QMS_MRREG_SYNC',    // the stored SQLQuery (integrations/n8n/README.md, step 3)\n  windowDays: 14,               // every run: receipts registered in the last 14 days (status changes, new lines)\n  nightlyWindowDays: 120,       // the 01:00 run looks further back, for late cancellations and closures\n  backfillFrom: '',             // manual backfill: e.g. '2026-01-01' (leave empty for normal runs)\n  batchSize: 500,               // rows per request to QMS (QMS accepts up to 2000)\n}}];"
+      },
+      "id": "9d028f54-8946-55d8-884e-57a2fed2a2f1",
+      "name": "Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// The Registration Date window, in WIB.\nconst cfg = $('Config').first().json;\nconst wib = (d) => new Date(d.getTime() + 7 * 3600 * 1000);\nconst iso = (d) => wib(d).toISOString().slice(0, 10);\nconst now = new Date();\nconst hourWib = wib(now).getUTCHours();\nconst days = hourWib === 1 ? cfg.nightlyWindowDays : cfg.windowDays;\nconst from = cfg.backfillFrom || iso(new Date(now.getTime() - days * 86400 * 1000));\nconst to = iso(now);\nreturn [{ json: { ...cfg, from, to } }];"
+      },
+      "id": "82dbc352-6680-5031-8604-6c8158fd2185",
+      "name": "Window",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// SAP Business One Service Layer: log in, run the stored query for the window (all pages), log out.\n// If your n8n reaches HANA directly (ODBC/JDBC node), replace this node with that node running\n// integrations/sap/mrreg_and_pos_sync.sql and keep the rest of the workflow.\nconst c = $input.first().json;\nconst base = c.slUrl.replace(/\\/$/, '') + '/b1s/v1/';\nconst tls = { skipSslCertificateValidation: !!c.slInsecureTls };\nconst login = await this.helpers.httpRequest({ method: 'POST', url: base + 'Login', json: true, returnFullResponse: true, ...tls,\n  body: { CompanyDB: c.companyDb, UserName: c.slUser, Password: c.slPassword } });\nconst cookies = [].concat(login.headers['set-cookie'] ?? []).map((x) => x.split(';')[0]);\nif (!cookies.some((x) => x.startsWith('B1SESSION='))) cookies.push('B1SESSION=' + login.body.SessionId);\nconst headers = { Cookie: cookies.join('; '), Prefer: 'odata.maxpagesize=500' };\nconst ymd = (s) => s.replaceAll('-', '');\nconst body = { ParamList: `from='${ymd(c.from)}'&to='${ymd(c.to)}'` };\nconst rows = [];\nlet next = `SQLQueries('${c.sqlCode}')/List`;\ntry {\n  for (let page = 0; next && page < 1000; page++) {\n    const r = await this.helpers.httpRequest({ method: 'POST', url: base + next, json: true, headers, body, ...tls });\n    rows.push(...(r.value ?? []));\n    next = r['odata.nextLink'] ?? r['@odata.nextLink'] ?? null;\n  }\n} finally {\n  await this.helpers.httpRequest({ method: 'POST', url: base + 'Logout', headers, ...tls }).catch(() => {});\n}\nreturn [{ json: { from: c.from, to: c.to, batchSize: c.batchSize, qmsUrl: c.qmsUrl, rows } }];"
+      },
+      "id": "d7dbcd1e-2345-53a4-a2f2-581f5a3cd893",
+      "name": "Fetch MRReg rows from SAP",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One item per request to QMS. An empty window still sends one empty batch, so every run is logged in QMS.\nconst { rows, from, to, batchSize, qmsUrl } = $input.first().json;\nconst out = [];\nfor (let i = 0; i < Math.max(rows.length, 1); i += batchSize) {\n  out.push({ json: { qmsUrl, payload: { window: { from, to }, rows: rows.slice(i, i + batchSize) } } });\n}\nreturn out;"
+      },
+      "id": "532d8fef-a727-567f-a0de-4f43775dedc7",
+      "name": "Batches of 500",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.qmsUrl }}/api/import/sap/mrreg",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 120000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 300
+            }
+          }
+        }
+      },
+      "id": "5d181813-8c7f-55d4-8ad2-2b43e286cb3b",
+      "name": "Send to QMS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "QMS Import key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// What QMS did with the run. Skipped rows are listed so someone can fix them in SAP.\nconst res = $input.all().map((i) => i.json);\nconst sum = (f) => res.reduce((t, r) => t + (f(r) ?? 0), 0);\nconst skipped = res.flatMap((r) => r.skipped ?? []);\nreturn [{ json: {\n  batches: res.map((r) => r.batch),\n  rows: sum((r) => r.rows),\n  receiptsNew: sum((r) => r.mrregs?.inserted), receiptsUpdated: sum((r) => r.mrregs?.updated),\n  linesNew: sum((r) => r.lines?.inserted), linesUpdated: sum((r) => r.lines?.updated),\n  unmappedBranches: [...new Set(res.flatMap((r) => r.branchesUnmapped ?? []))],\n  skipped,\n  ok: skipped.length === 0,\n}}];"
+      },
+      "id": "743f076f-cb28-5498-978f-2813683b0258",
+      "name": "Run summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Every 30 min, 06:00-21:00 and 01:00 WIB": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now (backfill or test)": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Window",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window": {
+      "main": [
+        [
+          {
+            "node": "Fetch MRReg rows from SAP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch MRReg rows from SAP": {
+      "main": [
+        [
+          {
+            "node": "Batches of 500",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batches of 500": {
+      "main": [
+        [
+          {
+            "node": "Send to QMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to QMS": {
+      "main": [
+        [
+          {
+            "node": "Run summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Jakarta",
+    "saveManualExecutions": true
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "pinData": {}
+}

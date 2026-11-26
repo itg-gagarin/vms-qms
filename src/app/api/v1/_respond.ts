@@ -5,8 +5,8 @@ import { AppError } from "@/platform/util";
 /** Shared by the /api/v1 routes: key check, filter parsing, JSON errors, no caching. */
 export async function respond(req: Request, fn: (f: ApiFilter) => Promise<unknown>) {
   const headers = { "cache-control": "no-store" };
-  if (!(await checkApiKey(req))) {
-    return Response.json({ error: "Send a valid API key in the Authorization header (Bearer) or X-API-Key." }, { status: 401, headers });
+  if (!(await checkApiKey(req, "read"))) {
+    return Response.json({ error: "Send a valid read API key in the Authorization header (Bearer) or X-API-Key." }, { status: 401, headers });
   }
   try {
     return Response.json(await fn(parseFilter(new URL(req.url).searchParams)), { headers });

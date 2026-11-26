@@ -11,3 +11,4 @@ export * from "./reminders";
 export * from "./reports";
 export * from "./verify";
 export * from "./api";
+export * from "./sap-feed";

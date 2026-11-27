@@ -51,7 +51,7 @@ type Stats = {
  * Takes a batch from the feed. `apiKeyId` is the import key that sent it (checked by the route).
  * `window` is the registration-date range the query covered, kept with the batch for tracing.
  */
-export async function importSapMrreg(apiKeyId: number | null, body: unknown) {
+export async function importSapMrreg(apiKeyId: number | null, body: unknown, from: { origin?: "push" | "pull"; triggeredBy?: number | null } = {}) {
   const b = (body ?? {}) as { rows?: unknown; window?: { from?: unknown; to?: unknown } };
   if (!Array.isArray(b.rows)) throw new AppError('Send JSON: { "rows": [ ...query rows... ], "window": { "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" } }.');
   if (b.rows.length > SAP_FEED_MAX_ROWS) throw new AppError(`At most ${SAP_FEED_MAX_ROWS} rows per request; send the rest in further batches.`, 413);
@@ -60,8 +60,9 @@ export async function importSapMrreg(apiKeyId: number | null, body: unknown) {
 
   return tx(async (c) => {
     const batch = (await one<{ id: number }>(c,
-      "insert into sap_import_batch(source, api_key_id, window_from, window_to, rows, result) values ('mrreg', $1, $2, $3, $4, '{}') returning id",
-      [apiKeyId, day(b.window?.from), day(b.window?.to), rows.length]))!.id;
+      `insert into sap_import_batch(source, api_key_id, window_from, window_to, rows, result, origin, triggered_by)
+       values ('mrreg', $1, $2, $3, $4, '{}', $5, $6) returning id`,
+      [apiKeyId, day(b.window?.from), day(b.window?.to), rows.length, from.origin ?? "push", from.triggeredBy ?? null]))!.id;
     const s: Stats = {
       rows: rows.length, suppliers: 0, items: 0, purchaseOrders: 0, poLines: { inserted: 0, updated: 0 },
       mrregs: { inserted: 0, updated: 0 }, lines: { inserted: 0, updated: 0 }, branchesUnmapped: [], skipped: [],
@@ -228,15 +229,72 @@ async function importRow(c: PoolClient, r: SapMrregRow, batch: number, s: Stats,
 /** The last batches received, for Master Settings (Super Admin). */
 export async function recentSapBatches(actor: Actor, limit = 10) {
   requireRole(actor, "SUPER_ADMIN");
-  return q<{ id: number; received_at: Date; window_from: string | null; window_to: string | null; rows: number;
-    mrregs_inserted: number; mrregs_updated: number; skipped: number; first_skip: string | null; unmapped: string }>(
+  return q<{ id: number; received_at: Date; window_from: string | null; window_to: string | null; rows: number; origin: string;
+    by: string | null; error: string | null; mrregs_inserted: number; mrregs_updated: number; skipped: number; first_skip: string | null; unmapped: string }>(
     pool,
-    `select id, received_at, window_from, window_to, rows,
+    `select b.id, received_at, window_from, window_to, rows, origin, u.name as by, result->>'error' as error,
        coalesce((result->'mrregs'->>'inserted')::int, 0) as mrregs_inserted, coalesce((result->'mrregs'->>'updated')::int, 0) as mrregs_updated,
        coalesce(jsonb_array_length(result->'skipped'), 0) as skipped,
        (result->'skipped'->0->>'mrreg') || ': ' || (result->'skipped'->0->>'reason') as first_skip,
        coalesce((select string_agg(x, ', ') from jsonb_array_elements_text(result->'branchesUnmapped') x), '') as unmapped
-     from sap_import_batch where source = 'mrreg' order by received_at desc limit $1`,
+     from sap_import_batch b left join app_user u on u.id = b.triggered_by where source = 'mrreg' order by received_at desc limit $1`,
     [limit],
   );
+}
+
+// ---------- Pull: the platform calls the n8n webhook ----------
+// SAP_FEED_URL answers GET with the query rows (a JSON array); SAP_FEED_API_KEY goes in X-API-KEY. Both are server
+// secrets (Railway variables), never in the repository.
+
+export const SAP_PULL_JOB = "sap-mrreg-pull";
+/** The schedule: every 30 minutes, Monday to Saturday, 06:00 to 21:00 WIB. */
+export const SAP_PULL_SCHEDULE = { everyMinutes: 30, days: [1, 2, 3, 4, 5, 6], fromHour: 6, toHour: 21 };
+
+export const sapPullConfigured = () => !!process.env.SAP_FEED_URL && !!process.env.SAP_FEED_API_KEY;
+
+/** Whether a scheduled pull is due at `now`, given when the last one finished. */
+export function sapPullDue(now: Date, lastRunAt: Date | null) {
+  const w = new Date(now.getTime() + 7 * 3600 * 1000); // WIB wall clock
+  const s = SAP_PULL_SCHEDULE;
+  if (!s.days.includes(w.getUTCDay()) || w.getUTCHours() < s.fromHour || w.getUTCHours() > s.toHour) return false;
+  return !lastRunAt || now.getTime() - lastRunAt.getTime() >= (s.everyMinutes - 1) * 60_000;
+}
+
+/**
+ * Fetches all rows from the webhook and imports them (in batches of 1000). `actor` is the Super Admin who pressed
+ * Sync now, or null for the schedule. A failed call is recorded as a batch with the error, so it shows in Settings.
+ */
+export async function pullSapMrreg(actor: Actor | null) {
+  if (actor) requireRole(actor, "SUPER_ADMIN");
+  const url = process.env.SAP_FEED_URL;
+  const key = process.env.SAP_FEED_API_KEY;
+  if (!url || !key) throw new AppError("The SAP feed is not set up: SAP_FEED_URL and SAP_FEED_API_KEY are missing on the server.");
+  const triggeredBy = actor?.id ?? null;
+  let rows: SapMrregRow[];
+  try {
+    const res = await fetch(url, { headers: { "X-API-KEY": key, accept: "application/json" }, signal: AbortSignal.timeout(180_000), cache: "no-store" });
+    if (!res.ok) throw new Error(`the webhook answered HTTP ${res.status}`);
+    const body: unknown = await res.json();
+    const list = Array.isArray(body) ? body : (body as { rows?: unknown })?.rows;
+    if (!Array.isArray(list)) throw new Error("the webhook did not return a list of rows");
+    rows = list as SapMrregRow[];
+  } catch (e) {
+    const error = `Pull failed: ${(e as Error).message}`;
+    await pool.query(
+      "insert into sap_import_batch(source, rows, result, origin, triggered_by) values ('mrreg', 0, $1, 'pull', $2)",
+      [JSON.stringify({ error }), triggeredBy]);
+    throw new AppError(error, 502);
+  }
+  const dates = rows.map((r) => day(r["Registration Date"])).filter((d): d is string => !!d).sort();
+  const window = { from: dates[0], to: dates.at(-1) };
+  const results = [];
+  for (let i = 0; i < Math.max(rows.length, 1); i += 1000) {
+    results.push(await importSapMrreg(null, { window, rows: rows.slice(i, i + 1000) }, { origin: "pull", triggeredBy }));
+  }
+  return {
+    rows: rows.length,
+    mrregsInserted: results.reduce((t, r) => t + r.mrregs.inserted, 0),
+    mrregsUpdated: results.reduce((t, r) => t + r.mrregs.updated, 0),
+    skipped: results.reduce((t, r) => t + r.skipped.length, 0),
+  };
 }

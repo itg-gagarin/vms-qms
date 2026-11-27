@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
 import { after, before, describe, test } from "node:test";
 import { rebuildDb } from "./helpers.mts";
 
@@ -11,6 +12,7 @@ const { createApiKey, checkApiKey } = await import("../src/platform/api-keys.ts"
 const adm = await import("../src/modules/admin/index.ts");
 const ncf = await import("../src/modules/ncf/index.ts");
 const route = await import("../src/app/api/import/sap/mrreg/route.ts");
+const jobs = await import("../src/platform/jobs.ts");
 
 type Actor = NonNullable<Awaited<ReturnType<typeof loadActor>>>;
 let admin: Actor, qc: Actor;
@@ -121,5 +123,59 @@ describe("SAP feed", () => {
     assert.equal((await one<{ bu_id: number }>(pool, "select bu_id from mrreg where id = $1", [r7.id]))!.bu_id, r7.bu_id);
     await ncf.importSapMrreg(null, { rows: [row({ "No. MRReg": 269900007, "MRReg Entry": 9107, "Branch ID": 7 })] });
     assert.equal((await one<{ bu_id: number }>(pool, "select bu_id from mrreg where mrreg_no = '269900007'"))!.bu_id, unit);
+  });
+});
+
+describe("SAP feed, pull from the n8n webhook", () => {
+  test("pulls the rows with the key, imports them, and records a failed call", async () => {
+    let seenKey = "";
+    let fail = false;
+    const server = createServer((req, res) => {
+      seenKey = String(req.headers["x-api-key"] ?? "");
+      if (fail) { res.writeHead(500).end("{}"); return; }
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify([row({ "No. MRReg": 269900020, "MRReg Entry": 9120 }), row({ "No. MRReg": 269900020, "MRReg Entry": 9120, "MRReg Line": 2, "Item No.": "RM.TEST.0003", "PO Line Key": 2 })]));
+    });
+    await new Promise<void>((ok) => server.listen(0, ok));
+    process.env.SAP_FEED_URL = `http://127.0.0.1:${(server.address() as { port: number }).port}/webhook/mrreg-po-line`;
+    process.env.SAP_FEED_API_KEY = "test-feed-key";
+    try {
+      await assert.rejects(ncf.pullSapMrreg(qc), /role/);
+      const r = await ncf.pullSapMrreg(admin);
+      assert.equal(seenKey, "test-feed-key");
+      assert.deepEqual([r.rows, r.mrregsInserted, r.skipped], [2, 1, 0]);
+      const b = (await one<{ origin: string; triggered_by: number; window_from: string }>(pool,
+        "select origin, triggered_by, window_from from sap_import_batch order by id desc limit 1"))!;
+      assert.deepEqual([b.origin, b.triggered_by, b.window_from], ["pull", admin.id, "2026-11-20"]);
+      fail = true;
+      await assert.rejects(ncf.pullSapMrreg(null), /Pull failed: the webhook answered HTTP 500/);
+      assert.match((await one<{ e: string }>(pool, "select result->>'error' as e from sap_import_batch order by id desc limit 1"))!.e, /HTTP 500/);
+      const shown = await ncf.recentSapBatches(admin);
+      assert.equal(shown[0].origin, "pull");
+      assert.match(shown[0].error!, /HTTP 500/);
+    } finally {
+      server.close();
+      delete process.env.SAP_FEED_URL;
+      delete process.env.SAP_FEED_API_KEY;
+    }
+  });
+
+  test("the schedule: every 30 minutes, Monday to Saturday, 06:00-21:00 WIB", () => {
+    const wibAt = (s: string) => new Date(s + "+07:00");
+    assert.equal(ncf.sapPullDue(wibAt("2026-11-27T09:00:00"), null), true);                           // Friday morning
+    assert.equal(ncf.sapPullDue(wibAt("2026-11-27T09:10:00"), wibAt("2026-11-27T09:00:00")), false); // 10 minutes later
+    assert.equal(ncf.sapPullDue(wibAt("2026-11-27T09:30:00"), wibAt("2026-11-27T09:00:00")), true);
+    assert.equal(ncf.sapPullDue(wibAt("2026-11-27T05:59:00"), null), false);                          // before 06:00
+    assert.equal(ncf.sapPullDue(wibAt("2026-11-27T22:00:00"), null), false);                          // after 21:59
+    assert.equal(ncf.sapPullDue(wibAt("2026-11-29T10:00:00"), null), false);                          // Sunday
+  });
+
+  test("a job runs on one server at a time", async () => {
+    let inside = 0, max = 0;
+    const job = () => jobs.withLease("test-job", 5, async () => { inside++; max = Math.max(max, inside); await new Promise((r) => setTimeout(r, 50)); inside--; });
+    const ran = await Promise.all([job(), job(), job()]);
+    assert.equal(ran.filter(Boolean).length, 1);
+    assert.equal(max, 1);
+    assert.ok(await jobs.lastRun("test-job"));
+    assert.equal(await job(), true, "free again once the run is over");
   });
 });

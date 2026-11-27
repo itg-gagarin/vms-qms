@@ -6,8 +6,34 @@ in **Master Settings → API keys → SAP feed**. Nothing else in the platform c
 Receipt as before.
 
 ```
-SAP B1 (HANA) ──Service Layer──▶ n8n ──HTTPS, Import key──▶ POST /api/import/sap/mrreg ──▶ Neon (Postgres)
+Pull (in use):  QMS ──GET, X-API-KEY──▶ n8n webhook ──▶ SAP B1 query      every 30 min, Mon–Sat 06:00–21:00 WIB + "Sync now"
+Push (ready):   n8n ──POST, Import key──▶ /api/import/sap/mrreg
 ```
+
+## Pull: the platform calls the n8n webhook (current setup)
+
+n8n exposes the query as a webhook that answers `GET` with the rows (a JSON array, the query's column names) and
+checks an `X-API-KEY` header. The platform calls it on a schedule and on **Master Settings → API keys → SAP feed →
+Sync now**, then imports the rows exactly as for a push. Server variables (Railway, never in the repository):
+
+| Variable | Value |
+| --- | --- |
+| `SAP_FEED_URL` | the webhook URL, e.g. `https://n8n.<company domain>/webhook/mrreg-po-line` |
+| `SAP_FEED_API_KEY` | the webhook's X-API-KEY |
+| `SAP_FEED_SCHEDULE` | `off` stops the schedule (Sync now still works) |
+| `DEFAULT_BU_CODE`, `DEFAULT_BU_NAME` | the unit receipts go to while SAP sends no branch (`INTEGRA`, `Integra Group`) |
+
+The schedule runs inside the app server (`src/instrumentation-node.ts`) under a lease in `job_lease`, so it never runs
+twice at once. Every pull, including a failed call, is listed in Settings with its source (Schedule or Sync now).
+
+The webhook returns every receipt of the year so far (it ignores date parameters); that is fine, a resend changes
+nothing. Two things to change on the n8n side when convenient:
+
+- the webhook runs the original query, with the status and open-PO filters: cancellations and quickly closed receipts
+  do not arrive (see below); use `mrreg_and_pos_sync.sql` in the n8n flow;
+- "Branch ID" is empty in every row, so all receipts go to the default unit.
+
+The sections below describe the push setup (n8n posts to the QMS), kept for when n8n should send instead of answer.
 
 | File | What |
 | --- | --- |

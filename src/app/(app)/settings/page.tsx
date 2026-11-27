@@ -11,12 +11,13 @@ import * as adm from "@/modules/admin";
 import * as numbering from "@/modules/ncf/numbering";
 import { ROLES } from "@/platform/access";
 import { API_SCOPES, listApiKeys } from "@/platform/api-keys";
-import { recentSapBatches } from "@/modules/ncf/sap-feed";
+import { recentSapBatches, SAP_PULL_JOB, sapPullConfigured } from "@/modules/ncf/sap-feed";
+import { lastRun } from "@/platform/jobs";
 import { requireUser } from "@/platform/auth";
 import { hasRole, type Actor } from "@/platform/access";
 import { fmtDate, wib } from "@/platform/util";
 import {
-  createApiKeyAction, createUserAction, extendCalendarAction, revokeApiKeyAction, saveCategoryAction, saveChainAction, saveNumberingAction, savePositionAction, saveUnitAction,
+  createApiKeyAction, createUserAction, syncSapNowAction, extendCalendarAction, revokeApiKeyAction, saveCategoryAction, saveChainAction, saveNumberingAction, savePositionAction, saveUnitAction,
   saveWorkflowAction, setHolidayAction,
 } from "./actions";
 
@@ -376,7 +377,8 @@ async function Units() {
 
 /** Keys for other Integra systems (the VMS) to read NCF rows and responsiveness. */
 async function ApiKeys({ user }: { user: Actor }) {
-  const [keys, batches] = await Promise.all([listApiKeys(user), recentSapBatches(user)]);
+  const [keys, batches, lastPull] = await Promise.all([listApiKeys(user), recentSapBatches(user), lastRun(SAP_PULL_JOB)]);
+  const pull = sapPullConfigured();
   const base = process.env.APP_URL ?? "";
   return (
     <>
@@ -416,24 +418,33 @@ async function ApiKeys({ user }: { user: Actor }) {
           </div>
         </ActionForm>
       </Section>
-      <Section flush title="SAP feed" description="n8n runs the MRReg + PO query in SAP and posts the rows here with an Import key. Setup: integrations/n8n/README.md.">
-        <div className="px-4 py-3 sm:px-5">
+      <Section flush title="SAP feed" description="Receipts and POs from SAP Business One. The platform pulls the MRReg + PO rows from the n8n webhook every 30 minutes, Monday to Saturday 06:00-21:00 WIB; n8n can also push them to the endpoint below with an Import key."
+        actions={pull ? (
+          <ActionForm action={syncSapNowAction}><Submit className="btn btn-commit">Sync now</Submit></ActionForm>
+        ) : undefined}>
+        <div className="flex flex-col gap-3 px-4 py-3 sm:px-5">
+          <p className="text-sm">
+            {pull
+              ? <>Webhook <StatePill tone="emerald">Connected</StatePill> <span className="text-muted-foreground">Last pull: {lastPull ? `${fmtDate(lastPull)} ${wib(lastPull).time} WIB` : "not yet"}.</span></>
+              : <>Webhook <StatePill tone="slate">Not set</StatePill> <span className="text-muted-foreground">Set SAP_FEED_URL and SAP_FEED_API_KEY on the server to pull from n8n.</span></>}
+          </p>
           <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 font-mono text-[12px] leading-relaxed">{`POST ${base}/api/import/sap/mrreg
 X-API-Key: vms_xxxxxxxx_…   (Import key)
 { "window": { "from": "2026-11-01", "to": "2026-11-26" }, "rows": [ { "No. MRReg": 260014520, "MRReg Line": 1, … } ] }`}</pre>
         </div>
         {batches.length === 0 ? <EmptyState title="Nothing received yet">The last batches from n8n show here, with what was added and what was skipped.</EmptyState> : (
           <table className="table w-full">
-            <thead><tr><th scope="col">Received</th><th scope="col">Window</th><th scope="col" className="text-right">Rows</th><th scope="col" className="text-right">Receipts new / updated</th><th scope="col" className="text-right">Skipped</th><th scope="col">Unmapped branches</th></tr></thead>
+            <thead><tr><th scope="col">Received</th><th scope="col">From</th><th scope="col">Window</th><th scope="col" className="text-right">Rows</th><th scope="col" className="text-right">Receipts new / updated</th><th scope="col" className="text-right">Skipped</th><th scope="col">Unmapped branches</th></tr></thead>
             <tbody>
               {batches.map((b) => (
                 <tr key={b.id}>
                   <td className="num">{fmtDate(b.received_at)} {wib(b.received_at).time}</td>
+                  <td>{b.origin === "pull" ? (b.by ? `Sync now · ${b.by}` : "Schedule") : "n8n push"}</td>
                   <td className="num">{b.window_from ? `${b.window_from} → ${b.window_to ?? ""}` : "–"}</td>
                   <td className="num text-right">{b.rows}</td>
                   <td className="num text-right">{b.mrregs_inserted} / {b.mrregs_updated}</td>
                   <td className="num text-right">{b.skipped ? <span className="text-status-red" title={b.first_skip ?? ""}>{b.skipped}</span> : 0}</td>
-                  <td className="num">{b.unmapped || "–"}</td>
+                  <td className="num">{b.error ? <span className="font-sans text-status-red">{b.error}</span> : b.unmapped || "–"}</td>
                 </tr>
               ))}
             </tbody>

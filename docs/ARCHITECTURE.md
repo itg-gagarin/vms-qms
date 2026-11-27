@@ -25,7 +25,7 @@ separate platform with its own code and database; it reads QMS data only through
 
  Supplier ──▶ /v/... QR verification pages (public, read-only, only what is printed on the form)
  VMS ───────▶ /api/v1/ncfs, /api/v1/responsiveness (API key, read-only)
- SAP ──n8n──▶ POST /api/import/sap/mrreg (Import key) → modules/ncf/sap-feed.ts; xlsx fallback: scripts/import-mrreg.ts
+ SAP ◀──n8n webhook── QMS pulls every 30 min (modules/ncf/sap-feed.ts, instrumentation-node.ts); n8n may also POST /api/import/sap/mrreg
 ```
 
 ## Layers

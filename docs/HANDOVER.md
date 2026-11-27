@@ -10,7 +10,10 @@
 | `APP_URL` | yes | Public base URL, printed in the QR codes. Changing it breaks QRs already printed |
 | `STORAGE_DIR` | yes | Evidence and reply files. The Docker image uses `/data/storage`; mount a persistent volume at `/data` |
 | `JOB_SECRET` | for reminders | Header `x-job-secret` for `POST /api/jobs/reminders`; empty disables the endpoint |
-| `DEFAULT_BU_CODE` | for imports | Business Unit that imported MRRegs go to (the SAP export has no BU column) |
+| `DEFAULT_BU_CODE` | for imports | Business Unit that SAP receipts go to when no branch is mapped; the seed creates it (`INTEGRA` live) |
+| `DEFAULT_BU_NAME` | with the above | Its name for the seed (`Integra Group` live) |
+| `SAP_FEED_URL`, `SAP_FEED_API_KEY` | for the SAP feed | The n8n webhook the platform pulls receipts from, and its X-API-KEY ([integrations/n8n/README.md](../integrations/n8n/README.md)) |
+| `SAP_FEED_SCHEDULE` | optional | `off` stops the 30-minute pull (Sync now still works) |
 | `SEED_PASSWORD` | optional | Password for the demo users the seed creates (default `demo1234`). Set it on any shared server |
 | `DEMO_DATA` | test servers only | `1` loads demo NCFs once at start-up. Never on real data; remove after one deploy |
 | `TEST_DATABASE_URL` | tests only | Dropped and rebuilt by every `npm test` run. Never point it at a database you care about |

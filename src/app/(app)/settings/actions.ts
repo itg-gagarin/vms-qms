@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/ui/action-form";
 import * as adm from "@/modules/admin";
 import * as numbering from "@/modules/ncf/numbering";
+import { pullSapMrreg } from "@/modules/ncf/sap-feed";
 import { createApiKey, revokeApiKey } from "@/platform/api-keys";
 import { requireUser } from "@/platform/auth";
 import type { Role } from "@/platform/access";
@@ -50,6 +51,20 @@ export async function createApiKeyAction(_: ActionState, d: FormData): Promise<A
     refresh();
     return { secret: key };
   } catch (e) {
+    if (e instanceof AppError) return { error: e.message };
+    throw e;
+  }
+}
+
+/** "Sync now": pull the SAP rows from the n8n webhook at once. */
+export async function syncSapNowAction(): Promise<ActionState> {
+  const user = await requireUser();
+  try {
+    const r = await pullSapMrreg(user);
+    refresh();
+    return { ok: `Synced ${r.rows} rows from SAP: ${r.mrregsInserted} new and ${r.mrregsUpdated} updated receipts${r.skipped ? `, ${r.skipped} rows skipped (see below)` : ""}.` };
+  } catch (e) {
+    refresh();
     if (e instanceof AppError) return { error: e.message };
     throw e;
   }

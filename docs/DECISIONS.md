@@ -17,6 +17,7 @@ record the change here with its date.
 | 26 Nov 2026 | **UI in shadcn/ui style with the INTEC colours**, replacing the INTEC component styles (green stays the advancing action; saving is near-black instead of indigo; Geist fonts). | `components.json`, `src/app/globals.css`, `src/components/ui` |
 | 26 Nov 2026 | **Database on Neon (Singapore)**, with the app moved to Railway's Singapore region alongside it; a fresh database with the demo data, not a copy of the old one. | [HANDOVER.md](HANDOVER.md) |
 | 26 Nov 2026 | **SAP receipts arrive through n8n**: n8n runs the MRReg + PO query in SAP B1 and posts the rows to a write-only endpoint with an Import key; `/api/v1` stays read-only. The feed's copy of the query drops the status and open-PO filters so cancellations and quickly-closed receipts are not lost. | `integrations/n8n/README.md` |
+| 27 Nov 2026 | **Live goes clean with real SAP data**: a fresh production database (accounts, Integra Group unit, settings; no demo NCFs or receipts), receipts pulled from the n8n webhook every 30 minutes Mon–Sat 06:00–21:00 WIB plus Sync now. | `integrations/n8n/README.md` |
 | Nov 2026 | **The VMS is a separate platform.** It reads QMS data through the read-only API; the QMS is built to take more quality modules. | `src/app/api/v1`, [ARCHITECTURE.md](ARCHITECTURE.md) |
 
 ## Design choices

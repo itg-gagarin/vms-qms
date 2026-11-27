@@ -6,6 +6,7 @@ import { requireUser } from "@/platform/auth";
 import { getNcf } from "@/modules/ncf";
 import { AppError, wib } from "@/platform/util";
 import { logPrint } from "@/modules/ncf/verify";
+import { isStaging } from "@/platform/environment";
 import { PrintBar } from "./print-bar";
 
 // One read per request, shared by the title and the page.
@@ -48,6 +49,12 @@ export default async function PrintPage({ params, searchParams }: { params: Prom
     <div className="bg-zinc-300 py-2 print:bg-white print:py-0">
       <PrintBar back={`/ncf/${d.id}`} autoPrint={external} fileName={fileName(d)} label={external ? "Save as PDF for the supplier" : "Print or save as PDF"} />
       <PrintForm d={d} pages={pages} meta={{ kind: log.kind, copy: log.copy, printedBy: user.name, printedAt: new Date(), external }} />
+      {isStaging() && (
+        // Fixed, so the browser repeats it on every printed page: a staging form must never pass for a real one.
+        <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
+          <span className="-rotate-[30deg] text-center text-[64px] leading-tight font-black tracking-widest text-amber-500/30">STAGING<br />TIDAK BERLAKU</span>
+        </div>
+      )}
     </div>
   );
 }

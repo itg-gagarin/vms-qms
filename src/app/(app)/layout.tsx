@@ -8,6 +8,7 @@ import { SUPPLIER_ROLES } from "@/modules/suppliers";
 import { hasRole, primaryRole, ROLES } from "@/platform/access";
 import { requireUser } from "@/platform/auth";
 import { selectedBu, unitsFor } from "@/platform/business-units";
+import { isStaging } from "@/platform/environment";
 import { inbox } from "@/platform/notifications";
 
 // Sidebar names for the NCF statuses, in workflow order. Every status is listed, so no NCF falls between links.
@@ -78,7 +79,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const roleNames = [...new Set(user.roles.map((r) => ROLES.find((x) => x.role === r.role)?.label ?? r.role))];
   return (
-    <AppShell groups={groups} search={seen.length > 0} units={units} bu={bu} centre={centre}
+    <AppShell groups={groups} search={seen.length > 0} units={units} bu={bu} centre={centre} staging={isStaging()}
       collapsed={jar.get("vms_nav")?.value === "collapsed"}
       notes={notes.items.map((n) => ({ id: n.id, title: n.title, at: new Date(n.at).toISOString(), read: n.read, todo: n.todo }))} unread={notes.unread}
       user={{ name: user.name, position: user.position, roles: roleNames }}>

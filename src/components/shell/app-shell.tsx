@@ -47,14 +47,18 @@ function activeHref(groups: NavGroup[], pathname: string) {
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
 
-function Logo({ compact }: { compact?: boolean }) {
+/** On staging the mark turns amber and says so, in the full sidebar, the icon rail and the phone header. */
+function Logo({ compact, staging }: { compact?: boolean; staging?: boolean }) {
   return (
-    <Link href="/home" className="flex min-w-0 items-center gap-2 text-foreground no-underline hover:no-underline" title="Integra Group · VMS">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground" aria-hidden="true">IG</span>
+    <Link href="/home" className="flex min-w-0 items-center gap-2 text-foreground no-underline hover:no-underline" title={staging ? "Integra Group · STAGING" : "Integra Group · VMS"}>
+      <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold",
+        staging ? "bg-amber-400 text-amber-950 ring-2 ring-amber-200" : "bg-primary text-primary-foreground")} aria-hidden="true">IG</span>
       {!compact && (
         <span className="grid min-w-0 flex-1 text-left leading-tight">
           <span className="truncate text-sm font-semibold">Integra Group</span>
-          <span className="truncate text-xs text-muted-foreground">VMS · Quality</span>
+          {staging
+            ? <span className="w-fit rounded-sm bg-amber-100 px-1.5 text-[11px] font-semibold tracking-wide text-amber-800">STAGING · QA</span>
+            : <span className="truncate text-xs text-muted-foreground">VMS · Quality</span>}
         </span>
       )}
     </Link>
@@ -284,9 +288,9 @@ function Notifications({ notes, unread }: { notes: NoteItem[]; unread: number })
  * in on phones, and a top bar with the NCF search and notifications. The collapsed choice is kept in a cookie so the
  * server draws the right width on the first paint.
  */
-export function AppShell({ groups, user, search, units, bu, notes, unread, collapsed: initial, centre, children }: {
+export function AppShell({ groups, user, search, units, bu, notes, unread, collapsed: initial, centre, staging = false, children }: {
   groups: NavGroup[]; user: NavUser; search: boolean; units: BuOption[]; bu?: number; notes: NoteItem[]; unread: number;
-  collapsed: boolean; centre: CentreAction; children: ReactNode;
+  collapsed: boolean; centre: CentreAction; staging?: boolean; children: ReactNode;
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
@@ -308,7 +312,7 @@ export function AppShell({ groups, user, search, units, bu, notes, unread, colla
   const side = (compact: boolean, drawer: boolean) => (
     <>
       <div className={cn("flex h-14 shrink-0 items-center", compact ? "justify-center px-2" : "px-4")}>
-        <Logo compact={compact} />
+        <Logo compact={compact} staging={staging} />
       </div>
       {!drawer && (
         <div className={cn("flex shrink-0 px-2", compact ? "justify-center" : "justify-end")}>
@@ -343,7 +347,7 @@ export function AppShell({ groups, user, search, units, bu, notes, unread, colla
   return (
     <>
       {/* Desktop: the sidebar, full or as an icon rail */}
-      <aside className={cn("no-print fixed inset-y-0 left-0 z-40 hidden flex-col border-r bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-linear lg:flex", rail ? "w-16" : "w-64")}>
+      <aside className={cn("no-print fixed top-[var(--stage-h,0px)] bottom-0 left-0 z-40 hidden flex-col border-r bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-linear lg:flex", rail ? "w-16" : "w-64")}>
         {side(rail, false)}
       </aside>
       {/* Phones and tablets: the same sidebar in a shadcn Sheet */}
@@ -356,13 +360,13 @@ export function AppShell({ groups, user, search, units, bu, notes, unread, colla
       </Sheet>
 
       <div className={`transition-[padding] duration-150 ${pad}`}>
-        <header className="no-print sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <header className="no-print sticky top-[var(--stage-h,0px)] z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <div className="flex h-14 items-center gap-3 px-3 sm:px-6">
             <button type="button" onClick={() => setOpenOn(pathname)} aria-expanded={open} aria-controls="app-sidebar"
               className="-ml-1 hidden size-9 items-center justify-center rounded-md text-foreground/80 hover:bg-accent md:inline-flex lg:hidden">
               <Menu className="size-5" aria-hidden="true" /><span className="sr-only">Open menu</span>
             </button>
-            <div className="lg:hidden"><Logo /></div>
+            <div className="lg:hidden"><Logo staging={staging} /></div>
             {search ? (
               <form action="/ncf" role="search" className="ml-auto hidden max-w-md flex-1 items-center sm:flex lg:ml-0">
                 <label htmlFor="global-q" className="sr-only">Search NCFs</label>

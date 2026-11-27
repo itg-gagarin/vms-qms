@@ -52,6 +52,7 @@ The e2e script needs the app running on port 3000 against a freshly migrated and
 | Railway environment | `production` | `staging` (same service `web`, own variables) |
 | Database (Neon `integra-qms`, Singapore) | `qms_prod` | `qms_staging` |
 | Evidence volume | `web-volume` | `web-volume-rJwD` |
+| Marked as | nothing | `APP_ENV=staging`: amber banner on every page, amber logo with STAGING · QA, `[STAGING]` in the tab title, "STAGING · TIDAK BERLAKU" watermark on printed forms |
 | SAP receipts | pulled every 30 min, Mon–Sat 06:00–21:00 WIB, plus Sync now | Sync now only (`SAP_FEED_SCHEDULE=off`), to spare HANA |
 | Logins | demo accounts until the real people are added | demo accounts (`@demo.local`, same password) |
 

@@ -69,4 +69,6 @@ about. `scripts/reset.ts` drops the `public` schema.
 - Forms go through `ActionForm`, which checks fields itself (`noValidate`): no browser validation bubbles.
 - `deploymentId` comes from `.deployment-id`, written by the Docker build, so open tabs reload after a deploy instead
   of failing with "Failed to find Server Action".
+- Releases go to the `staging` environment first; QA checks there before the same commit goes to `production`
+  (docs/HANDOVER.md, "Environments and releases"). Never point staging at `qms_prod`.
 - Never commit `.env.local`, `storage/`, `*.xlsx` (SAP exports hold real supplier data) or `tests/screens/`.

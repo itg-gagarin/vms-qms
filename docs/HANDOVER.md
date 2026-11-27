@@ -44,26 +44,44 @@ python3 tests/e2e_browser.py
 
 The e2e script needs the app running on port 3000 against a freshly migrated and seeded database.
 
-## Deploying (current test server: Railway + Neon, Singapore)
+## Environments and releases
 
-- **App:** Railway service `web` in Singapore (`asia-southeast1-eqsg3a`), built from this Dockerfile, with volume
-  `web-volume` at `/data` for evidence files.
-- **Database:** Neon project `integra-qms` (AWS `ap-southeast-1`, Postgres 18), database `qms`. The Neon organisation is
-  managed by Vercel, so new Neon projects are created from Vercel (Storage → Create Database → Neon), not the Neon API.
-  `DATABASE_URL` is the pooled endpoint and `DATABASE_URL_UNPOOLED` the direct one, both `sslmode=verify-full`.
-- **Old database:** the Railway `postgres` service (US East) is no longer used by the app. It is kept as a fallback
-  until someone decides to remove it; its data is the earlier demo set.
+| | Production | Staging (QA playground) |
+| --- | --- | --- |
+| URL | https://web-production-b4994f55.up.railway.app | https://web-staging-18660ff3.up.railway.app |
+| Railway environment | `production` | `staging` (same service `web`, own variables) |
+| Database (Neon `integra-qms`, Singapore) | `qms_prod` | `qms_staging` |
+| Evidence volume | `web-volume` | `web-volume-rJwD` |
+| SAP receipts | pulled every 30 min, Mon–Sat 06:00–21:00 WIB, plus Sync now | Sync now only (`SAP_FEED_SCHEDULE=off`), to spare HANA |
+| Logins | demo accounts until the real people are added | demo accounts (`@demo.local`, same password) |
 
-Deploy from the repository root with the Railway CLI, one deploy at a time (a second deploy stops the first one,
-including a demo-data load that is still running):
+Both run in Singapore (Railway `asia-southeast1-eqsg3a`, Neon `aws-ap-southeast-1`). Staging has its own
+`SESSION_SECRET` and `JOB_SECRET`; nothing done there reaches production. NCFs, numbers and evidence made by QA stay in
+staging.
+
+**Release flow:** every change goes to staging first, QA checks it there, then the same commit goes to production.
 
 ```bash
-railway up --service web --detach
+railway up --service web --environment staging --detach
 ```
 
-At start-up the container runs `scripts/migrate.ts` (applies new migration files only) and `scripts/seed.ts` (does
-nothing once data exists), then `next start`. Each image writes its own `.deployment-id`, so open browser tabs reload
-after a deploy instead of failing. Changing a service's region or variables without "skip deploys" also redeploys.
+```bash
+railway up --service web --environment production --detach
+```
+
+Deploy one at a time per environment: a second deploy stops the first, including a start-up that is still running.
+At start-up the container runs `scripts/migrate.ts` (new migration files only) and `scripts/seed.ts` (nothing once
+data exists), then `next start`; a migration therefore reaches staging's database first. Each image writes its own
+`.deployment-id`, so open tabs reload after a deploy. Changing a service's region or variables without "skip deploys"
+also redeploys.
+
+**Reset staging** to a clean copy: create a new database on Neon (e.g. `qms_staging2`), point staging's
+`DATABASE_URL`/`DATABASE_URL_UNPOOLED` at it and deploy; drop the old one afterwards.
+
+**Leftover files:** `PRUNE_ORPHAN_FILES=delete` on one deploy removes evidence files that no database row points to
+(`scripts/prune-files.ts`; run it without `--delete` for a dry run). Remove the variable afterwards.
+
+**Old setup (removed 27 Nov 2026):** the first Railway Postgres (US East) and the demo databases on Neon.
 
 For production, plan: Neon's paid plan for backups/point-in-time restore and a compute that does not suspend
 (the free plan suspends when idle, so the first request after a quiet period is slower), HTTPS on the company domain,

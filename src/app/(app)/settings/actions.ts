@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/ui/action-form";
 import * as adm from "@/modules/admin";
 import * as numbering from "@/modules/ncf/numbering";
-import { pullSapMrreg } from "@/modules/ncf/sap-feed";
+import { pullSapMrreg, SAP_PULL_JOB } from "@/modules/ncf/sap-feed";
+import { withLease } from "@/platform/jobs";
 import { createApiKey, revokeApiKey } from "@/platform/api-keys";
 import { requireUser } from "@/platform/auth";
 import type { Role } from "@/platform/access";
@@ -60,8 +61,11 @@ export async function createApiKeyAction(_: ActionState, d: FormData): Promise<A
 export async function syncSapNowAction(): Promise<ActionState> {
   const user = await requireUser();
   try {
-    const r = await pullSapMrreg(user);
+    // Same lease as the schedule: never two pulls at once, and "Last pull" counts this one
+    let r: Awaited<ReturnType<typeof pullSapMrreg>> | undefined;
+    const ran = await withLease(SAP_PULL_JOB, 15, async () => { r = await pullSapMrreg(user); });
     refresh();
+    if (!ran || !r) return { error: "A pull is running right now. Try again in a minute." };
     return { ok: `Synced ${r.rows} rows from SAP: ${r.mrregsInserted} new and ${r.mrregsUpdated} updated receipts${r.skipped ? `, ${r.skipped} rows skipped (see below)` : ""}.` };
   } catch (e) {
     refresh();

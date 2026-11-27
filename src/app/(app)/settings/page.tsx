@@ -418,7 +418,9 @@ async function ApiKeys({ user }: { user: Actor }) {
           </div>
         </ActionForm>
       </Section>
-      <Section flush title="SAP feed" description="Receipts and POs from SAP Business One. The platform pulls the MRReg + PO rows from the n8n webhook every 30 minutes, Monday to Saturday 06:00-21:00 WIB; n8n can also push them to the endpoint below with an Import key."
+      <Section flush title="SAP feed" description={`Receipts and POs from SAP Business One. The platform pulls the MRReg + PO rows from the n8n webhook ${
+        process.env.SAP_FEED_SCHEDULE === "off" ? "when someone presses Sync now (the schedule is off on this server)" : "every 30 minutes, Monday to Saturday 06:00-21:00 WIB, and on Sync now"
+      }; n8n can also push them to the endpoint below with an Import key.`}
         actions={pull ? (
           <ActionForm action={syncSapNowAction}><Submit className="btn btn-commit">Sync now</Submit></ActionForm>
         ) : undefined}>
